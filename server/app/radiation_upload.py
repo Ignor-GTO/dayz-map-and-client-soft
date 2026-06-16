@@ -16,16 +16,17 @@ logger = logging.getLogger(__name__)
 OVERLAY_DIR = DATA_DIR / "uploads" / "radiation"
 LEGACY_OVERLAY_DIR = Path(__file__).resolve().parent.parent / "static" / "data" / "radiation"
 
-CONTENT_TYPE_EXT = {
-    "image/jpeg": ".jpg",
-    "image/jpg": ".jpg",
-    "image/pjpeg": ".jpg",
-    "image/png": ".png",
-    "image/x-png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
+EXT_FALLBACK = {
+    ".jpg": ".jpg",
+    ".jpeg": ".jpg",
+    ".png": ".png",
+    ".webp": ".webp",
+    ".gif": ".gif",
+    ".bmp": ".bmp",
+    ".tif": ".tif",
+    ".tiff": ".tif",
 }
-MAX_BYTES = 12 * 1024 * 1024
+MAX_BYTES = 20 * 1024 * 1024
 
 
 def ensure_overlay_dir() -> Path:
@@ -41,12 +42,12 @@ def overlay_local_path_from_url(url: str | None) -> Path | None:
     if not url:
         return None
     if url.startswith("/uploads/radiation/"):
-        name = url.removeprefix("/uploads/radiation/")
+        name = url.removeprefix("/uploads/radiation/").split("?")[0]
         if ".." in name or "/" in name:
             return None
         return OVERLAY_DIR / name
     if url.startswith("/data/radiation/"):
-        name = url.removeprefix("/data/radiation/")
+        name = url.removeprefix("/data/radiation/").split("?")[0]
         if ".." in name or "/" in name:
             return None
         legacy = LEGACY_OVERLAY_DIR / name
@@ -65,60 +66,26 @@ def delete_overlay_file(slug: str) -> None:
                 path.unlink(missing_ok=True)
 
 
-def _ext_from_filename(filename: str | None) -> str | None:
+def _ext_from_filename(filename: str | None) -> str:
     if not filename:
-        return None
+        return ".png"
     lower = filename.lower()
-    for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+    for ext in EXT_FALLBACK:
         if lower.endswith(ext):
-            return ".jpg" if ext == ".jpeg" else ext
-    return None
-
-
-def _detect_image_type(raw: bytes, file: UploadFile) -> str:
-    declared = (file.content_type or "").split(";")[0].strip().lower()
-    if declared in CONTENT_TYPE_EXT:
-        return declared
-
-    if raw[:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if raw[:3] == b"\xff\xd8\xff":
-        return "image/jpeg"
-    if raw[:6] in (b"GIF87a", b"GIF89a"):
-        return "image/gif"
-    if len(raw) >= 12 and raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
-        return "image/webp"
-
-    ext = _ext_from_filename(file.filename)
-    if ext == ".png":
-        return "image/png"
-    if ext in (".jpg", ".jpeg"):
-        return "image/jpeg"
-    if ext == ".webp":
-        return "image/webp"
-    if ext == ".gif":
-        return "image/gif"
-
-    if declared in ("", "application/octet-stream", "binary/octet-stream"):
-        raise HTTPException(
-            status_code=400,
-            detail="Не удалось определить тип изображения. Используйте PNG, JPG, WEBP или GIF.",
-        )
-
-    raise HTTPException(
-        status_code=400,
-        detail=f"Неподдерживаемый тип файла: {declared or 'unknown'}",
-    )
+            return EXT_FALLBACK[ext]
+    return ".png"
 
 
 async def save_radiation_overlay(slug: str, file: UploadFile) -> str:
     raw = await file.read()
+    filename = file.filename or "overlay"
+    declared = (file.content_type or "").split(";")[0].strip().lower()
+
     if not raw:
         raise HTTPException(status_code=400, detail="Пустой файл")
     if len(raw) > MAX_BYTES:
-        raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 12 МБ)")
+        raise HTTPException(status_code=400, detail="Файл слишком большой (макс. 20 МБ)")
 
-    content_type = _detect_image_type(raw, file)
     delete_overlay_file(slug)
     ensure_overlay_dir()
 
@@ -137,9 +104,17 @@ async def save_radiation_overlay(slug: str, file: UploadFile) -> str:
     except ImportError:
         logger.warning("Pillow unavailable, saving radiation overlay as original bytes")
     except Exception as exc:
-        logger.warning("WEBP convert failed for %s: %s", slug, exc)
+        logger.warning("Radiation overlay decode failed for %s (%s): %s", slug, filename, exc)
+        hint = ""
+        lower = filename.lower()
+        if declared in ("image/heic", "image/heif") or lower.endswith((".heic", ".heif")):
+            hint = " HEIC не поддерживается — сохраните как PNG или JPG."
+        raise HTTPException(
+            status_code=400,
+            detail=f"Не удалось прочитать изображение «{filename}» ({declared or 'тип не указан'}).{hint}",
+        ) from exc
 
-    ext = CONTENT_TYPE_EXT.get(content_type) or _ext_from_filename(file.filename) or ".png"
+    ext = _ext_from_filename(filename)
     out_name = f"{slug}_{uuid.uuid4().hex[:8]}{ext}"
     out_path = OVERLAY_DIR / out_name
     out_path.write_bytes(raw)

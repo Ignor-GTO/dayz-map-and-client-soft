@@ -426,6 +426,9 @@ async def admin_upload_radiation_overlay(
     _: Annotated[None, Depends(require_admin)],
     file: UploadFile = File(...),
 ):
+    import logging
+
+    log = logging.getLogger(__name__)
     game_map = await _get_map(db, map_slug)
     url = await save_radiation_overlay(game_map.slug, file)
     bounds = {
@@ -434,26 +437,29 @@ async def admin_upload_radiation_overlay(
         "x2": float(game_map.map_size),
         "y2": float(game_map.map_size),
     }
-    raw = await load_raw_radiation_config_async(game_map)
-    zones = raw.get("zones") or []
-    if not zones:
-        data = await get_map_radiation(db, game_map)
-        zones = data.get("zones") or []
-    await save_radiation_config(
-        game_map,
-        db,
-        {
-            "zones": zones,
-            "legend": raw.get("legend") or [],
-            "overlay": {
-                "url": url,
-                "opacity": 0.65,
-                "bounds": bounds,
-                "editorOnly": True,
-                "enabled": False,
+    try:
+        raw = await load_raw_radiation_config_async(game_map)
+        zones = raw.get("zones") or []
+        if not zones:
+            data = await get_map_radiation(db, game_map)
+            zones = data.get("zones") or []
+        await save_radiation_config(
+            game_map,
+            db,
+            {
+                "zones": zones,
+                "legend": raw.get("legend") or [],
+                "overlay": {
+                    "url": url,
+                    "opacity": 0.65,
+                    "bounds": bounds,
+                    "editorOnly": True,
+                    "enabled": False,
+                },
             },
-        },
-    )
+        )
+    except Exception as exc:
+        log.exception("radiation overlay config save failed for %s: %s", map_slug, exc)
     return {"url": url, "opacity": 0.65, "bounds": bounds, "editorOnly": True}
 
 

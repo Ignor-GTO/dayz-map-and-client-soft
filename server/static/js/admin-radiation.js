@@ -489,9 +489,13 @@ async function radUploadOverlay(file) {
     radSetStatus("Файл не выбран", true);
     return;
   }
+  if (file.size > 20 * 1024 * 1024) {
+    radSetStatus("Файл больше 20 МБ — сожмите изображение", true);
+    return;
+  }
   radSetStatus("Загрузка подложки…");
   const fd = new FormData();
-  fd.append("file", file);
+  fd.append("file", file, file.name || "overlay.png");
   const res = await fetch(`/api/admin/radiation/overlay?map_slug=${encodeURIComponent(slug)}`, {
     method: "POST",
     credentials: "same-origin",
@@ -507,6 +511,8 @@ async function radUploadOverlay(file) {
           ? data.detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
           : JSON.stringify(data.detail);
     }
+    radSetStatus(msg, true);
+    alert(msg);
     throw new Error(msg);
   }
   radState.overlay = {
