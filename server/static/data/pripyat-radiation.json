@@ -1,20 +1,23 @@
 {
-  "overlay": {
-    "url": "/data/pripyat-radiation-mask.webp",
-    "enabled": true,
-    "opacity": 0.72,
-    "bounds": {
-      "x1": 0,
-      "y1": 0,
-      "x2": 20480,
-      "y2": 20480
-    }
-  },
+  "overlay": null,
+  "polygonsUrl": "/data/pripyat-radiation-polygons.json",
   "zones": [],
   "legend": [
-    { "color": "#4caf50", "label": "Слабая радиация" },
-    { "color": "#cddc39", "label": "Средняя" },
-    { "color": "#ff9800", "label": "Высокая" },
-    { "color": "#f44336", "label": "Смертельная" }
+    {
+      "color": "#4caf50",
+      "label": "Слабая радиация"
+    },
+    {
+      "color": "#cddc39",
+      "label": "Средняя"
+    },
+    {
+      "color": "#ff9800",
+      "label": "Высокая"
+    },
+    {
+      "color": "#f44336",
+      "label": "Смертельная"
+    }
   ]
 }

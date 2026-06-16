@@ -123,6 +123,17 @@ class RadiationZone(BaseModel):
     weight: int = 2
 
 
+class RadiationPolygon(BaseModel):
+    id: str = ""
+    tier: str = ""
+    label: str = ""
+    color: str = "#ff9800"
+    fillOpacity: float = 0.4
+    strokeOpacity: float = 0.95
+    weight: int = 2
+    rings: list[list[list[float]]]
+
+
 class RadiationLegendItem(BaseModel):
     color: str
     label: str
@@ -130,6 +141,7 @@ class RadiationLegendItem(BaseModel):
 
 class MapRadiationResponse(BaseModel):
     overlay: RadiationOverlay | None = None
+    polygons: list[RadiationPolygon] = []
     zones: list[RadiationZone] = []
     legend: list[RadiationLegendItem] = []
 
