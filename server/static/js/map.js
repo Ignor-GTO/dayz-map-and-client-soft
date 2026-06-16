@@ -456,7 +456,7 @@ function renderFilterPanel(categories) {
     { id: "labels", label: "Названия мест" },
     { id: "players", label: "Игроки (live)" },
     { id: "markers", label: "Метки группы" },
-    { id: "poi", label: "POI админки" },
+    { id: "poi", label: "Метки сервера" },
     { id: "radiation", label: "Радиационные зоны" },
   ];
 
