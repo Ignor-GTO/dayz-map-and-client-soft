@@ -22,6 +22,9 @@ def load_config() -> dict:
         "client_key": "",
         "monitor_index": 1,
         "ocr_region": [210, 915, 330, 945],
+        "mouse_nudge_before_ocr": True,
+        "mouse_nudge_delay_ms": 200,
+        "mouse_nudge_restore": True,
     }
 
 

@@ -90,11 +90,20 @@ class ClientApp(tk.Tk):
             wraplength=580,
         ).grid(row=6, column=0, columnspan=2, **pad)
 
-        self.status_var = tk.StringVar(value="Остановлено")
-        ttk.Label(frm, textvariable=self.status_var).grid(row=7, column=0, columnspan=2, **pad)
+        nudge_frm = ttk.Frame(frm)
+        nudge_frm.grid(row=7, column=0, columnspan=2, sticky="w", padx=10, pady=2)
+        self.mouse_nudge_var = tk.BooleanVar(value=self.cfg.get("mouse_nudge_before_ocr", True))
+        ttk.Checkbutton(
+            nudge_frm,
+            text="Перед M сдвигать мышь влево (показать координаты iZurvive)",
+            variable=self.mouse_nudge_var,
+        ).pack(side="left")
 
-        self.log = scrolledtext.ScrolledText(frm, height=18, width=64, state="disabled")
-        self.log.grid(row=8, column=0, columnspan=2, pady=8)
+        self.status_var = tk.StringVar(value="Остановлено")
+        ttk.Label(frm, textvariable=self.status_var).grid(row=8, column=0, columnspan=2, **pad)
+
+        self.log = scrolledtext.ScrolledText(frm, height=17, width=64, state="disabled")
+        self.log.grid(row=9, column=0, columnspan=2, pady=8)
 
     def _refresh_monitors(self) -> None:
         prev_index = self.monitor_combo.current() if hasattr(self, "monitor_combo") else -1
@@ -130,6 +139,9 @@ class ClientApp(tk.Tk):
                 "client_key": self.key_var.get().strip(),
                 "monitor_index": monitor_index,
                 "ocr_region": [v.get() for v in self.region_vars],
+                "mouse_nudge_before_ocr": self.mouse_nudge_var.get(),
+                "mouse_nudge_delay_ms": self.cfg.get("mouse_nudge_delay_ms", 200),
+                "mouse_nudge_restore": self.cfg.get("mouse_nudge_restore", True),
             }
         )
         save_config(self.cfg)
@@ -307,18 +319,34 @@ class ClientApp(tk.Tk):
     def on_m_pressed(self) -> None:
         if not self.map_client:
             return
-        try:
-            img = grab_region(self._monitor_index(), self._ocr_region())
-            coords = extract_coordinates(img)
-            if coords:
-                x, y = coords
-                self.log_line(f"[M] {x:.0f} / {y:.0f}")
-                if self.map_client.send_position(x, y):
-                    self.log_line("[M] Отправлено на сервер")
-            else:
-                self.log_line("[M] Координаты не распознаны")
-        except Exception as exc:
-            self.log_line(f"[M] Ошибка: {exc}")
+
+        from mouse_util import with_mouse_nudge
+
+        monitor = self._monitor_index()
+        region = self._ocr_region()
+
+        def capture_and_send() -> None:
+            try:
+                img = grab_region(monitor, region)
+                coords = extract_coordinates(img)
+                if coords:
+                    x, y = coords
+                    self.log_line(f"[M] {x:.0f} / {y:.0f}")
+                    if self.map_client.send_position(x, y):
+                        self.log_line("[M] Отправлено на сервер")
+                else:
+                    self.log_line("[M] Координаты не распознаны")
+            except Exception as exc:
+                self.log_line(f"[M] Ошибка: {exc}")
+
+        with_mouse_nudge(
+            monitor,
+            region,
+            capture_and_send,
+            enabled=self.mouse_nudge_var.get(),
+            delay_ms=int(self.cfg.get("mouse_nudge_delay_ms", 200)),
+            restore=self.cfg.get("mouse_nudge_restore", True),
+        )
 
     def _clipboard_image(self):
         try:
