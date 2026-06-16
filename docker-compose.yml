@@ -15,7 +15,7 @@ services:
       MAP_MAX_X: ${MAP_MAX_X:-15360}
       MAP_MIN_Y: ${MAP_MIN_Y:-0}
       MAP_MAX_Y: ${MAP_MAX_Y:-15360}
-      CLIENT_EXE_PATH: /data/DayZMapClient.exe
+      CLIENT_DOWNLOAD_URL: ${CLIENT_DOWNLOAD_URL:-https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe}
       DATA_DIR: /data
 
 volumes:

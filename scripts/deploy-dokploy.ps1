@@ -15,7 +15,6 @@ if (-not $env:DOKPLOY_API_KEY) {
 }
 
 $SecretKey = if ($env:SECRET_KEY) { $env:SECRET_KEY } else { [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 })) }
-$ComposeFile = Get-Content -Raw "$PSScriptRoot\..\docker-compose.yml"
 
 $EnvBlock = @"
 SECRET_KEY=$SecretKey
@@ -24,6 +23,7 @@ MAP_MIN_X=0
 MAP_MAX_X=15360
 MAP_MIN_Y=0
 MAP_MAX_Y=15360
+CLIENT_DOWNLOAD_URL=https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe
 "@
 
 function Invoke-Dokploy($Endpoint, $Body) {
@@ -33,7 +33,7 @@ function Invoke-Dokploy($Endpoint, $Body) {
 
 Write-Host "Creating project..."
 $project = Invoke-Dokploy "project.create" @{ name = "DayZ Map"; description = "DayZ Pripyat live map" }
-$envId = $project.environments[0].environmentId
+$envId = $project.environment.environmentId
 Write-Host "Environment: $envId"
 
 Write-Host "Creating compose service..."
@@ -42,19 +42,23 @@ $compose = Invoke-Dokploy "compose.create" @{
     description = "DayZ Pripyat OCR map server"
     environmentId = $envId
     composeType = "docker-compose"
+}
+$composeId = $compose.composeId
+Write-Host "Compose: $composeId"
+
+Write-Host "Configuring GitHub source..."
+Invoke-Dokploy "compose.update" @{
+    composeId = $composeId
     sourceType = "github"
     githubId = "ut66ZuBeQJ8g5KWGsccbf"
     owner = "Ignor-GTO"
     repository = "dayz-map-and-client-soft"
     branch = "main"
     composePath = "./docker-compose.yml"
-    composeFile = $ComposeFile
     env = $EnvBlock
     autoDeploy = $true
     isolatedDeployment = $true
-}
-$composeId = $compose.composeId
-Write-Host "Compose: $composeId"
+} | Out-Null
 
 Write-Host "Creating domain..."
 Invoke-Dokploy "domain.create" @{

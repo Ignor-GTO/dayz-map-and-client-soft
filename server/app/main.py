@@ -1,12 +1,12 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import get_current_user_from_ws
-from app.config import CLIENT_DOWNLOAD_PATH, MAP_BOUNDS, SERVER_PUBLIC_URL
+from app.config import CLIENT_DOWNLOAD_URL, MAP_BOUNDS, SERVER_PUBLIC_URL
 from app.database import SessionLocal, init_db
 from app.routes import router
 from app.websocket import manager
@@ -35,18 +35,13 @@ async def map_config():
         "bounds": MAP_BOUNDS,
         "map_image": "/assets/pripyat.png",
         "server_url": SERVER_PUBLIC_URL,
+        "client_download_url": CLIENT_DOWNLOAD_URL,
     }
 
 
 @app.get("/api/download/client")
 async def download_client():
-    if not CLIENT_DOWNLOAD_PATH.exists():
-        raise HTTPException(status_code=404, detail="Client exe not uploaded yet")
-    return FileResponse(
-        CLIENT_DOWNLOAD_PATH,
-        media_type="application/octet-stream",
-        filename="DayZMapClient.exe",
-    )
+    return RedirectResponse(url=CLIENT_DOWNLOAD_URL, status_code=302)
 
 
 @app.websocket("/ws/map")

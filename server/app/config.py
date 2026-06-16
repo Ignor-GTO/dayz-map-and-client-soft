@@ -8,7 +8,6 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR / 'dayz_map.db'}")
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 SESSION_COOKIE = "dayz_map_session"
-CLIENT_DOWNLOAD_PATH = Path(os.getenv("CLIENT_EXE_PATH", DATA_DIR / "DayZMapClient.exe"))
 
 # Pripyat world bounds for coordinate → map pixel mapping (tune if needed)
 MAP_BOUNDS = {
@@ -19,3 +18,7 @@ MAP_BOUNDS = {
 }
 
 SERVER_PUBLIC_URL = os.getenv("SERVER_PUBLIC_URL", "https://dayz-map.gto-team.uz")
+CLIENT_DOWNLOAD_URL = os.getenv(
+    "CLIENT_DOWNLOAD_URL",
+    "https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe",
+)

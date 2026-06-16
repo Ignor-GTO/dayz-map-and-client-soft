@@ -1,0 +1,41 @@
+name: Build Windows Client
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "client/**"
+      - ".github/workflows/build-client.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r client/requirements.txt
+
+      - name: Build exe
+        working-directory: client
+        run: pyinstaller build.spec --noconfirm
+
+      - name: Publish to GitHub Releases
+        uses: ncipollo/release-action@v1
+        with:
+          tag: client-latest
+          name: DayZ Map Client (Latest)
+          body: Windows OCR client for DayZ Pripyat map. Install Tesseract OCR separately.
+          artifacts: client/dist/DayZMapClient.exe
+          allowUpdates: true
+          replacesArtifacts: true
+          makeLatest: true
+          token: ${{ secrets.GITHUB_TOKEN }}

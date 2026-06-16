@@ -261,7 +261,23 @@ document.getElementById("close-key-modal").addEventListener("click", () => {
   document.getElementById("key-modal").classList.add("hidden");
 });
 
+function applyClientDownloadUrl(url) {
+  document.querySelectorAll(".client-download").forEach((el) => {
+    el.href = url;
+  });
+}
+
+async function initClientDownloadLinks() {
+  try {
+    const cfg = await api("/api/map/config");
+    if (cfg.client_download_url) applyClientDownloadUrl(cfg.client_download_url);
+  } catch {
+    /* keep default href from HTML */
+  }
+}
+
 (async () => {
+  await initClientDownloadLinks();
   try {
     await api("/api/auth/me");
     await bootstrapMapView();
