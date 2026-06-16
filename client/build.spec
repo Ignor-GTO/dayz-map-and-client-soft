@@ -23,13 +23,10 @@ for pkg in (
     'winrt.windows.foundation',
     'winrt.windows.foundation.collections',
 ):
-    try:
-        pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
-        datas += pkg_datas
-        binaries += pkg_binaries
-        hiddenimports += pkg_hidden
-    except Exception:
-        pass
+    pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
+    datas += pkg_datas
+    binaries += pkg_binaries
+    hiddenimports += pkg_hidden
 
 a = Analysis(
     ['main.py'],

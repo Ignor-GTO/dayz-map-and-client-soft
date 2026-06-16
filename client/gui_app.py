@@ -50,6 +50,9 @@ class ClientApp(tk.Tk):
         self.monitor_var = tk.StringVar()
         self.monitor_combo = ttk.Combobox(frm, textvariable=self.monitor_var, state="readonly", width=49)
         self.monitor_combo.grid(row=2, column=1, **pad)
+        ttk.Button(frm, text="↻", width=3, command=self._refresh_monitors).grid(
+            row=2, column=2, sticky="w", padx=(0, 10)
+        )
         self._refresh_monitors()
 
         ttk.Label(frm, text="OCR область (L,T,R,B)").grid(row=3, column=0, sticky="w", **pad)
@@ -82,12 +85,16 @@ class ClientApp(tk.Tk):
         self.log.grid(row=7, column=0, columnspan=2, pady=8)
 
     def _refresh_monitors(self) -> None:
+        prev_index = self.monitor_combo.current() if hasattr(self, "monitor_combo") else -1
         monitors = list_monitors()
         self._monitors = monitors
         labels = [m.label for m in monitors]
         self.monitor_combo["values"] = labels
-        idx = min(max(0, self.cfg.get("monitor_index", 1) - 1), max(0, len(labels) - 1))
-        if labels:
+        saved = self.cfg.get("monitor_index", 1)
+        if prev_index >= 0 and prev_index < len(labels):
+            self.monitor_combo.current(prev_index)
+        elif labels:
+            idx = min(max(0, saved - 1), len(labels) - 1)
             self.monitor_combo.current(idx)
 
     def _load_fields(self) -> None:

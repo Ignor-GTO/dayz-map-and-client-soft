@@ -3,6 +3,11 @@ import io
 import threading
 import uuid  # noqa: F401 — required by winrt in PyInstaller builds
 
+try:
+    import winrt.windows.foundation.collections  # noqa: F401 — PyInstaller
+except ImportError:
+    pass
+
 from PIL import Image
 
 _ocr_loop: asyncio.AbstractEventLoop | None = None
