@@ -6,11 +6,12 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
 
 import keyboard
-from PIL import ImageGrab
 
 from api_client import MapClient
 from capture import grab_region, list_monitors
+from clipboard_util import grab_clipboard_image
 from config import load_config, save_config
+from map_session import DoubleClickListener
 from ocr import extract_coordinates
 from region_overlay import OcrRegionEditor
 from version import __version__
@@ -26,8 +27,12 @@ class ClientApp(tk.Tk):
         self.cfg = load_config()
         self.map_client: MapClient | None = None
         self.hotkeys_active = False
+        self._map_session_active = False
+        self._dblclick_listener = DoubleClickListener()
         self._clipboard_hash: str | None = None
         self._stop_clipboard = threading.Event()
+        self._snip_watch_active = False
+        self._snip_check_attempt = 0
         self._region_editor: OcrRegionEditor | None = None
 
         self._build_ui()
@@ -81,12 +86,12 @@ class ClientApp(tk.Tk):
             side="left", padx=5
         )
 
-        ttk.Label(frm, text="M — live позиция · Win+Shift+S — метка со скриншота").grid(
+        ttk.Label(frm, text="M — позиция · повтор M — закрыть · двойной клик — метка").grid(
             row=5, column=0, columnspan=2, **pad
         )
         ttk.Label(
             frm,
-            text="OCR: нижний левый угол iZurvive — «15100 / 879» (кнопка iZurvive)",
+            text="Win+Shift+S — выделите полоску «15100 - 879» → метка на карте",
             wraplength=580,
         ).grid(row=6, column=0, columnspan=2, **pad)
 
@@ -208,13 +213,16 @@ class ClientApp(tk.Tk):
 
     def _startup_ocr_check(self) -> None:
         from ocr_engine import ensure_ocr_backend, uses_windows_ocr
+        from ocr_tesseract import is_available as tesseract_available
 
         backend = ensure_ocr_backend()
         self.log_line(f"[OCR] Движок: {backend}")
-        if not uses_windows_ocr():
+        if tesseract_available():
+            self.log_line("[OCR] Tesseract — быстрый режим (только цифры)")
+        elif not uses_windows_ocr():
             self.log_line(
-                "[OCR] Windows OCR не установлен — работает встроенный. "
-                "Кнопка «Установить Windows OCR» — для ускорения."
+                "[OCR] Для скорости установите Tesseract: "
+                "https://github.com/UB-Mannheim/tesseract/wiki"
             )
 
     def install_windows_ocr(self) -> None:
@@ -340,20 +348,97 @@ class ClientApp(tk.Tk):
             self._show_ocr_error(exc)
             return
         self.hotkeys_active = True
-        self.status_var.set("Работает — hotkeys активны")
+        self._map_session_active = False
+        self.status_var.set("Работает — M открыть карту / позиция")
         self.start_btn.configure(text="Остановить hotkeys")
         keyboard.add_hotkey("m", lambda: self.after(0, self._handle_m_hotkey))
+        try:
+            keyboard.add_hotkey(
+                "windows+shift+s",
+                lambda: self.after(0, self._on_snip_shortcut),
+                suppress=False,
+            )
+        except Exception:
+            self.log_line("[Скриншот] Не удалось подписаться на Win+Shift+S — только буфер обмена")
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         self.log_line("[Запуск] Hotkeys активны")
 
     def stop_hotkeys(self) -> None:
         self.hotkeys_active = False
+        self._end_map_session(silent=True)
         self._stop_clipboard.set()
         keyboard.unhook_all_hotkeys()
         self.status_var.set("Остановлено")
         self.start_btn.configure(text="Запустить hotkeys")
         self.log_line("[Стоп] Hotkeys отключены")
+
+    def _end_map_session(self, *, silent: bool = False) -> None:
+        if not self._map_session_active:
+            return
+        self._map_session_active = False
+        self._dblclick_listener.stop()
+        if not silent:
+            self.log_line("[M] Карта закрыта — OCR и метки по клику отключены")
+        self._update_session_status()
+
+    def _start_map_session(self) -> None:
+        self._map_session_active = True
+        self._dblclick_listener.start(lambda: self.after(0, self._handle_map_double_click))
+        self._update_session_status()
+        self.log_line("[M] Сессия карты: двойной клик на карте — красная метка")
+
+    def _update_session_status(self) -> None:
+        if not self.hotkeys_active:
+            return
+        if self._map_session_active:
+            self.status_var.set("Карта открыта — M закрыть · двойной клик — метка")
+        else:
+            self.status_var.set("Работает — M открыть карту / позиция")
+
+    def _capture_coords(self, *, nudge: bool) -> tuple[float, float] | None:
+        monitor = self._monitor_index()
+        region = self._ocr_region()
+        result: dict = {}
+
+        def capture() -> None:
+            try:
+                img = grab_region(monitor, region)
+                result["coords"] = extract_coordinates(img)
+            except Exception as exc:
+                result["error"] = exc
+
+        if nudge:
+            from mouse_util import with_mouse_nudge
+
+            with_mouse_nudge(monitor, region, capture, **self._mouse_nudge_kwargs())
+        else:
+            capture()
+
+        if err := result.get("error"):
+            raise err
+        return result.get("coords")
+
+    def _handle_map_double_click(self) -> None:
+        if not self._map_session_active or not self.map_client:
+            return
+        self.log_line("[Метка] Двойной клик — считывание координат на карте…")
+
+        def work() -> None:
+            try:
+                time.sleep(0.15)
+                coords = self._capture_coords(nudge=False)
+                if coords:
+                    x, y = coords
+                    self.after(0, lambda: self.log_line(f"[Метка] {x:.0f} / {y:.0f}"))
+                    if self.map_client and self.map_client.send_marker(x, y):
+                        self.after(0, lambda: self.log_line("[Метка] Отправлено на сервер"))
+                else:
+                    self.after(0, lambda: self.log_line("[Метка] Координаты не распознаны"))
+            except Exception as exc:
+                self.after(0, lambda: self.log_line(f"[Метка] Ошибка: {exc}"))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def on_m_pressed(self) -> None:
         self.after(0, self._handle_m_hotkey)
@@ -362,70 +447,112 @@ class ClientApp(tk.Tk):
         if not self.map_client:
             return
 
-        from mouse_util import with_mouse_nudge
+        if self._map_session_active:
+            self._end_map_session()
+            return
 
-        monitor = self._monitor_index()
-        region = self._ocr_region()
+        self._start_map_session()
 
-        def capture_and_send() -> None:
+        def work() -> None:
             try:
-                img = grab_region(monitor, region)
-                coords = extract_coordinates(img)
+                coords = self._capture_coords(nudge=True)
                 if coords:
                     x, y = coords
-                    self.log_line(f"[M] {x:.0f} / {y:.0f}")
-                    if self.map_client.send_position(x, y):
-                        self.log_line("[M] Отправлено на сервер")
+                    self.after(0, lambda: self.log_line(f"[M] {x:.0f} / {y:.0f}"))
+                    if self.map_client and self.map_client.send_position(x, y):
+                        self.after(0, lambda: self.log_line("[M] Позиция отправлена"))
                 else:
-                    self.log_line("[M] Координаты не распознаны")
+                    self.after(0, lambda: self.log_line("[M] Координаты не распознаны"))
             except Exception as exc:
-                self.log_line(f"[M] Ошибка: {exc}")
+                self.after(0, lambda: self.log_line(f"[M] Ошибка: {exc}"))
 
-        with_mouse_nudge(monitor, region, capture_and_send, **self._mouse_nudge_kwargs())
+        threading.Thread(target=work, daemon=True).start()
 
     def _clipboard_image(self):
-        try:
-            img = ImageGrab.grabclipboard()
-            if img is None:
-                return None
-            if isinstance(img, list):
-                if not img:
-                    return None
-                from PIL import Image
+        return grab_clipboard_image()
 
-                img = Image.open(img[0])
-            return img
-        except Exception:
-            return None
+    def _image_hash(self, img) -> str:
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        return str(hash(buf.getvalue()))
+
+    def _process_snip_marker(self, img, *, source: str = "Скриншот") -> None:
+        if not self.map_client:
+            self.log_line(f"[{source}] Клиент не настроен — сохраните ключ")
+            return
+
+        def work() -> None:
+            try:
+                from ocr import extract_coordinates_with_text
+
+                coords, raw = extract_coordinates_with_text(img)
+                if raw:
+                    self.after(0, lambda t=raw: self.log_line(f"[{source}] OCR: {t!r}"))
+                if coords:
+                    x, y = coords
+                    self.after(0, lambda: self.log_line(f"[{source}] {x:.0f} / {y:.0f}"))
+                    ok = self.map_client.send_marker(x, y)
+                    if ok:
+                        self.after(0, lambda: self.log_line(f"[{source}] Метка отправлена"))
+                    else:
+                        self.after(0, lambda: self.log_line(f"[{source}] Ошибка отправки на сервер"))
+                else:
+                    self.after(
+                        0,
+                        lambda: self.log_line(
+                            f"[{source}] Координаты не распознаны — выделите «15100 - 879»"
+                        ),
+                    )
+            except Exception as exc:
+                self.after(0, lambda e=exc: self.log_line(f"[{source}] Ошибка: {e}"))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_snip_shortcut(self) -> None:
+        if not self.hotkeys_active:
+            return
+        self._snip_watch_active = True
+        self._snip_check_attempt = 0
+        self.log_line("[Скриншот] Win+Shift+S — жду изображение в буфере…")
+        self.after(600, self._snip_check_clipboard)
+
+    def _snip_check_clipboard(self) -> None:
+        if not self._snip_watch_active or self._stop_clipboard.is_set():
+            return
+        self._snip_check_attempt += 1
+        img = self._clipboard_image()
+        if img is not None:
+            h = self._image_hash(img)
+            if h != self._clipboard_hash:
+                self._clipboard_hash = h
+                self._snip_watch_active = False
+                self._process_snip_marker(img)
+                return
+        if self._snip_check_attempt < 16:
+            self.after(400, self._snip_check_clipboard)
+        else:
+            self._snip_watch_active = False
+            self.log_line("[Скриншот] Изображение в буфере не появилось")
 
     def _clipboard_loop(self) -> None:
         time.sleep(2)
         img = self._clipboard_image()
         if img is not None:
-            buf = io.BytesIO()
-            img.save(buf, format="PNG")
-            self._clipboard_hash = str(hash(buf.getvalue()))
+            self._clipboard_hash = self._image_hash(img)
         while not self._stop_clipboard.is_set():
-            img = self._clipboard_image()
-            if img is not None and self.map_client:
-                buf = io.BytesIO()
-                img.save(buf, format="PNG")
-                h = str(hash(buf.getvalue()))
-                if h != self._clipboard_hash:
-                    self._clipboard_hash = h
-                    try:
-                        coords = extract_coordinates(img)
-                        if coords:
-                            x, y = coords
-                            self.after(0, lambda: self.log_line(f"[Метка] {x:.0f} / {y:.0f}"))
-                            self.map_client.send_marker(x, y)
-                    except Exception as exc:
-                        self.after(0, lambda: self.log_line(f"[Метка] Ошибка: {exc}"))
-            time.sleep(0.5)
+            if not self._snip_watch_active:
+                img = self._clipboard_image()
+                if img is not None and self.map_client:
+                    h = self._image_hash(img)
+                    if h != self._clipboard_hash:
+                        self._clipboard_hash = h
+                        self._process_snip_marker(img, source="Буфер")
+            time.sleep(0.25)
 
     def on_close(self) -> None:
         if self._region_editor and self._region_editor.active:
             self._region_editor.stop()
+        self._dblclick_listener.stop()
         if self.hotkeys_active:
             self.stop_hotkeys()
         self.destroy()

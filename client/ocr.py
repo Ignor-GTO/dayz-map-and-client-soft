@@ -2,13 +2,20 @@ import re
 
 from PIL import Image
 
-# iZurvive: "15100 / 879" or "My X/Y: 15100 / 879"
-_COORD_SLASH = re.compile(r"(\d{2,6})\s*/\s*(\d{2,6})")
+# iZurvive: "15100 / 879", "15100 - 879", snip "15100-879"
+_COORD_SEP = re.compile(r"(\d{2,6})\s*[/\-–—]\s*(\d{2,6})")
 
 
 def parse_coordinates(text: str) -> tuple[float, float] | None:
-    cleaned = text.replace(",", ".").replace("O", "0").replace("o", "0")
-    match = _COORD_SLASH.search(cleaned)
+    cleaned = (
+        text.replace(",", ".")
+        .replace("O", "0")
+        .replace("o", "0")
+        .replace("l", "1")
+        .replace("I", "1")
+        .replace("|", "1")
+    )
+    match = _COORD_SEP.search(cleaned)
     if match:
         return float(match.group(1)), float(match.group(2))
 

@@ -222,19 +222,19 @@ function upsertPoi(p) {
   let marker = state.poiMarkers.get(p.id);
   const desc = p.description ? `<br>${p.description}` : "";
   const popup = `<b>${p.title}</b>${desc}<br>${Math.round(p.x)} / ${Math.round(p.y)}`;
+  const icon = L.divIcon({
+    className: "poi-map-pin",
+    html: poiLabelHtml(p.icon || "star", p.title),
+    iconSize: [240, 24],
+    iconAnchor: [11, 12],
+  });
 
   if (marker) {
     marker.setLatLng(latlng);
+    marker.setIcon(icon);
     marker.setPopupContent(popup);
   } else {
-    marker = L.marker(latlng, {
-      icon: L.divIcon({
-        className: "poi-icon",
-        html: `<div class="poi-marker">★</div>`,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
-      }),
-    }).addTo(state.map);
+    marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popup);
     state.poiMarkers.set(p.id, marker);
   }

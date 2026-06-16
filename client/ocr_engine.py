@@ -95,10 +95,17 @@ def _create_windows_ocr_engine():
 
 
 def ensure_ocr_backend() -> str:
-    """Initialize OCR backend. Windows OCR if available, else bundled fallback."""
+    """Initialize OCR backend. Tesseract (fast) → Windows OCR → bundled fallback."""
     global _windows_engine, _backend_name, _use_windows
     with _engine_lock:
         if _backend_name is not None:
+            return _backend_name
+
+        from ocr_tesseract import is_available as tesseract_available
+
+        if tesseract_available():
+            _backend_name = "Tesseract (цифры)"
+            _use_windows = False
             return _backend_name
 
         try:
@@ -160,6 +167,15 @@ async def _recognize_windows_async(image: Image.Image) -> str:
 
 def recognize_text(image: Image.Image) -> str:
     prepared = preprocess_coordinate_region(image)
+
+    from ocr_tesseract import is_available as tesseract_available
+    from ocr_tesseract import recognize_digits
+
+    if tesseract_available():
+        text = recognize_digits(prepared)
+        if text:
+            return text
+
     backend = ensure_ocr_backend()
 
     if _use_windows:

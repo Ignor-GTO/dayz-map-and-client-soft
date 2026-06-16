@@ -306,7 +306,14 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
         positions=positions,
         markers=markers,
         pois=[
-            PoiResponse(id=p.id, title=p.title, description=p.description, x=p.x, y=p.y)
+            PoiResponse(
+                id=p.id,
+                title=p.title,
+                description=p.description,
+                icon=p.icon or "star",
+                x=p.x,
+                y=p.y,
+            )
             for p in pois
         ],
     )

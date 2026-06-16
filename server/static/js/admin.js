@@ -29,7 +29,81 @@ function switchTab(name) {
   document.getElementById(`tab-${name}`).classList.remove("hidden");
 }
 
+function poiIconBadge(iconKey) {
+  const key = normalizePoiIcon(iconKey);
+  const icon = POI_ICONS[key];
+  return `<span class="card-icon" style="background:${icon.color}">${icon.glyph}</span>`;
+}
+
 let mapsCache = [];
+let poisCache = [];
+let selectedPoiIcon = "star";
+
+function setPoiIcon(iconKey) {
+  selectedPoiIcon = normalizePoiIcon(iconKey);
+  document.getElementById("poi-icon").value = selectedPoiIcon;
+}
+
+function initPoiIconPicker(iconKey = "star") {
+  renderPoiIconPicker(document.getElementById("poi-icon-picker"), iconKey, setPoiIcon);
+  setPoiIcon(iconKey);
+}
+
+function resetMapForm() {
+  const form = document.getElementById("map-form");
+  form.reset();
+  document.getElementById("map-edit-id").value = "";
+  document.getElementById("map-form-title").textContent = "Добавить карту";
+  document.getElementById("map-form-submit").textContent = "Добавить карту";
+  document.getElementById("map-form-cancel").classList.add("hidden");
+  document.getElementById("map-slug").disabled = false;
+  form.querySelector('[name="enabled"]').checked = true;
+}
+
+function fillMapForm(map) {
+  const form = document.getElementById("map-form");
+  document.getElementById("map-edit-id").value = String(map.id);
+  document.getElementById("map-form-title").textContent = `Редактировать: ${map.name}`;
+  document.getElementById("map-form-submit").textContent = "Сохранить карту";
+  document.getElementById("map-form-cancel").classList.remove("hidden");
+  document.getElementById("map-slug").value = map.slug;
+  document.getElementById("map-slug").disabled = true;
+  form.querySelector('[name="name"]').value = map.name;
+  form.querySelector('[name="map_size"]').value = map.map_size;
+  form.querySelector('[name="max_native_zoom"]').value = map.max_native_zoom;
+  form.querySelector('[name="extra_zoom"]').value = map.extra_zoom;
+  form.querySelector('[name="sort_order"]').value = map.sort_order;
+  form.querySelector('[name="tiles_satellite"]').value = map.tiles_satellite;
+  form.querySelector('[name="tiles_topographic"]').value = map.tiles_topographic;
+  form.querySelector('[name="locations_url"]').value = map.locations_url || "";
+  form.querySelector('[name="locations_source"]').value = map.locations_source || "izurvive";
+  form.querySelector('[name="enabled"]').checked = !!map.enabled;
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetPoiForm() {
+  const form = document.getElementById("poi-form");
+  form.reset();
+  document.getElementById("poi-edit-id").value = "";
+  document.getElementById("poi-form-title").textContent = "Добавить метку";
+  document.getElementById("poi-form-submit").textContent = "Добавить метку";
+  document.getElementById("poi-form-cancel").classList.add("hidden");
+  initPoiIconPicker("star");
+}
+
+function fillPoiForm(poi) {
+  const form = document.getElementById("poi-form");
+  document.getElementById("poi-edit-id").value = String(poi.id);
+  document.getElementById("poi-form-title").textContent = `Редактировать: ${poi.title}`;
+  document.getElementById("poi-form-submit").textContent = "Сохранить метку";
+  document.getElementById("poi-form-cancel").classList.remove("hidden");
+  form.querySelector('[name="title"]').value = poi.title;
+  form.querySelector('[name="x"]').value = poi.x;
+  form.querySelector('[name="y"]').value = poi.y;
+  form.querySelector('[name="description"]').value = poi.description || "";
+  initPoiIconPicker(poi.icon || "star");
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
 
 async function loadMaps() {
   mapsCache = await api("/api/admin/maps");
@@ -42,6 +116,7 @@ async function loadMaps() {
       </div>
       <div class="card-meta">slug: ${m.slug} · size: ${m.map_size}</div>
       <div class="card-actions">
+        <button type="button" class="secondary edit-map" data-id="${m.id}">Редактировать</button>
         <button type="button" class="secondary toggle-map" data-id="${m.id}">${m.enabled ? "Выключить" : "Включить"}</button>
         <button type="button" class="danger delete-map" data-id="${m.id}">Удалить</button>
       </div>
@@ -60,15 +135,16 @@ async function loadMaps() {
 async function loadPois() {
   const slug = document.getElementById("poi-map-select").value;
   if (!slug) return;
-  const pois = await api(`/api/admin/pois?map_slug=${encodeURIComponent(slug)}`);
+  poisCache = await api(`/api/admin/pois?map_slug=${encodeURIComponent(slug)}`);
   const list = document.getElementById("pois-list");
-  list.innerHTML = pois.length
-    ? pois.map((p) => `
+  list.innerHTML = poisCache.length
+    ? poisCache.map((p) => `
       <div class="card" data-id="${p.id}">
-        <div class="card-head"><strong>${p.title}</strong></div>
+        <div class="card-head"><strong>${poiIconBadge(p.icon)}${p.title}</strong></div>
         <div class="card-meta">${Math.round(p.x)} / ${Math.round(p.y)}</div>
         ${p.description ? `<p class="card-desc">${p.description}</p>` : ""}
         <div class="card-actions">
+          <button type="button" class="secondary edit-poi" data-id="${p.id}">Редактировать</button>
           <button type="button" class="danger delete-poi" data-id="${p.id}">Удалить</button>
         </div>
       </div>
@@ -160,6 +236,7 @@ document.getElementById("admin-login-form").addEventListener("submit", async (e)
       body: JSON.stringify({ password: document.getElementById("admin-password").value }),
     });
     showPanel();
+    initPoiIconPicker("star");
     await loadMaps();
     await loadPois();
   } catch (err) {
@@ -177,11 +254,14 @@ document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => switchTab(btn.dataset.tab));
 });
 
+document.getElementById("map-form-cancel")?.addEventListener("click", resetMapForm);
+document.getElementById("poi-form-cancel")?.addEventListener("click", resetPoiForm);
+
 document.getElementById("map-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
+  const editId = document.getElementById("map-edit-id").value;
   const payload = {
-    slug: fd.get("slug"),
     name: fd.get("name"),
     map_size: Number(fd.get("map_size")),
     tiles_satellite: fd.get("tiles_satellite"),
@@ -194,8 +274,18 @@ document.getElementById("map-form").addEventListener("submit", async (e) => {
     enabled: fd.get("enabled") === "on",
   };
   try {
-    await api("/api/admin/maps", { method: "POST", body: JSON.stringify(payload) });
-    e.target.reset();
+    if (editId) {
+      await api(`/api/admin/maps/${editId}`, { method: "PUT", body: JSON.stringify(payload) });
+    } else {
+      await api("/api/admin/maps", {
+        method: "POST",
+        body: JSON.stringify({
+          slug: fd.get("slug"),
+          ...payload,
+        }),
+      });
+    }
+    resetMapForm();
     await loadMaps();
   } catch (err) {
     alert(err.message);
@@ -203,8 +293,14 @@ document.getElementById("map-form").addEventListener("submit", async (e) => {
 });
 
 document.getElementById("maps-list").addEventListener("click", async (e) => {
+  const edit = e.target.closest(".edit-map");
   const toggle = e.target.closest(".toggle-map");
   const del = e.target.closest(".delete-map");
+  if (edit) {
+    const m = mapsCache.find((x) => x.id === Number(edit.dataset.id));
+    if (m) fillMapForm(m);
+    return;
+  }
   if (toggle) {
     const id = Number(toggle.dataset.id);
     const m = mapsCache.find((x) => x.id === id);
@@ -218,26 +314,41 @@ document.getElementById("maps-list").addEventListener("click", async (e) => {
   if (del) {
     if (!confirm("Удалить карту и все её POI?")) return;
     await api(`/api/admin/maps/${del.dataset.id}`, { method: "DELETE" });
+    resetMapForm();
     await loadMaps();
     await loadPois();
   }
 });
 
-document.getElementById("poi-map-select").addEventListener("change", loadPois);
+document.getElementById("poi-map-select").addEventListener("change", () => {
+  resetPoiForm();
+  loadPois();
+});
 
 document.getElementById("poi-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
+  const editId = document.getElementById("poi-edit-id").value;
   const payload = {
-    map_slug: document.getElementById("poi-map-select").value,
     title: fd.get("title"),
     description: fd.get("description") || "",
+    icon: selectedPoiIcon,
     x: Number(fd.get("x")),
     y: Number(fd.get("y")),
   };
   try {
-    await api("/api/admin/pois", { method: "POST", body: JSON.stringify(payload) });
-    e.target.reset();
+    if (editId) {
+      await api(`/api/admin/pois/${editId}`, { method: "PUT", body: JSON.stringify(payload) });
+    } else {
+      await api("/api/admin/pois", {
+        method: "POST",
+        body: JSON.stringify({
+          map_slug: document.getElementById("poi-map-select").value,
+          ...payload,
+        }),
+      });
+    }
+    resetPoiForm();
     await loadPois();
   } catch (err) {
     alert(err.message);
@@ -245,7 +356,13 @@ document.getElementById("poi-form").addEventListener("submit", async (e) => {
 });
 
 document.getElementById("pois-list").addEventListener("click", async (e) => {
+  const edit = e.target.closest(".edit-poi");
   const del = e.target.closest(".delete-poi");
+  if (edit) {
+    const p = poisCache.find((x) => x.id === Number(edit.dataset.id));
+    if (p) fillPoiForm(p);
+    return;
+  }
   if (!del) return;
   if (!confirm("Удалить метку?")) return;
   await api(`/api/admin/pois/${del.dataset.id}`, { method: "DELETE" });
@@ -277,8 +394,11 @@ document.getElementById("password-form").addEventListener("submit", async (e) =>
   try {
     await api("/api/admin/me");
     showPanel();
+    initPoiIconPicker("star");
     await loadMaps();
     await loadPois();
+    await loadPinPolicy();
+    await loadRooms();
   } catch {
     showLogin();
   }

@@ -36,6 +36,7 @@ class PoiResponse(BaseModel):
     id: int
     title: str
     description: str
+    icon: str = "star"
     x: float
     y: float
 
@@ -145,6 +146,7 @@ class PoiCreateRequest(BaseModel):
     map_slug: str
     title: str = Field(min_length=1, max_length=128)
     description: str = ""
+    icon: str = "star"
     x: float
     y: float
 
@@ -152,5 +154,6 @@ class PoiCreateRequest(BaseModel):
 class PoiUpdateRequest(BaseModel):
     title: str | None = None
     description: str | None = None
+    icon: str | None = None
     x: float | None = None
     y: float | None = None

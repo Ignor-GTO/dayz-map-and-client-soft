@@ -48,6 +48,10 @@ def _migrate_sqlite(conn) -> None:
     if map_cols and "locations_source" not in map_cols:
         conn.execute(text("ALTER TABLE dayz_maps ADD COLUMN locations_source VARCHAR(16)"))
 
+    poi_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(map_pois)")).fetchall()}
+    if poi_cols and "icon" not in poi_cols:
+        conn.execute(text("ALTER TABLE map_pois ADD COLUMN icon VARCHAR(32) DEFAULT 'star'"))
+
 
 def default_map_kwargs() -> dict:
     return {

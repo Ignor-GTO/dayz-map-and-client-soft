@@ -11,6 +11,7 @@ from app.auth import (
 )
 from app.database import get_db
 from app.models import DayZMap, MapPoi, Room, Setting, User
+from app.poi_icons import POI_ICONS, normalize_poi_icon
 from app.schemas import (
     AdminLoginRequest,
     AdminPasswordRequest,
@@ -233,6 +234,11 @@ async def admin_delete_map(
     return {"ok": True}
 
 
+@router.get("/poi-icons")
+async def admin_poi_icons(_: Annotated[None, Depends(require_admin)]):
+    return POI_ICONS
+
+
 @router.get("/pois")
 async def admin_list_pois(
     map_slug: str,
@@ -248,6 +254,7 @@ async def admin_list_pois(
             "map_slug": game_map.slug,
             "title": p.title,
             "description": p.description,
+            "icon": p.icon or "star",
             "x": p.x,
             "y": p.y,
         }
@@ -266,6 +273,7 @@ async def admin_create_poi(
         map_id=game_map.id,
         title=payload.title.strip(),
         description=payload.description.strip(),
+        icon=normalize_poi_icon(payload.icon),
         x=payload.x,
         y=payload.y,
     )
@@ -286,6 +294,8 @@ async def admin_update_poi(
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
     for field, value in payload.model_dump(exclude_unset=True).items():
+        if field == "icon":
+            value = normalize_poi_icon(value)
         setattr(poi, field, value)
     await db.commit()
     return {"ok": True}

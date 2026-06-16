@@ -259,6 +259,46 @@ button.secondary:hover { background: #3a4858; }
 .dot.marker { background: var(--marker); }
 .dot.poi { background: #3498db; }
 
+.poi-map-pin {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.poi-pin {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.poi-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  font-size: 11px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.55);
+  line-height: 1;
+}
+
+.poi-title {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  font-style: italic;
+  font-weight: 600;
+  color: #fff;
+  text-shadow:
+    1px 0 0 #000, -1px 0 0 #000, 0 1px 0 #000, 0 -1px 0 #000,
+    1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000;
+}
+
 .poi-marker {
   width: 22px;
   height: 22px;

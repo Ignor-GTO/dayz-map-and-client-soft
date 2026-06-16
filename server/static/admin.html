@@ -42,9 +42,10 @@
         <h2>Карты DayZ</h2>
         <div id="maps-list" class="card-list"></div>
         <form id="map-form" class="admin-form">
-          <h3>Добавить карту</h3>
-          <div class="form-grid">
-            <label>Slug <input name="slug" required placeholder="chernarus"></label>
+          <h3 id="map-form-title">Добавить карту</h3>
+          <input type="hidden" id="map-edit-id" value="">
+          <div class="form-grid" id="map-slug-row">
+            <label>Slug <input name="slug" id="map-slug" required placeholder="chernarus"></label>
             <label>Название <input name="name" required placeholder="Чернarus"></label>
             <label>Размер <input name="map_size" type="number" value="15360"></label>
             <label>Max zoom <input name="max_native_zoom" type="number" value="7"></label>
@@ -63,7 +64,10 @@
             </select>
           </label>
           <label class="checkbox"><input name="enabled" type="checkbox" checked> Включена</label>
-          <button type="submit">Добавить карту</button>
+          <div class="form-actions">
+            <button type="submit" id="map-form-submit">Добавить карту</button>
+            <button type="button" class="secondary hidden" id="map-form-cancel">Отмена</button>
+          </div>
         </form>
       </div>
 
@@ -75,14 +79,22 @@
         </label>
         <div id="pois-list" class="card-list"></div>
         <form id="poi-form" class="admin-form">
-          <h3>Добавить метку</h3>
+          <h3 id="poi-form-title">Добавить метку</h3>
+          <input type="hidden" id="poi-edit-id" value="">
           <div class="form-grid">
             <label>Название <input name="title" required></label>
             <label>X <input name="x" type="number" step="any" required></label>
             <label>Y <input name="y" type="number" step="any" required></label>
           </div>
+          <label>Иконка
+            <input type="hidden" name="icon" id="poi-icon" value="star">
+            <div id="poi-icon-picker" class="icon-picker"></div>
+          </label>
           <label>Описание <textarea name="description" rows="3"></textarea></label>
-          <button type="submit">Добавить метку</button>
+          <div class="form-actions">
+            <button type="submit" id="poi-form-submit">Добавить метку</button>
+            <button type="button" class="secondary hidden" id="poi-form-cancel">Отмена</button>
+          </div>
         </form>
       </div>
 
@@ -124,6 +136,7 @@
       </div>
     </section>
   </div>
+  <script src="/js/poi-icons.js"></script>
   <script src="/js/admin.js"></script>
 </body>
 </html>
