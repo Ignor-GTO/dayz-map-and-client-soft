@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 import threading
 import time
 from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 if sys.platform == "win32":
     import ctypes
@@ -32,6 +35,11 @@ if sys.platform == "win32":
     _LRESULT = ctypes.c_long
     _HOOKPROC = ctypes.CFUNCTYPE(_LRESULT, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
 
+    def _hook_module_handle() -> int:
+        if getattr(sys, "frozen", False):
+            return kernel32.GetModuleHandleW(None)
+        return 0
+
     class DoubleClickListener:
         """Low-level mouse hook: fires callback on left double-click."""
 
@@ -43,26 +51,37 @@ if sys.platform == "win32":
             self._stop = threading.Event()
             self._last_down = 0.0
             self._last_pos = (0, 0)
+            self._ready = threading.Event()
+            self._hook_ok = False
 
-        def start(self, callback: Callable[[], None]) -> None:
-            if self._thread and self._thread.is_alive():
-                self._callback = callback
-                return
+        @property
+        def active(self) -> bool:
+            return bool(self._thread and self._thread.is_alive() and self._hook_ok)
+
+        def start(self, callback: Callable[[], None]) -> bool:
             self._callback = callback
+            if self._thread and self._thread.is_alive():
+                return self._hook_ok
             self._stop.clear()
+            self._ready.clear()
+            self._hook_ok = False
             self._thread = threading.Thread(target=self._run, name="dblclick-hook", daemon=True)
             self._thread.start()
+            self._ready.wait(timeout=2.0)
+            return self._hook_ok
 
         def stop(self) -> None:
             self._stop.set()
-            if self._hook:
-                user32.UnhookWindowsHookEx(self._hook)
-                self._hook = None
+            if self._thread and self._thread.is_alive():
+                self._thread.join(timeout=1.5)
+            self._thread = None
+            self._hook = None
+            self._hook_ok = False
 
         def _on_lbutton_down(self, x: int, y: int) -> None:
             now = time.monotonic()
             lx, ly = self._last_pos
-            if now - self._last_down < 0.45 and abs(x - lx) < 12 and abs(y - ly) < 12:
+            if now - self._last_down < 0.55 and abs(x - lx) < 24 and abs(y - ly) < 24:
                 self._last_down = 0.0
                 cb = self._callback
                 if cb:
@@ -74,9 +93,11 @@ if sys.platform == "win32":
         def _run(self) -> None:
             listener = self
 
-            @_HOOKPROC
+            @listener._HOOKPROC
             def hook_proc(n_code: int, w_param: int, l_param: int) -> int:
-                if n_code >= 0 and w_param == WM_LBUTTONDOWN and not listener._stop.is_set():
+                if listener._stop.is_set():
+                    return 0
+                if n_code >= 0 and w_param == WM_LBUTTONDOWN:
                     info = ctypes.cast(l_param, ctypes.POINTER(_MSLLHOOKSTRUCT)).contents
                     listener._on_lbutton_down(int(info.pt.x), int(info.pt.y))
                 hook = listener._hook or 0
@@ -86,28 +107,40 @@ if sys.platform == "win32":
             self._hook = user32.SetWindowsHookExW(
                 WH_MOUSE_LL,
                 self._proc,
-                kernel32.GetModuleHandleW(None),
+                _hook_module_handle(),
                 0,
             )
             if not self._hook:
+                err = ctypes.get_last_error()
+                logger.warning("SetWindowsHookEx failed: %s", err)
+                self._ready.set()
                 return
+
+            self._hook_ok = True
+            self._ready.set()
 
             msg = wintypes.MSG()
             while not self._stop.is_set():
-                while user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 1):
-                    user32.TranslateMessage(ctypes.byref(msg))
-                    user32.DispatchMessageW(ctypes.byref(msg))
-                time.sleep(0.02)
+                result = user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+                if result <= 0 or self._stop.is_set():
+                    break
+                user32.TranslateMessage(ctypes.byref(msg))
+                user32.DispatchMessageW(ctypes.byref(msg))
 
             if self._hook:
                 user32.UnhookWindowsHookEx(self._hook)
                 self._hook = None
+            self._hook_ok = False
 
 else:
 
     class DoubleClickListener:
-        def start(self, callback: Callable[[], None]) -> None:
-            return None
+        def start(self, callback: Callable[[], None]) -> bool:
+            return False
 
         def stop(self) -> None:
             return None
+
+        @property
+        def active(self) -> bool:
+            return False

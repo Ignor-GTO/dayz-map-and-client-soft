@@ -141,3 +141,69 @@ def grab_clipboard_image() -> Image.Image | None:
         pass
 
     return None
+
+
+def grab_clipboard_text() -> str | None:
+    import sys
+
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    CF_UNICODETEXT = 13
+    if not user32.OpenClipboard(0):
+        return None
+    try:
+        if not user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
+            return None
+        handle = user32.GetClipboardData(CF_UNICODETEXT)
+        if not handle:
+            return None
+        ptr = kernel32.GlobalLock(handle)
+        if not ptr:
+            return None
+        try:
+            return ctypes.wstring_at(ptr).strip()
+        finally:
+            kernel32.GlobalUnlock(handle)
+    finally:
+        user32.CloseClipboard()
+
+
+def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int, int]):
+    """Crop OCR strip from large snips; upscale tiny coord strips."""
+    from capture import resolve_monitor
+    from PIL import Image, ImageOps
+
+    w, h = img.size
+    if w <= 0 or h <= 0:
+        return img
+
+    if w <= 520 and h <= 120:
+        scale = max(2, min(4, 180 // max(h, 1)))
+        if scale > 1:
+            img = img.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
+        return ImageOps.autocontrast(img.convert("RGB"), cutoff=1)
+
+    mon = resolve_monitor(monitor_index)
+    if not mon:
+        return img
+
+    left, top, right, bottom = ocr_region
+    rw = max(1, right - left)
+    rh = max(1, bottom - top)
+    sx = max(0, int(left - mon.left)) if left >= mon.left else left
+    sy = max(0, int(top - mon.top)) if top >= mon.top else max(0, h - rh - 8)
+    ex = min(w, sx + rw)
+    ey = min(h, sy + rh)
+    if ex - sx < 40 or ey - sy < 12:
+        sx, sy = 0, max(0, h - rh - 4)
+        ex, ey = min(w, rw + 40), h
+    crop = img.crop((sx, sy, ex, ey))
+    cw, ch = crop.size
+    scale = max(2, min(5, 180 // max(ch, 1)))
+    if scale > 1:
+        crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
+    return ImageOps.autocontrast(crop.convert("RGB"), cutoff=1)
