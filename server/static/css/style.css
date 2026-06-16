@@ -110,6 +110,40 @@ button.secondary:hover { background: #3a4858; }
 }
 
 #legend h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+#legend h3 + h3 { margin-top: 0.75rem; }
+
+.layer-switch {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.layer-btn {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  background: #2a3848;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.layer-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.leaflet-control-attribution {
+  font-size: 0.7rem;
+  background: rgba(26, 35, 50, 0.85) !important;
+  color: var(--muted) !important;
+}
+
+.leaflet-control-attribution a {
+  color: var(--accent) !important;
+}
+
 #legend ul { list-style: none; padding: 0; margin: 0 0 0.75rem; }
 #legend li { margin-bottom: 0.35rem; }
 

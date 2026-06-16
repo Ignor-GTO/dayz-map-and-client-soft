@@ -19,10 +19,14 @@ $SecretKey = if ($env:SECRET_KEY) { $env:SECRET_KEY } else { [Convert]::ToBase64
 $EnvBlock = @"
 SECRET_KEY=$SecretKey
 SERVER_PUBLIC_URL=https://dayz-map.gto-team.uz
+MAP_SIZE=20480
 MAP_MIN_X=0
-MAP_MAX_X=15360
+MAP_MAX_X=20480
 MAP_MIN_Y=0
-MAP_MAX_Y=15360
+MAP_MAX_Y=20480
+MAP_MAX_NATIVE_ZOOM=7
+MAP_TILES_SATELLITE=https://static.xam.nu/dayz/maps/pripyat/19.08/satellite/{z}/{x}/{y}.jpg
+MAP_TILES_TOPOGRAPHIC=https://static.xam.nu/dayz/maps/pripyat/19.08/topographic/{z}/{x}/{y}.jpg
 CLIENT_DOWNLOAD_URL=https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe
 "@
 

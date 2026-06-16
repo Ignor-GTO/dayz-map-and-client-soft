@@ -9,12 +9,25 @@ DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR / 'dayz
 SECRET_KEY = os.getenv("SECRET_KEY", "change-me-in-production")
 SESSION_COOKIE = "dayz_map_session"
 
-# Pripyat world bounds for coordinate → map pixel mapping (tune if needed)
+MAP_SIZE = float(os.getenv("MAP_SIZE", "20480"))
+MAP_MAX_NATIVE_ZOOM = int(os.getenv("MAP_MAX_NATIVE_ZOOM", "7"))
+MAP_EXTRA_ZOOM = int(os.getenv("MAP_EXTRA_ZOOM", "3"))
+
+MAP_TILES_SATELLITE = os.getenv(
+    "MAP_TILES_SATELLITE",
+    "https://static.xam.nu/dayz/maps/pripyat/19.08/satellite/{z}/{x}/{y}.jpg",
+)
+MAP_TILES_TOPOGRAPHIC = os.getenv(
+    "MAP_TILES_TOPOGRAPHIC",
+    "https://static.xam.nu/dayz/maps/pripyat/19.08/topographic/{z}/{x}/{y}.jpg",
+)
+MAP_ATTRIBUTION = os.getenv("MAP_ATTRIBUTION", "Tiles © Xam.nu")
+
 MAP_BOUNDS = {
     "min_x": float(os.getenv("MAP_MIN_X", "0")),
-    "max_x": float(os.getenv("MAP_MAX_X", "15360")),
+    "max_x": float(os.getenv("MAP_MAX_X", str(int(MAP_SIZE)))),
     "min_y": float(os.getenv("MAP_MIN_Y", "0")),
-    "max_y": float(os.getenv("MAP_MAX_Y", "15360")),
+    "max_y": float(os.getenv("MAP_MAX_Y", str(int(MAP_SIZE)))),
 }
 
 SERVER_PUBLIC_URL = os.getenv("SERVER_PUBLIC_URL", "https://dayz-map.gto-team.uz")

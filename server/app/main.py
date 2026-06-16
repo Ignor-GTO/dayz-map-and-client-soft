@@ -6,7 +6,17 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.auth import get_current_user_from_ws
-from app.config import CLIENT_DOWNLOAD_URL, MAP_BOUNDS, SERVER_PUBLIC_URL
+from app.config import (
+    CLIENT_DOWNLOAD_URL,
+    MAP_ATTRIBUTION,
+    MAP_BOUNDS,
+    MAP_EXTRA_ZOOM,
+    MAP_MAX_NATIVE_ZOOM,
+    MAP_SIZE,
+    MAP_TILES_SATELLITE,
+    MAP_TILES_TOPOGRAPHIC,
+    SERVER_PUBLIC_URL,
+)
 from app.database import SessionLocal, init_db
 from app.routes import router
 from app.websocket import manager
@@ -33,7 +43,12 @@ async def health():
 async def map_config():
     return {
         "bounds": MAP_BOUNDS,
-        "map_image": "/assets/pripyat.png",
+        "map_size": MAP_SIZE,
+        "max_native_zoom": MAP_MAX_NATIVE_ZOOM,
+        "extra_zoom": MAP_EXTRA_ZOOM,
+        "tiles_satellite": MAP_TILES_SATELLITE,
+        "tiles_topographic": MAP_TILES_TOPOGRAPHIC,
+        "attribution": MAP_ATTRIBUTION,
         "server_url": SERVER_PUBLIC_URL,
         "client_download_url": CLIENT_DOWNLOAD_URL,
     }

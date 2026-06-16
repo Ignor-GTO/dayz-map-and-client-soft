@@ -1,6 +1,7 @@
 const state = {
   map: null,
-  bounds: null,
+  tileLayer: null,
+  layerType: "satellite",
   config: null,
   me: null,
   clientKey: null,
@@ -8,6 +9,9 @@ const state = {
   pinMarkers: new Map(),
   ws: null,
 };
+
+const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
+const MAP_MAX_BOUNDS = L.latLngBounds(L.latLng(100, -100), L.latLng(-356, 356));
 
 const PLAYER_COLORS = [
   "#ff4757", "#2ed573", "#1e90ff", "#ffa502", "#a55eea",
@@ -57,28 +61,68 @@ function showKeyModal(key) {
   document.getElementById("key-modal").classList.remove("hidden");
 }
 
+function mapSize(config) {
+  return config.map_size || config.bounds.max_x || 20480;
+}
+
+function gameToLatLng(x, y, config = state.config) {
+  const size = mapSize(config);
+  const ratio = size / 256;
+  return L.latLng(y / ratio - 256, x / ratio);
+}
+
+function setTileLayer(type) {
+  if (!state.map || !state.config) return;
+  state.layerType = type;
+  const url = type === "topographic"
+    ? state.config.tiles_topographic
+    : state.config.tiles_satellite;
+  const maxNative = state.config.max_native_zoom || 7;
+  const maxZoom = maxNative + (state.config.extra_zoom || 3);
+
+  if (state.tileLayer) state.map.removeLayer(state.tileLayer);
+
+  state.tileLayer = L.tileLayer(url, {
+    tileSize: 256,
+    noWrap: true,
+    minZoom: 0,
+    maxNativeZoom: maxNative,
+    maxZoom,
+    bounds: TILE_BOUNDS,
+    attribution: state.config.attribution || "Tiles © Xam.nu",
+  }).addTo(state.map);
+
+  document.getElementById("btn-layer-sat")?.classList.toggle("active", type === "satellite");
+  document.getElementById("btn-layer-topo")?.classList.toggle("active", type === "topographic");
+}
+
 function initLeaflet(config) {
-  const b = config.bounds;
-  const southWest = L.latLng(b.min_y, b.min_x);
-  const northEast = L.latLng(b.max_y, b.max_x);
-  state.bounds = L.latLngBounds(southWest, northEast);
+  const maxNative = config.max_native_zoom || 7;
+  const maxZoom = maxNative + (config.extra_zoom || 3);
 
   state.map = L.map("map", {
     crs: L.CRS.Simple,
-    minZoom: -2,
-    maxZoom: 4,
+    minZoom: 0,
+    maxZoom,
+    maxBounds: MAP_MAX_BOUNDS,
+    maxBoundsViscosity: 0.8,
+    zoomControl: true,
+    attributionControl: true,
   });
 
-  L.imageOverlay(config.map_image, state.bounds).addTo(state.map);
-  state.map.fitBounds(state.bounds);
+  setTileLayer("satellite");
+  state.map.fitBounds(TILE_BOUNDS);
+
+  const center = gameToLatLng(mapSize(config) / 2, mapSize(config) / 2, config);
+  state.map.setView(center, 3);
 }
 
-function gameToLatLng(x, y) {
-  return L.latLng(y, x);
+function gameToLatLngMarker(x, y) {
+  return gameToLatLng(x, y);
 }
 
 function upsertLive(pos) {
-  const latlng = gameToLatLng(pos.x, pos.y);
+  const latlng = gameToLatLngMarker(pos.x, pos.y);
   const color = colorForUser(pos.user_id);
   let marker = state.liveMarkers.get(pos.user_id);
 
@@ -102,7 +146,7 @@ function upsertLive(pos) {
 }
 
 function upsertPin(m) {
-  const latlng = gameToLatLng(m.x, m.y);
+  const latlng = gameToLatLngMarker(m.x, m.y);
   const color = colorForUser(m.user_id);
   let marker = state.pinMarkers.get(m.id);
 
@@ -260,6 +304,9 @@ document.getElementById("copy-key-confirm").addEventListener("click", () => {
 document.getElementById("close-key-modal").addEventListener("click", () => {
   document.getElementById("key-modal").classList.add("hidden");
 });
+
+document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTileLayer("satellite"));
+document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
 function applyClientDownloadUrl(url) {
   document.querySelectorAll(".client-download").forEach((el) => {
