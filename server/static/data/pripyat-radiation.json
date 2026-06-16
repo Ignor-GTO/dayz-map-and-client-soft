@@ -1,6 +1,6 @@
 {
   "overlay": null,
-  "polygonsUrl": "/data/pripyat-radiation-polygons.json",
+  "zonesUrl": "/data/pripyat-radiation-zones.json",
   "zones": [],
   "legend": [
     {

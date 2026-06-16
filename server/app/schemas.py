@@ -120,6 +120,7 @@ class RadiationZone(BaseModel):
     radius: float
     color: str = "#ff9800"
     fillOpacity: float = 0.18
+    strokeOpacity: float = 0.9
     weight: int = 2
 
 

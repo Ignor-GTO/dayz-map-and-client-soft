@@ -52,8 +52,21 @@ def _normalize_payload(raw: dict, map_size: float) -> dict:
             },
         }
 
+    zones = _normalize_zones(raw.get("zones") or [])
+
+    legend = []
+    for item in raw.get("legend") or []:
+        if isinstance(item, dict) and item.get("label"):
+            legend.append({"color": str(item.get("color", "#ccc")), "label": str(item["label"])})
+
+    polygons = _normalize_polygons(raw.get("polygons") or [])
+
+    return {"overlay": overlay, "polygons": polygons, "zones": zones, "legend": legend}
+
+
+def _normalize_zones(items: list) -> list[dict]:
     zones = []
-    for z in raw.get("zones") or []:
+    for z in items:
         if not isinstance(z, dict):
             continue
         zones.append(
@@ -65,18 +78,32 @@ def _normalize_payload(raw: dict, map_size: float) -> dict:
                 "radius": float(z["radius"]),
                 "color": str(z.get("color", "#ff9800")),
                 "fillOpacity": float(z.get("fillOpacity", 0.18)),
+                "strokeOpacity": float(z.get("strokeOpacity", 0.9)),
                 "weight": int(z.get("weight", 2)),
             }
         )
+    return zones
 
-    legend = []
-    for item in raw.get("legend") or []:
-        if isinstance(item, dict) and item.get("label"):
-            legend.append({"color": str(item.get("color", "#ccc")), "label": str(item["label"])})
 
-    polygons = _normalize_polygons(raw.get("polygons") or [])
-
-    return {"overlay": overlay, "polygons": polygons, "zones": zones, "legend": legend}
+async def _load_zones(raw: dict) -> list[dict]:
+    if raw.get("zones"):
+        return _normalize_zones(raw["zones"])
+    url = raw.get("zonesUrl") or raw.get("zones_url")
+    if not url:
+        return []
+    try:
+        if isinstance(url, str) and url.startswith("/"):
+            local = STATIC_DIR / url.lstrip("/")
+            if local.is_file():
+                data = json.loads(local.read_text(encoding="utf-8"))
+                return _normalize_zones(data.get("zones") or [])
+        data = await _fetch_json(url)
+        if isinstance(data, dict):
+            return _normalize_zones(data.get("zones") or [])
+        return _normalize_zones(data if isinstance(data, list) else [])
+    except Exception as exc:
+        logger.warning("radiation zones load failed: %s", exc)
+        return []
 
 
 def _normalize_polygons(items: list) -> list[dict]:
@@ -163,9 +190,11 @@ async def get_map_radiation(db: AsyncSession, game_map: DayZMap) -> dict:
 
     try:
         raw = await _fetch_json(url)
-        polygons = await _load_polygons(raw)
+        zones = await _load_zones(raw)
+        polygons = await _load_polygons(raw) if not zones else []
         data = _normalize_payload(raw, game_map.map_size)
-        data["polygons"] = polygons or data.get("polygons") or []
+        data["zones"] = zones or data.get("zones") or []
+        data["polygons"] = polygons if not data["zones"] else []
         _cache[cache_key] = data
         return data
     except Exception as exc:

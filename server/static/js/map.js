@@ -387,7 +387,7 @@ function renderRadiationLayer(data) {
 
   const overlay = data?.overlay;
   // Полноэкранный JPG поверх тайлов даёт «двоение» и перекрывает подписи — только по явному флагу.
-  if (overlay?.url && overlay?.enabled && !(data?.polygons?.length)) {
+  if (overlay?.url && overlay?.enabled && !(data?.zones?.length) && !(data?.polygons?.length)) {
     const bounds = gameBoundsToLatLng(overlay.bounds || {});
     state.radiationOverlay = L.imageOverlay(overlay.url, bounds, {
       opacity: Math.min(overlay.opacity ?? 0.55, 0.85),
@@ -398,6 +398,7 @@ function renderRadiationLayer(data) {
   }
 
   (data?.polygons || []).forEach((poly) => {
+    if ((data?.zones || []).length) return;
     const rings = (poly.rings || [])
       .map((ring) => ring.map(([x, y]) => gameToLatLng(x, y)))
       .filter((ring) => ring.length >= 3);
@@ -423,8 +424,9 @@ function renderRadiationLayer(data) {
       radius: gameRadiusToLeaflet(zone.radius),
       color: zone.color || "#ff9800",
       weight: zone.weight ?? 2,
+      opacity: zone.strokeOpacity ?? 0.9,
       fillColor: zone.color || "#ff9800",
-      fillOpacity: zone.fillOpacity ?? 0.15,
+      fillOpacity: zone.fillOpacity ?? 0.35,
       interactive: false,
       pane: "radiationPane",
     });
