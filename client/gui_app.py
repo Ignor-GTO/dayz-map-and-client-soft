@@ -20,7 +20,7 @@ class ClientApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title(f"DayZ Map Client v{__version__} — GTO Team")
-        self.geometry("560x680")
+        self.geometry("620x680")
         self.resizable(False, False)
 
         self.cfg = load_config()
@@ -33,6 +33,7 @@ class ClientApp(tk.Tk):
         self._build_ui()
         self._load_fields()
         self.log_line(f"[Клиент] v{__version__}")
+        self.after(400, self._startup_ocr_check)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _build_ui(self) -> None:
@@ -75,6 +76,9 @@ class ClientApp(tk.Tk):
         self.start_btn.pack(side="left", padx=5)
         ttk.Button(btn_frm, text="Тест OCR (M)", command=self.test_ocr).pack(side="left", padx=5)
         ttk.Button(btn_frm, text="Проверка OCR", command=self.check_ocr).pack(side="left", padx=5)
+        ttk.Button(btn_frm, text="Установить Windows OCR", command=self.install_windows_ocr).pack(
+            side="left", padx=5
+        )
 
         ttk.Label(frm, text="M — live позиция · Win+Shift+S — метка со скриншота").grid(
             row=5, column=0, columnspan=2, **pad
@@ -172,25 +176,65 @@ class ClientApp(tk.Tk):
         if not (self._region_editor and self._region_editor.active):
             self.toggle_ocr_region()
 
+    def _startup_ocr_check(self) -> None:
+        from ocr_engine import ensure_ocr_backend, uses_windows_ocr
+
+        backend = ensure_ocr_backend()
+        self.log_line(f"[OCR] Движок: {backend}")
+        if not uses_windows_ocr():
+            self.log_line(
+                "[OCR] Windows OCR не установлен — работает встроенный. "
+                "Кнопка «Установить Windows OCR» — для ускорения."
+            )
+
+    def install_windows_ocr(self) -> None:
+        from ocr_setup import format_setup_message, install_ocr_packs_admin, open_ocr_language_settings
+        from ocr_engine import get_diagnostics, uses_windows_ocr
+
+        if uses_windows_ocr():
+            messagebox.showinfo("Windows OCR", "Windows OCR уже установлен и используется.")
+            return
+
+        diag = get_diagnostics()
+        choice = messagebox.askyesnocancel(
+            "Установка Windows OCR",
+            format_setup_message(diag)
+            + "\n\n"
+            "Да — открыть Параметры Windows\n"
+            "Нет — установить автоматически (PowerShell, нужен админ)\n"
+            "Отмена",
+        )
+        if choice is True:
+            open_ocr_language_settings()
+        elif choice is False:
+            if install_ocr_packs_admin(diag):
+                self.log_line("[OCR] Запущена установка OCR (окно PowerShell с правами админа)")
+            else:
+                messagebox.showerror("OCR", "Не удалось запустить установку (отменено или нет прав).")
+
     def _show_ocr_error(self, exc: Exception) -> None:
         msg = str(exc)
         self.log_line(f"[OCR] {msg}")
-        if messagebox.askyesno("Windows OCR", msg + "\n\nОткрыть параметры языка?"):
-            from ocr_engine import open_ocr_language_settings
-
-            open_ocr_language_settings()
+        messagebox.showerror("OCR", msg)
 
     def check_ocr(self) -> None:
-        from ocr_engine import get_ocr_engine, list_ocr_languages
+        from ocr_engine import ensure_ocr_backend, list_ocr_languages, uses_windows_ocr
 
         try:
-            engine = get_ocr_engine()
-            lang = engine.recognizer_language.language_tag
+            backend = ensure_ocr_backend()
             langs = list_ocr_languages()
-            self.log_line(f"[OCR OK] Язык: {lang}")
+            self.log_line(f"[OCR OK] Движок: {backend}")
             if langs:
-                self.log_line(f"[OCR OK] Доступно: {', '.join(langs)}")
-            messagebox.showinfo("Windows OCR", f"OCR работает.\nЯзык: {lang}")
+                self.log_line(f"[OCR OK] Windows OCR языки: {', '.join(langs)}")
+            if uses_windows_ocr():
+                messagebox.showinfo("OCR", f"OCR работает.\n{backend}")
+            else:
+                messagebox.showinfo(
+                    "OCR",
+                    f"OCR работает через встроенный движок.\n\n"
+                    f"{backend}\n\n"
+                    "Для ускорения можно установить Windows OCR — кнопка «Установить Windows OCR».",
+                )
         except Exception as exc:
             self._show_ocr_error(exc)
 
@@ -216,10 +260,11 @@ class ClientApp(tk.Tk):
         self.save_settings()
         if not self.map_client:
             return
-        from ocr_engine import get_ocr_engine
+        from ocr_engine import ensure_ocr_backend
 
         try:
-            get_ocr_engine()
+            backend = ensure_ocr_backend()
+            self.log_line(f"[OCR] {backend}")
         except Exception as exc:
             self._show_ocr_error(exc)
             return
@@ -229,7 +274,7 @@ class ClientApp(tk.Tk):
         keyboard.add_hotkey("m", lambda: self.on_m_pressed())
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
-        self.log_line("[Запуск] Hotkeys активны (Windows OCR, без Tesseract)")
+        self.log_line("[Запуск] Hotkeys активны")
 
     def stop_hotkeys(self) -> None:
         self.hotkeys_active = False

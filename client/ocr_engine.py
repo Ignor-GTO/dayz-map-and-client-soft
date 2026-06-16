@@ -10,11 +10,16 @@ except ImportError:
 
 from PIL import Image
 
+from ocr_fallback import preprocess_coordinate_region, recognize_text as recognize_text_fallback
+from ocr_setup import diagnose, format_setup_message, list_ocr_languages, open_ocr_language_settings
+
 _ocr_loop: asyncio.AbstractEventLoop | None = None
 _ocr_thread: threading.Thread | None = None
 _ocr_lock = threading.Lock()
-_engine = None
+_windows_engine = None
 _engine_lock = threading.Lock()
+_backend_name: str | None = None
+_use_windows = False
 
 _FALLBACK_LANGS = (
     "ru-RU",
@@ -29,22 +34,7 @@ _FALLBACK_LANGS = (
 
 
 def ocr_setup_message(installed: list[str] | None = None) -> str:
-    langs = ", ".join(installed) if installed else "нет"
-    return (
-        "Windows OCR недоступен — не установлен языковой пакет распознавания.\n\n"
-        "1. Параметры → Время и язык → Язык и регион\n"
-        "2. Нажмите «Русский» → «Языковые параметры»\n"
-        "3. Скачайте «Оптическое распознавание символов» (OCR)\n\n"
-        "Для английского: English → Language options → Optical character recognition.\n"
-        "После загрузки перезапустите клиент и нажмите «Проверка OCR».\n\n"
-        f"Установленные OCR-языки: {langs}"
-    )
-
-
-def open_ocr_language_settings() -> None:
-    import os
-
-    os.startfile("ms-settings:regionlanguage")
+    return format_setup_message()
 
 
 def _ensure_ocr_loop() -> asyncio.AbstractEventLoop:
@@ -68,23 +58,13 @@ def _ensure_ocr_loop() -> asyncio.AbstractEventLoop:
     return _ocr_loop
 
 
-def list_ocr_languages() -> list[str]:
-    try:
-        from winrt.windows.media.ocr import OcrEngine
-
-        langs = _iter_recognizer_languages(OcrEngine)
-        return [lang.language_tag for lang in langs]
-    except Exception:
-        return []
-
-
 def _iter_recognizer_languages(OcrEngine):
     if hasattr(OcrEngine, "get_available_recognizer_languages"):
         return list(OcrEngine.get_available_recognizer_languages())
     return list(OcrEngine.available_recognizer_languages)
 
 
-def _create_ocr_engine():
+def _create_windows_ocr_engine():
     from winrt.windows.globalization import Language
     from winrt.windows.media.ocr import OcrEngine
 
@@ -110,28 +90,51 @@ def _create_ocr_engine():
         except Exception:
             continue
 
-    installed = list_ocr_languages()
-    raise RuntimeError(ocr_setup_message(installed))
+    raise RuntimeError(ocr_setup_message(list_ocr_languages()))
+
+
+def ensure_ocr_backend() -> str:
+    """Initialize OCR backend. Windows OCR if available, else bundled fallback."""
+    global _windows_engine, _backend_name, _use_windows
+    with _engine_lock:
+        if _backend_name is not None:
+            return _backend_name
+
+        try:
+            _windows_engine = _create_windows_ocr_engine()
+            tag = _windows_engine.recognizer_language.language_tag
+            _backend_name = f"Windows OCR ({tag})"
+            _use_windows = True
+        except Exception:
+            _windows_engine = None
+            _backend_name = "встроенный OCR"
+            _use_windows = False
+        return _backend_name
+
+
+def get_backend_name() -> str:
+    return ensure_ocr_backend()
+
+
+def uses_windows_ocr() -> bool:
+    ensure_ocr_backend()
+    return _use_windows
 
 
 def get_ocr_engine():
-    global _engine
-    with _engine_lock:
-        if _engine is None:
-            _engine = _create_ocr_engine()
-        return _engine
+    ensure_ocr_backend()
+    if not _use_windows or _windows_engine is None:
+        raise RuntimeError(ocr_setup_message(list_ocr_languages()))
+    return _windows_engine
 
 
-def recognize_text(image: Image.Image) -> str:
-    try:
-        loop = _ensure_ocr_loop()
-        future = asyncio.run_coroutine_threadsafe(_recognize_async(image), loop)
-        return future.result(timeout=30)
-    except Exception as exc:
-        raise RuntimeError(f"Windows OCR error: {exc}") from exc
+def get_diagnostics():
+    diag = diagnose()
+    diag.can_use_windows_ocr = uses_windows_ocr()
+    return diag
 
 
-async def _recognize_async(image: Image.Image) -> str:
+async def _recognize_windows_async(image: Image.Image) -> str:
     from winrt.windows.graphics.imaging import BitmapDecoder
     from winrt.windows.storage.streams import DataWriter, InMemoryRandomAccessStream
 
@@ -152,3 +155,21 @@ async def _recognize_async(image: Image.Image) -> str:
     engine = get_ocr_engine()
     result = await engine.recognize_async(bitmap)
     return "\n".join(line.text for line in result.lines)
+
+
+def recognize_text(image: Image.Image) -> str:
+    prepared = preprocess_coordinate_region(image)
+    backend = ensure_ocr_backend()
+
+    if _use_windows:
+        try:
+            loop = _ensure_ocr_loop()
+            future = asyncio.run_coroutine_threadsafe(_recognize_windows_async(prepared), loop)
+            return future.result(timeout=30)
+        except Exception as exc:
+            raise RuntimeError(f"{backend} error: {exc}") from exc
+
+    try:
+        return recognize_text_fallback(prepared)
+    except Exception as exc:
+        raise RuntimeError(f"{backend} error: {exc}") from exc

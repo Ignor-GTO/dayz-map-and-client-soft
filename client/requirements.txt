@@ -10,3 +10,6 @@ winrt-Windows.Storage.Streams==2.3.0
 winrt-Windows.Globalization==2.3.0
 winrt-Windows.Foundation==2.3.0
 winrt-Windows.Foundation.Collections==2.3.0
+numpy==2.2.1
+onnxruntime==1.20.1
+rapidocr==3.4.0
