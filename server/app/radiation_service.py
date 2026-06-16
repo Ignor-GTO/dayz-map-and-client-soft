@@ -28,13 +28,20 @@ def _static_json_path(url: str) -> Path | None:
     return None
 
 
+def _public_static_url(url: str) -> str:
+    """Browser paths: StaticFiles root is /static dir, so /data/... not /static/data/..."""
+    if url.startswith("/static/"):
+        return url.removeprefix("/static")
+    return url
+
+
 def _normalize_payload(raw: dict, map_size: float) -> dict:
     overlay_raw = raw.get("overlay")
     overlay = None
     if overlay_raw and isinstance(overlay_raw, dict):
         bounds = overlay_raw.get("bounds") or {}
         overlay = {
-            "url": str(overlay_raw.get("url", "")),
+            "url": _public_static_url(str(overlay_raw.get("url", ""))),
             "enabled": bool(overlay_raw.get("enabled", False)),
             "opacity": float(overlay_raw.get("opacity", 0.3)),
             "bounds": {

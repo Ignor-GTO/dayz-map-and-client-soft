@@ -1,6 +1,6 @@
 {
   "overlay": {
-    "url": "/static/data/pripyat-radiation-mask.webp",
+    "url": "/data/pripyat-radiation-mask.webp",
     "enabled": true,
     "opacity": 0.72,
     "bounds": {
