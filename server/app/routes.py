@@ -56,6 +56,14 @@ async def map_locations(slug: str, db: Annotated[AsyncSession, Depends(get_db)])
     return MapLocationsResponse(**data)
 
 
+@router.get("/map/locations", response_model=MapLocationsResponse)
+async def legacy_map_locations(db: Annotated[AsyncSession, Depends(get_db)]):
+    """Backward-compatible locations endpoint for older deployments."""
+    game_map = await get_map_by_slug(db, DEFAULT_MAP_SLUG)
+    data = await get_map_locations(db, game_map)
+    return MapLocationsResponse(**data)
+
+
 @router.get("/map/config", response_model=MapConfigResponse)
 async def legacy_map_config(db: Annotated[AsyncSession, Depends(get_db)]):
     """Backward-compatible endpoint for cached old map.js."""

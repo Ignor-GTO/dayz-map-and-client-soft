@@ -388,13 +388,26 @@ function refreshDynamicLayers() {
 
 async function loadMapLocations() {
   if (!state.me) return;
-  try {
-    const data = await api(`/api/maps/${state.me.map_slug}/locations`);
-    renderFilterPanel(data.categories || []);
-    renderLocationLabels(data.locations || []);
-  } catch {
-    renderFilterPanel([]);
+  const slug = state.me.map_slug;
+  const urls = [`/api/maps/${slug}/locations`, "/api/map/locations"];
+  let data = null;
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { credentials: "same-origin" });
+      if (res.ok) {
+        data = await res.json();
+        break;
+      }
+    } catch {
+      /* try next */
+    }
   }
+  if (!data) {
+    renderFilterPanel([]);
+    return;
+  }
+  renderFilterPanel(data.categories || []);
+  renderLocationLabels(data.locations || []);
 }
 
 async function bootstrapMapView() {
