@@ -28,6 +28,25 @@ _FALLBACK_LANGS = (
 )
 
 
+def ocr_setup_message(installed: list[str] | None = None) -> str:
+    langs = ", ".join(installed) if installed else "нет"
+    return (
+        "Windows OCR недоступен — не установлен языковой пакет распознавания.\n\n"
+        "1. Параметры → Время и язык → Язык и регион\n"
+        "2. Нажмите «Русский» → «Языковые параметры»\n"
+        "3. Скачайте «Оптическое распознавание символов» (OCR)\n\n"
+        "Для английского: English → Language options → Optical character recognition.\n"
+        "После загрузки перезапустите клиент и нажмите «Проверка OCR».\n\n"
+        f"Установленные OCR-языки: {langs}"
+    )
+
+
+def open_ocr_language_settings() -> None:
+    import os
+
+    os.startfile("ms-settings:regionlanguage")
+
+
 def _ensure_ocr_loop() -> asyncio.AbstractEventLoop:
     global _ocr_loop, _ocr_thread
     with _ocr_lock:
@@ -91,13 +110,8 @@ def _create_ocr_engine():
         except Exception:
             continue
 
-    installed = ", ".join(list_ocr_languages()) or "нет"
-    raise RuntimeError(
-        "Windows OCR недоступен. Установите язык распознавания:\n"
-        "Параметры → Время и язык → Язык → Параметры → "
-        "«Оптическое распознавание символов» (OCR)\n"
-        f"Установленные OCR-языки: {installed}"
-    )
+    installed = list_ocr_languages()
+    raise RuntimeError(ocr_setup_message(installed))
 
 
 def get_ocr_engine():

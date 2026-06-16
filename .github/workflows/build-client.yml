@@ -33,7 +33,15 @@ jobs:
         with:
           tag: client-latest
           name: DayZ Map Client (Latest)
-          body: Windows OCR client with GUI. No Tesseract required.
+          body: |
+            Windows OCR client with GUI. No Tesseract required.
+
+            **Сборка:** `${{ github.sha }}`
+            **Коммит:** ${{ github.event.head_commit.message }}
+            **Время (UTC):** ${{ github.event.head_commit.timestamp }}
+
+            Скачивайте `DayZMapClient.exe` ниже — файл перезаписывается при каждой сборке.
+            Дата «N hours ago» у релиза — это создание страницы, смотрите время у файла exe.
           artifacts: client/dist/DayZMapClient.exe
           allowUpdates: true
           replacesArtifacts: true

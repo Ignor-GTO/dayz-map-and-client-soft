@@ -170,6 +170,14 @@ class ClientApp(tk.Tk):
         if not (self._region_editor and self._region_editor.active):
             self.toggle_ocr_region()
 
+    def _show_ocr_error(self, exc: Exception) -> None:
+        msg = str(exc)
+        self.log_line(f"[OCR] {msg}")
+        if messagebox.askyesno("Windows OCR", msg + "\n\nОткрыть параметры языка?"):
+            from ocr_engine import open_ocr_language_settings
+
+            open_ocr_language_settings()
+
     def check_ocr(self) -> None:
         from ocr_engine import get_ocr_engine, list_ocr_languages
 
@@ -180,9 +188,9 @@ class ClientApp(tk.Tk):
             self.log_line(f"[OCR OK] Язык: {lang}")
             if langs:
                 self.log_line(f"[OCR OK] Доступно: {', '.join(langs)}")
+            messagebox.showinfo("Windows OCR", f"OCR работает.\nЯзык: {lang}")
         except Exception as exc:
-            self.log_line(f"[OCR] {exc}")
-            messagebox.showerror("Windows OCR", str(exc))
+            self._show_ocr_error(exc)
 
     def test_ocr(self) -> None:
         self.save_settings()
@@ -211,8 +219,7 @@ class ClientApp(tk.Tk):
         try:
             get_ocr_engine()
         except Exception as exc:
-            messagebox.showerror("Windows OCR", str(exc))
-            self.log_line(f"[OCR] {exc}")
+            self._show_ocr_error(exc)
             return
         self.hotkeys_active = True
         self.status_var.set("Работает — hotkeys активны")
