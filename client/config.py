@@ -23,7 +23,7 @@ def load_config() -> dict:
         "monitor_index": 1,
         "ocr_region": [210, 915, 330, 945],
         "mouse_nudge_before_ocr": True,
-        "mouse_nudge_side": "right",
+        "mouse_nudge_side": "left",
         "mouse_nudge_delay_ms": 350,
         "mouse_nudge_restore": True,
     }

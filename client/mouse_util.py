@@ -1,4 +1,4 @@
-"""Move mouse to reveal iZurvive coordinates before OCR (Windows)."""
+"""Move mouse to iZurvive left panel so player coordinates are shown (not map hover)."""
 
 from __future__ import annotations
 
@@ -38,22 +38,25 @@ def nudge_mouse_for_coordinates(
     monitor_index: int,
     ocr_region: tuple[int, int, int, int],
     *,
-    side: NudgeSide = "right",
+    side: NudgeSide = "left",
 ) -> tuple[int, int] | None:
-    """Move cursor to the map area so iZurvive keeps coordinates visible."""
+    """Move cursor off the map onto the iZurvive sidebar (player X/Y, not map hover)."""
     from capture import resolve_monitor
 
     mon = resolve_monitor(monitor_index)
     if not mon:
         return None
 
-    _left, top, _right, bottom = ocr_region
-    margin = max(80, min(220, mon.width // 8))
-    if side == "right":
-        x = mon.left + mon.width - margin
+    if side == "left":
+        # Marker list panel on the left (~200–280 px on 1080p).
+        x = mon.left + max(100, min(220, mon.width // 8))
+        y = mon.top + int(mon.height * 0.42)
     else:
-        x = mon.left + margin
-    y = mon.top + max(0, (top + bottom) // 2)
+        _left, top, _right, bottom = ocr_region
+        margin = max(80, min(220, mon.width // 8))
+        x = mon.left + mon.width - margin
+        y = mon.top + max(0, (top + bottom) // 2)
+
     set_cursor_pos(x, y)
     return x, y
 
@@ -64,12 +67,12 @@ def with_mouse_nudge(
     action: Callable[[], None],
     *,
     enabled: bool = True,
-    side: NudgeSide = "right",
+    side: NudgeSide = "left",
     delay_ms: int = 350,
     restore: bool = True,
     on_nudged: Callable[[tuple[int, int]], None] | None = None,
 ) -> None:
-    """Run action after optionally moving the mouse away from the sidebar."""
+    """Run OCR after moving the mouse off the map."""
     if not enabled or sys.platform != "win32":
         action()
         return

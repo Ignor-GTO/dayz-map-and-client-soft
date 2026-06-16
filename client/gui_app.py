@@ -95,7 +95,7 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_var = tk.BooleanVar(value=self.cfg.get("mouse_nudge_before_ocr", True))
         ttk.Checkbutton(
             nudge_frm,
-            text="Перед M сдвигать мышь вправо (убрать с панели iZurvive)",
+            text="Перед M сдвигать мышь на левую панель (координаты игрока, не карты)",
             variable=self.mouse_nudge_var,
         ).pack(side="left")
 
@@ -140,7 +140,7 @@ class ClientApp(tk.Tk):
                 "monitor_index": monitor_index,
                 "ocr_region": [v.get() for v in self.region_vars],
                 "mouse_nudge_before_ocr": self.mouse_nudge_var.get(),
-                "mouse_nudge_side": self.cfg.get("mouse_nudge_side", "right"),
+                "mouse_nudge_side": "left",
                 "mouse_nudge_delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 350)),
                 "mouse_nudge_restore": self.cfg.get("mouse_nudge_restore", True),
             }
@@ -270,10 +270,10 @@ class ClientApp(tk.Tk):
     def _mouse_nudge_kwargs(self) -> dict:
         return {
             "enabled": self.mouse_nudge_var.get(),
-            "side": self.cfg.get("mouse_nudge_side", "right"),
+            "side": "left",
             "delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 350)),
             "restore": self.cfg.get("mouse_nudge_restore", True),
-            "on_nudged": lambda pos: self.log_line(f"[OCR] Мышь → {pos[0]}, {pos[1]}"),
+            "on_nudged": lambda pos: self.log_line(f"[OCR] Мышь → левая панель ({pos[0]}, {pos[1]})"),
         }
 
     def test_ocr(self) -> None:
