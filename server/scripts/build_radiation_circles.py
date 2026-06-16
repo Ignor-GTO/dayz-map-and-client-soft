@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import colorsys
 import json
+import math
 from pathlib import Path
 
 import cv2
@@ -24,82 +25,92 @@ TIERS = [
         "id": "green",
         "color": "#4caf50",
         "label": "Слабая радиация",
-        "fillOpacity": 0.35,
-        "strokeOpacity": 0.9,
+        "fillOpacity": 0.32,
+        "strokeOpacity": 0.88,
         "weight": 2,
-        "min_r_px": 10,
-        "max_r_px": 520,
-        "hough_p2": 24,
+        "scatter_min": 280,
+        "scatter_max": 750,
+        "min_circularity": 0.80,
     },
     {
         "id": "yellow",
         "color": "#cddc39",
         "label": "Средняя",
-        "fillOpacity": 0.38,
-        "strokeOpacity": 0.92,
+        "fillOpacity": 0.35,
+        "strokeOpacity": 0.9,
         "weight": 2,
-        "min_r_px": 8,
-        "max_r_px": 320,
-        "hough_p2": 25,
+        "scatter_min": 200,
+        "scatter_max": 680,
+        "min_circularity": 0.78,
     },
     {
         "id": "orange",
         "color": "#ff9800",
         "label": "Высокая",
-        "fillOpacity": 0.4,
-        "strokeOpacity": 0.95,
+        "fillOpacity": 0.38,
+        "strokeOpacity": 0.92,
         "weight": 2,
-        "min_r_px": 6,
-        "max_r_px": 240,
-        "hough_p2": 24,
+        "scatter_min": 180,
+        "scatter_max": 640,
+        "min_circularity": 0.78,
     },
     {
         "id": "red",
         "color": "#f44336",
         "label": "Смертельная",
-        "fillOpacity": 0.42,
-        "strokeOpacity": 1.0,
+        "fillOpacity": 0.4,
+        "strokeOpacity": 0.95,
         "weight": 2,
-        "min_r_px": 5,
-        "max_r_px": 160,
-        "hough_p2": 23,
+        "scatter_min": 160,
+        "scatter_max": 540,
+        "min_circularity": 0.80,
     },
 ]
 
-CNPP = {"x": 7310, "y": 15285}
-CNPP_EXCLUDE_RADIUS = 3200
+CNPP = {"x": 7310.0, "y": 15285.0}
+# Concentric rings at CNPP — calibrated from reference map radii.
 CNPP_RINGS = [
-    ("green", 5800),
-    ("yellow", 3800),
-    ("orange", 2200),
-    ("red", 950),
+    ("green", 4300.0),
+    ("yellow", 2850.0),
+    ("orange", 1650.0),
+    ("red", 1150.0),
 ]
 MAX_SIDE = 3072
-MIN_GAME_RADIUS = 250
-MAX_GAME_RADIUS = 5800
-MIN_RING_COVERAGE = 0.45
-CENTER_MERGE_DIST = 280
+CENTER_MERGE_DIST = 300
+CNPP_EXCLUDE_PAD = 500.0
 
 
-def radiation_tier(r: int, g: int, b: int) -> int | None:
-    h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
-    if v < 0.42 or s < 0.55:
-        return None
-    if h < 0.055 and r > 148 and r > g + 48:
-        return 3
-    if 0.055 <= h < 0.12 and r > 158 and g < 128:
-        return 2
-    if 0.12 <= h < 0.19 and r > 152 and g > 98 and b < 88:
-        return 1
-    if 0.19 <= h < 0.37 and g > 118 and g > r + 28 and b < 118:
-        return 0
-    return None
+def radiation_tier(rgb: np.ndarray) -> np.ndarray:
+    """Vectorized tier index per pixel (0..3) or -1."""
+    rgb_f = rgb.astype(np.float32) / 255.0
+    r, g, b = rgb_f[..., 0], rgb_f[..., 1], rgb_f[..., 2]
+    maxc = np.maximum(np.maximum(r, g), b)
+    minc = np.minimum(np.minimum(r, g), b)
+    v = maxc
+    s = np.divide(maxc - minc, maxc, out=np.zeros_like(maxc), where=maxc > 0)
+
+    h = np.zeros_like(r)
+    mask = maxc == minc
+    rc = np.where(mask, 0, (maxc - r) / (maxc - minc + 1e-6))
+    gc = np.where(mask, 0, (maxc - g) / (maxc - minc + 1e-6))
+    bc = np.where(mask, 0, (maxc - b) / (maxc - minc + 1e-6))
+    h = np.where((maxc == r) & ~mask, bc - gc, h)
+    h = np.where((maxc == g) & ~mask, 2.0 + rc - bc, h)
+    h = np.where((maxc == b) & ~mask, 4.0 + gc - rc, h)
+    h = (h / 6.0) % 1.0
+
+    out = np.full(r.shape, -1, dtype=np.int8)
+    base = (v >= 0.42) & (s >= 0.55)
+    ri, gi, bi = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    out = np.where(base & (h < 0.055) & (ri > 148) & (ri > gi + 48), 3, out)
+    out = np.where(base & (h >= 0.055) & (h < 0.12) & (ri > 158) & (gi < 128), 2, out)
+    out = np.where(base & (h >= 0.12) & (h < 0.19) & (ri > 152) & (gi > 98) & (bi < 88), 1, out)
+    out = np.where(base & (h >= 0.19) & (h < 0.37) & (gi > 118) & (gi > ri + 28) & (bi < 118), 0, out)
+    return out
 
 
 def px_to_game(px: float, py: float, w: float, h: float) -> tuple[float, float]:
-    gx = px / w * MAP_SIZE
-    gy = (1.0 - py / h) * MAP_SIZE
-    return gx, gy
+    return px / w * MAP_SIZE, (1.0 - py / h) * MAP_SIZE
 
 
 def px_radius_to_game(r: float, w: float, h: float) -> float:
@@ -114,64 +125,13 @@ def _circularity(contour: np.ndarray) -> float:
     return float(4.0 * np.pi * area / (perim * perim))
 
 
-def _dedupe_circles(circles: list[tuple[float, float, float]], dist_factor: float = 0.35) -> list[tuple[float, float, float]]:
-    circles.sort(key=lambda c: c[2], reverse=True)
-    kept: list[tuple[float, float, float]] = []
-    for cx, cy, r in circles:
-        dup = False
-        for kx, ky, kr in kept:
-            if abs(cx - kx) < dist_factor * min(r, kr) and abs(cy - ky) < dist_factor * min(r, kr):
-                if abs(r - kr) < max(r, kr) * 0.25:
-                    dup = True
-                    break
-        if not dup:
-            kept.append((cx, cy, r))
-    return kept
-
-
-def _ring_coverage(raw_mask: np.ndarray, cx: float, cy: float, r: float) -> float:
-    if r < 2:
-        return 0.0
-    hits = 0
-    total = 36
-    h, w = raw_mask.shape
-    for i in range(total):
-        ang = 2.0 * np.pi * i / total
-        x = int(round(cx + r * np.cos(ang)))
-        y = int(round(cy + r * np.sin(ang)))
-        if 0 <= x < w and 0 <= y < h and raw_mask[y, x] > 0:
-            hits += 1
-    return hits / total
-
-
-def _hough_circles(mask: np.ndarray, tier: dict) -> list[tuple[float, float, float]]:
-    blur = cv2.GaussianBlur(mask, (5, 5), 1.4)
-    found = cv2.HoughCircles(
-        blur,
-        cv2.HOUGH_GRADIENT,
-        dp=1.4,
-        minDist=max(30, tier["min_r_px"] * 2),
-        param1=100,
-        param2=tier["hough_p2"],
-        minRadius=tier["min_r_px"],
-        maxRadius=tier["max_r_px"],
-    )
-    if found is None:
-        return []
-    out: list[tuple[float, float, float]] = []
-    for c in found[0]:
-        out.append((float(c[0]), float(c[1]), float(c[2])))
-    return out
-
-
-def _contour_circles(mask: np.ndarray, min_area: float = 120.0) -> list[tuple[float, float, float]]:
+def _contour_circles(mask: np.ndarray, min_circ: float, min_area: float = 100.0) -> list[tuple[float, float, float]]:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     out: list[tuple[float, float, float]] = []
     for contour in contours:
-        area = cv2.contourArea(contour)
-        if area < min_area:
+        if cv2.contourArea(contour) < min_area:
             continue
-        if _circularity(contour) < 0.45:
+        if _circularity(contour) < min_circ:
             continue
         (cx, cy), r = cv2.minEnclosingCircle(contour)
         out.append((float(cx), float(cy), float(r)))
@@ -179,7 +139,6 @@ def _contour_circles(mask: np.ndarray, min_area: float = 120.0) -> list[tuple[fl
 
 
 def _dedupe_zones(zones: list[dict]) -> list[dict]:
-    import math
     from collections import defaultdict
 
     by_color: dict[str, list[dict]] = defaultdict(list)
@@ -187,7 +146,7 @@ def _dedupe_zones(zones: list[dict]) -> list[dict]:
         by_color[z["color"]].append(z)
 
     out: list[dict] = []
-    for color, items in by_color.items():
+    for items in by_color.values():
         items.sort(key=lambda z: z["radius"], reverse=True)
         kept: list[dict] = []
         for z in items:
@@ -196,13 +155,71 @@ def _dedupe_zones(zones: list[dict]) -> list[dict]:
                 d = math.hypot(z["x"] - k["x"], z["y"] - k["y"])
                 if d < CENTER_MERGE_DIST:
                     dr = abs(z["radius"] - k["radius"])
-                    if dr < max(z["radius"], k["radius"]) * 0.18:
+                    if dr < max(z["radius"], k["radius"]) * 0.2:
                         ok = False
                         break
             if ok:
                 kept.append(z)
         out.extend(kept)
     return out
+
+
+def _cnpp_zones() -> list[dict]:
+    zones: list[dict] = []
+    for tier_id, radius in CNPP_RINGS:
+        tier = next(t for t in TIERS if t["id"] == tier_id)
+        zones.append(
+            {
+                "id": f"cnpp-{tier_id}",
+                "label": tier["label"],
+                "x": CNPP["x"],
+                "y": CNPP["y"],
+                "radius": radius,
+                "color": tier["color"],
+                "fillOpacity": tier["fillOpacity"],
+                "strokeOpacity": tier["strokeOpacity"],
+                "weight": tier["weight"],
+            }
+        )
+    return zones
+
+
+def _scatter_zones(tier_masks: list[np.ndarray], w: int, h: int) -> list[dict]:
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    cnpp_radii = {tid: r for tid, r in CNPP_RINGS}
+    zones: list[dict] = []
+    counts: dict[str, int] = {t["id"]: 0 for t in TIERS}
+
+    for tier_idx, tier in enumerate(TIERS):
+        raw = tier_masks[tier_idx]
+        if not raw.any():
+            continue
+        closed = cv2.morphologyEx(raw, cv2.MORPH_CLOSE, kernel, iterations=1)
+        px_circles = _contour_circles(closed, tier["min_circularity"], min_area=120.0)
+        exclude = max(cnpp_radii.values()) + CNPP_EXCLUDE_PAD
+
+        for cx, cy, r_px in px_circles:
+            gx, gy = px_to_game(cx, cy, w, h)
+            radius = px_radius_to_game(r_px, w, h)
+            if radius < tier["scatter_min"] or radius > tier["scatter_max"]:
+                continue
+            if math.hypot(gx - CNPP["x"], gy - CNPP["y"]) < exclude:
+                continue
+            counts[tier["id"]] += 1
+            zones.append(
+                {
+                    "id": f"{tier['id']}-{counts[tier['id']]}",
+                    "label": tier["label"],
+                    "x": round(gx, 1),
+                    "y": round(gy, 1),
+                    "radius": round(radius, 1),
+                    "color": tier["color"],
+                    "fillOpacity": tier["fillOpacity"],
+                    "strokeOpacity": tier["strokeOpacity"],
+                    "weight": tier["weight"],
+                }
+            )
+    return zones
 
 
 def main() -> None:
@@ -217,74 +234,12 @@ def main() -> None:
     arr = np.asarray(img)
     h, w = arr.shape[:2]
 
-    tier_masks = [np.zeros((h, w), dtype=np.uint8) for _ in TIERS]
-    for y in range(h):
-        row = arr[y]
-        for x in range(w):
-            r, g, b = int(row[x, 0]), int(row[x, 1]), int(row[x, 2])
-            tier = radiation_tier(r, g, b)
-            if tier is not None:
-                tier_masks[tier][y, x] = 255
+    tier_idx_map = radiation_tier(arr)
+    tier_masks = [(tier_idx_map == i).astype(np.uint8) * 255 for i in range(len(TIERS))]
 
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
-    zones: list[dict] = []
-
-    for tier_idx, tier in enumerate(TIERS):
-        raw_mask = tier_masks[tier_idx]
-        if not raw_mask.any():
-            continue
-        mask = cv2.dilate(raw_mask, kernel, iterations=1)
-
-        px_circles = _hough_circles(mask, tier)
-        px_circles = _dedupe_circles(px_circles, dist_factor=0.45)
-
-        tier_count = 0
-        for cx, cy, r_px in px_circles:
-            if _ring_coverage(raw_mask, cx, cy, r_px) < MIN_RING_COVERAGE:
-                continue
-            gx, gy = px_to_game(cx, cy, w, h)
-            radius = px_radius_to_game(r_px, w, h)
-            if radius < MIN_GAME_RADIUS or radius > MAX_GAME_RADIUS:
-                continue
-            tier_count += 1
-            zones.append(
-                {
-                    "id": f"{tier['id']}-{tier_count}",
-                    "label": tier["label"],
-                    "x": round(gx, 1),
-                    "y": round(gy, 1),
-                    "radius": round(radius, 1),
-                    "color": tier["color"],
-                    "fillOpacity": tier["fillOpacity"],
-                    "strokeOpacity": tier["strokeOpacity"],
-                    "weight": tier["weight"],
-                }
-            )
-
-    zones = _dedupe_zones(zones)
-
-    import math
-
-    zones = [
-        z
-        for z in zones
-        if math.hypot(z["x"] - CNPP["x"], z["y"] - CNPP["y"]) > CNPP_EXCLUDE_RADIUS
-    ]
-    for tier_id, radius in CNPP_RINGS:
-        tier = next(t for t in TIERS if t["id"] == tier_id)
-        zones.append(
-            {
-                "id": f"cnpp-{tier_id}",
-                "label": tier["label"],
-                "x": float(CNPP["x"]),
-                "y": float(CNPP["y"]),
-                "radius": float(radius),
-                "color": tier["color"],
-                "fillOpacity": tier["fillOpacity"],
-                "strokeOpacity": tier["strokeOpacity"],
-                "weight": tier["weight"],
-            }
-        )
+    scattered = _scatter_zones(tier_masks, w, h)
+    cnpp = _cnpp_zones()
+    zones = _dedupe_zones(scattered + cnpp)
 
     payload = {
         "zones": zones,
@@ -302,9 +257,12 @@ def main() -> None:
     }
     MAIN_JSON.write_text(json.dumps(main_cfg, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    print(f"zones: {len(zones)}")
+    by_tier: dict[str, int] = {}
+    for z in zones:
+        key = z["id"].split("-")[0]
+        by_tier[key] = by_tier.get(key, 0) + 1
+    print(f"zones: {len(zones)} ({by_tier})")
     print(f"wrote {OUT_ZONES} ({OUT_ZONES.stat().st_size // 1024} KB)")
-    print(f"updated {MAIN_JSON}")
 
 
 if __name__ == "__main__":
