@@ -19,7 +19,7 @@ from app.auth import (
 from app.database import get_db
 from app.locations_service import get_map_locations
 from app.maps_service import list_enabled_maps, resolve_map_config
-from app.models import MapPoi, Marker, Position, User
+from app.models import MapPoi, Marker, Position, Room, User
 from app.schemas import (
     CoordsPayload,
     LoginRequest,
@@ -33,6 +33,7 @@ from app.schemas import (
     RoomStateResponse,
 )
 from app.seed import DEFAULT_MAP_SLUG
+from app.settings_service import is_public_pin_creation
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
@@ -61,6 +62,11 @@ async def legacy_map_config(db: Annotated[AsyncSession, Depends(get_db)]):
     return await resolve_map_config(db, DEFAULT_MAP_SLUG)
 
 
+@router.get("/auth/pin-policy")
+async def pin_policy(db: Annotated[AsyncSession, Depends(get_db)]):
+    return {"public_pin_creation": await is_public_pin_creation(db)}
+
+
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(
     payload: LoginRequest,
@@ -70,7 +76,16 @@ async def login(
     pin = payload.pin.strip()
     nickname = payload.nickname.strip()
     game_map = await get_map_by_slug(db, payload.map_slug.strip().lower())
-    room = await get_or_create_room(db, game_map.id, pin)
+
+    result = await db.execute(select(Room).where(Room.map_id == game_map.id, Room.pin == pin))
+    room = result.scalar_one_or_none()
+    if room is None:
+        if not await is_public_pin_creation(db):
+            raise HTTPException(
+                status_code=403,
+                detail="Группа с таким PIN не найдена. Создание новых PIN отключено — обратитесь к администратору.",
+            )
+        room = await get_or_create_room(db, game_map.id, pin)
 
     result = await db.execute(
         select(User).where(User.room_id == room.id, User.nickname == nickname)

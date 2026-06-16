@@ -13,10 +13,12 @@ from app.config import (
 )
 from app.locations_service import DEFAULT_IZURVIVE_URLS
 from app.models import DayZMap, Setting
+from app.settings_service import PUBLIC_PIN_CREATION_KEY
 
 logger = logging.getLogger(__name__)
 
 ADMIN_PASSWORD_KEY = "admin_password_hash"
+
 DEFAULT_MAP_SLUG = "pripyat"
 DEFAULT_MAP_NAME = "Припять (Pripyat Gamma)"
 
@@ -85,6 +87,11 @@ async def seed_defaults(db: AsyncSession) -> None:
     if setting is None:
         db.add(Setting(key=ADMIN_PASSWORD_KEY, value=hash_admin_password(DEFAULT_ADMIN_PASSWORD)))
         logger.info("Created default admin password setting")
+
+    pin_setting = await db.get(Setting, PUBLIC_PIN_CREATION_KEY)
+    if pin_setting is None:
+        db.add(Setting(key=PUBLIC_PIN_CREATION_KEY, value="1"))
+        logger.info("Created default public PIN creation setting")
 
     await db.commit()
 

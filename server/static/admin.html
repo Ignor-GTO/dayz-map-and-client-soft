@@ -34,6 +34,7 @@
       <nav class="admin-tabs">
         <button type="button" class="tab active" data-tab="maps">Карты</button>
         <button type="button" class="tab" data-tab="pois">Метки POI</button>
+        <button type="button" class="tab" data-tab="pins">PIN группы</button>
         <button type="button" class="tab" data-tab="password">Пароль</button>
       </nav>
 
@@ -82,6 +83,33 @@
           </div>
           <label>Описание <textarea name="description" rows="3"></textarea></label>
           <button type="submit">Добавить метку</button>
+        </form>
+      </div>
+
+      <div id="tab-pins" class="tab-panel hidden">
+        <h2>PIN группы</h2>
+        <form id="pin-policy-form" class="admin-form">
+          <h3>Создание PIN при входе</h3>
+          <label class="checkbox">
+            <input type="checkbox" id="public-pin-creation" name="public_pin_creation" checked>
+            Разрешить всем создавать новые PIN на странице входа
+          </label>
+          <p class="muted">Если выключено — войти можно только в PIN, созданные здесь в админке.</p>
+          <button type="submit">Сохранить настройку</button>
+        </form>
+        <p id="pin-policy-msg" class="success hidden"></p>
+
+        <label>
+          Карта
+          <select id="pin-map-select"></select>
+        </label>
+        <div id="rooms-list" class="card-list"></div>
+        <form id="pin-form" class="admin-form">
+          <h3>Создать PIN</h3>
+          <div class="form-grid">
+            <label>PIN <input name="pin" required minlength="4" maxlength="16" placeholder="9029"></label>
+          </div>
+          <button type="submit">Создать группу</button>
         </form>
       </div>
 

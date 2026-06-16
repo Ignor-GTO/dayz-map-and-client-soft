@@ -6,13 +6,14 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=4">
+  <link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body>
   <div id="app">
     <section id="login-view" class="panel">
       <h1>DayZ Map</h1>
-      <p class="subtitle">Live-карта DayZ · группы по PIN-коду</p>
+      <p class="subtitle" id="login-subtitle">Live-карта DayZ · группы по PIN-коду</p>
+      <p id="pin-policy-hint" class="pin-hint hidden"></p>
       <form id="login-form">
         <label>
           Карта
@@ -78,6 +79,6 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/map.js?v=4"></script>
+  <script src="/js/map.js?v=5"></script>
 </body>
 </html>

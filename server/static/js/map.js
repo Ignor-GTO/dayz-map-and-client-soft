@@ -427,6 +427,24 @@ async function loadMapOptions() {
   sel.innerHTML = maps.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
 }
 
+async function loadPinPolicyHint() {
+  const hint = document.getElementById("pin-policy-hint");
+  if (!hint) return;
+  try {
+    const data = await api("/api/auth/pin-policy");
+    if (data.public_pin_creation) {
+      hint.classList.add("hidden");
+      hint.textContent = "";
+    } else {
+      hint.textContent =
+        "Создание новых PIN отключено. Войти можно только в существующую группу — PIN выдаёт администратор.";
+      hint.classList.remove("hidden");
+    }
+  } catch {
+    hint.classList.add("hidden");
+  }
+}
+
 document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const errEl = document.getElementById("login-error");
@@ -511,6 +529,7 @@ async function initClientDownloadLinks() {
 (async () => {
   try {
     await loadMapOptions();
+    await loadPinPolicyHint();
     await initClientDownloadLinks();
   } catch {
     /* login page still usable */

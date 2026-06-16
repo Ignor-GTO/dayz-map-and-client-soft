@@ -105,6 +105,15 @@ class AdminPasswordRequest(BaseModel):
     new_password: str = Field(min_length=6, max_length=128)
 
 
+class AdminPinPolicyRequest(BaseModel):
+    public_pin_creation: bool
+
+
+class AdminPinCreateRequest(BaseModel):
+    map_slug: str = Field(min_length=2, max_length=64)
+    pin: str = Field(min_length=4, max_length=16)
+
+
 class MapCreateRequest(BaseModel):
     slug: str = Field(min_length=2, max_length=64)
     name: str = Field(min_length=2, max_length=128)

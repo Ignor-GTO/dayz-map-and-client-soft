@@ -34,6 +34,16 @@ body {
 h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
 .subtitle { color: var(--muted); margin: 0 0 1.5rem; }
 
+.pin-hint {
+  margin: -0.75rem 0 1rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 165, 2, 0.12);
+  border: 1px solid rgba(255, 165, 2, 0.35);
+  color: #eccc68;
+  font-size: 0.85rem;
+}
+
 form label {
   display: block;
   margin-bottom: 1rem;

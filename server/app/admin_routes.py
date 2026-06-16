@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
@@ -10,16 +10,19 @@ from app.auth import (
     set_admin_session,
 )
 from app.database import get_db
-from app.models import DayZMap, MapPoi, Setting
+from app.models import DayZMap, MapPoi, Room, Setting, User
 from app.schemas import (
     AdminLoginRequest,
     AdminPasswordRequest,
+    AdminPinCreateRequest,
+    AdminPinPolicyRequest,
     MapCreateRequest,
     MapUpdateRequest,
     PoiCreateRequest,
     PoiUpdateRequest,
 )
 from app.seed import ADMIN_PASSWORD_KEY, hash_admin_password, verify_admin_password
+from app.settings_service import is_public_pin_creation, set_public_pin_creation
 
 router = APIRouter(prefix="/api/admin")
 
@@ -53,6 +56,82 @@ async def admin_logout(response: Response):
 
 @router.get("/me")
 async def admin_me(_: Annotated[None, Depends(require_admin)]):
+    return {"ok": True}
+
+
+@router.get("/settings")
+async def admin_get_settings(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    return {"public_pin_creation": await is_public_pin_creation(db)}
+
+
+@router.put("/settings/pin-policy")
+async def admin_set_pin_policy(
+    payload: AdminPinPolicyRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    await set_public_pin_creation(db, payload.public_pin_creation)
+    return {"public_pin_creation": payload.public_pin_creation}
+
+
+@router.get("/rooms")
+async def admin_list_rooms(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    result = await db.execute(
+        select(Room, func.count(User.id))
+        .outerjoin(User, User.room_id == Room.id)
+        .where(Room.map_id == game_map.id)
+        .group_by(Room.id)
+        .order_by(Room.pin)
+    )
+    return [
+        {
+            "id": room.id,
+            "pin": room.pin,
+            "map_slug": game_map.slug,
+            "user_count": count,
+            "created_at": room.created_at.isoformat(),
+        }
+        for room, count in result.all()
+    ]
+
+
+@router.post("/rooms")
+async def admin_create_room(
+    payload: AdminPinCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, payload.map_slug)
+    pin = payload.pin.strip()
+    exists = await db.execute(select(Room).where(Room.map_id == game_map.id, Room.pin == pin))
+    if exists.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="PIN already exists for this map")
+    room = Room(map_id=game_map.id, pin=pin)
+    db.add(room)
+    await db.commit()
+    await db.refresh(room)
+    return {"id": room.id, "pin": room.pin}
+
+
+@router.delete("/rooms/{room_id}")
+async def admin_delete_room(
+    room_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    room = await db.get(Room, room_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+    await db.delete(room)
+    await db.commit()
     return {"ok": True}
 
 

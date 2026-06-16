@@ -50,6 +50,11 @@ async function loadMaps() {
 
   const poiSel = document.getElementById("poi-map-select");
   poiSel.innerHTML = mapsCache.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
+
+  const pinSel = document.getElementById("pin-map-select");
+  if (pinSel) {
+    pinSel.innerHTML = mapsCache.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
+  }
 }
 
 async function loadPois() {
@@ -70,6 +75,80 @@ async function loadPois() {
     `).join("")
     : "<p class='muted'>Нет меток на этой карте</p>";
 }
+
+async function loadPinPolicy() {
+  const data = await api("/api/admin/settings");
+  const cb = document.getElementById("public-pin-creation");
+  if (cb) cb.checked = !!data.public_pin_creation;
+}
+
+async function loadRooms() {
+  const slug = document.getElementById("pin-map-select")?.value;
+  if (!slug) return;
+  const rooms = await api(`/api/admin/rooms?map_slug=${encodeURIComponent(slug)}`);
+  const list = document.getElementById("rooms-list");
+  if (!list) return;
+  list.innerHTML = rooms.length
+    ? rooms.map((r) => `
+      <div class="card" data-id="${r.id}">
+        <div class="card-head"><strong>PIN: ${r.pin}</strong></div>
+        <div class="card-meta">Участников: ${r.user_count}</div>
+        <div class="card-actions">
+          <button type="button" class="danger delete-room" data-id="${r.id}">Удалить</button>
+        </div>
+      </div>
+    `).join("")
+    : "<p class='muted'>Нет групп на этой карте. Создайте PIN ниже.</p>";
+}
+
+document.getElementById("pin-policy-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const msg = document.getElementById("pin-policy-msg");
+  msg?.classList.add("hidden");
+  try {
+    const enabled = document.getElementById("public-pin-creation").checked;
+    await api("/api/admin/settings/pin-policy", {
+      method: "PUT",
+      body: JSON.stringify({ public_pin_creation: enabled }),
+    });
+    if (msg) {
+      msg.textContent = enabled
+        ? "Включено: все могут создавать PIN при входе"
+        : "Выключено: только PIN из админки";
+      msg.classList.remove("hidden");
+    }
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById("pin-map-select")?.addEventListener("change", loadRooms);
+
+document.getElementById("pin-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    await api("/api/admin/rooms", {
+      method: "POST",
+      body: JSON.stringify({
+        map_slug: document.getElementById("pin-map-select").value,
+        pin: String(fd.get("pin")).trim(),
+      }),
+    });
+    e.target.reset();
+    await loadRooms();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById("rooms-list")?.addEventListener("click", async (e) => {
+  const del = e.target.closest(".delete-room");
+  if (!del) return;
+  if (!confirm("Удалить группу и всех участников?")) return;
+  await api(`/api/admin/rooms/${del.dataset.id}`, { method: "DELETE" });
+  await loadRooms();
+});
 
 document.getElementById("admin-login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
