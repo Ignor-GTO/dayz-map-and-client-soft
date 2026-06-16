@@ -120,6 +120,42 @@ function radRenderTierSelect() {
     radiusInput.value = tier.radius;
     radState.defaultRadius = tier.radius;
   }
+  radRenderZoneTierSelect();
+}
+
+function radTiersForZone(zone) {
+  const tiers = radState.tiers.map((t) => ({ ...t }));
+  if (!zone) return tiers;
+  const known = tiers.some((t) => t.color === zone.color && t.label === (zone.label || t.label));
+  if (!known) {
+    tiers.push({
+      id: `t-zone-${zone.id}`,
+      color: zone.color,
+      label: zone.label || zone.color,
+      radius: zone.radius,
+    });
+  }
+  return tiers;
+}
+
+function radRenderZoneTierSelect() {
+  const sel = document.getElementById("rad-zone-tier");
+  if (!sel) return;
+  const zone = radState.zones.find((z) => z.id === radState.selectedId);
+  sel.disabled = !zone;
+  if (!zone) {
+    sel.innerHTML = `<option value="">— выберите зону —</option>`;
+    return;
+  }
+  const tiers = radTiersForZone(zone);
+  sel.innerHTML = tiers
+    .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`)
+    .join("");
+  const match =
+    tiers.find((t) => t.color === zone.color && t.label === zone.label)
+    || tiers.find((t) => t.color === zone.color)
+    || tiers[0];
+  if (match) sel.value = match.id;
 }
 
 function radRenderOverlaySelect() {
@@ -169,12 +205,10 @@ function radSelectZone(id) {
   document.getElementById("rad-zone-x").value = Math.round(zone.x);
   document.getElementById("rad-zone-y").value = Math.round(zone.y);
   document.getElementById("rad-zone-radius").value = Math.round(zone.radius);
-  document.getElementById("rad-zone-label").value = zone.label || "";
   const tier = radState.tiers.find((t) => t.color === zone.color);
-  if (tier) {
-    radState.activeTierId = tier.id;
-    radRenderTierSelect();
-  }
+  if (tier) radState.activeTierId = tier.id;
+  radRenderTierSelect();
+  radRenderZoneTierSelect();
   if (radState.map) {
     const latlng = radGameToLatLng(zone.x, zone.y);
     radState.map.panTo(latlng, { animate: true, duration: 0.35 });
@@ -280,8 +314,10 @@ function radApplySelectedFields() {
   zone.x = Number(document.getElementById("rad-zone-x").value);
   zone.y = Number(document.getElementById("rad-zone-y").value);
   zone.radius = Number(document.getElementById("rad-zone-radius").value);
-  zone.label = document.getElementById("rad-zone-label").value || zone.label;
-  const tier = radActiveTier();
+  const tierId = document.getElementById("rad-zone-tier")?.value;
+  const tiers = radTiersForZone(zone);
+  const tier = tiers.find((t) => t.id === tierId) || radActiveTier();
+  zone.label = tier.label;
   zone.color = tier.color;
   radUpsertZoneLayer(zone);
   radBringZonesToFront();
@@ -557,6 +593,11 @@ function radBindUi() {
   });
 
   document.getElementById("rad-tier-add")?.addEventListener("click", radAddCustomTier);
+  document.getElementById("rad-zone-tier-add")?.addEventListener("click", radAddCustomTier);
+
+  document.getElementById("rad-zone-tier")?.addEventListener("change", () => {
+    if (radState.selectedId) radApplySelectedFields();
+  });
 
   document.getElementById("rad-zone-select")?.addEventListener("change", (e) => {
     if (e.target.value) radSelectZone(e.target.value);
@@ -615,7 +656,7 @@ function radBindUi() {
     radState.defaultRadius = Number(e.target.value) || 500;
   });
 
-  ["rad-zone-x", "rad-zone-y", "rad-zone-radius", "rad-zone-label"].forEach((id) => {
+  ["rad-zone-x", "rad-zone-y", "rad-zone-radius"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", radApplySelectedFields);
   });
 }

@@ -312,7 +312,20 @@ select {
   font-size: 0.82rem;
 }
 
-.rad-zone-edit label { font-size: 0.85rem; margin-bottom: 0.5rem; }
+.rad-zone-tier-select {
+  width: 100%;
+  max-width: none !important;
+}
+
+.rad-zone-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#rad-zone-tier-add {
+  align-self: flex-start;
+}
 
 #rad-add-zone-btn.active {
   background: var(--accent);

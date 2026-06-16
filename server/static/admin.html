@@ -181,7 +181,10 @@
               <select id="rad-zone-select" size="8" class="rad-zone-select"></select>
             </label>
             <div class="rad-zone-edit">
-              <label>Метка <input type="text" id="rad-zone-label" placeholder="350 мЗв/ч"></label>
+              <label>Уровень
+                <select id="rad-zone-tier" class="rad-zone-tier-select"></select>
+              </label>
+              <button type="button" class="secondary" id="rad-zone-tier-add">+ Уровень</button>
               <div class="form-grid">
                 <label>X <input type="number" id="rad-zone-x" step="any"></label>
                 <label>Y <input type="number" id="rad-zone-y" step="any"></label>
@@ -237,6 +240,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=2"></script>
   <script src="/js/admin.js?v=4"></script>
-  <script src="/js/admin-radiation.js?v=4"></script>
+  <script src="/js/admin-radiation.js?v=5"></script>
 </body>
 </html>
