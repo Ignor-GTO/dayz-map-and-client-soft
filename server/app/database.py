@@ -17,12 +17,20 @@ async def get_db():
 
 
 async def init_db():
+    import logging
+
     from app import models  # noqa: F401
     from app.seed import migrate_schema, seed_defaults
+
+    logger = logging.getLogger(__name__)
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await migrate_schema(conn)
 
     async with SessionLocal() as db:
-        await seed_defaults(db)
+        try:
+            await seed_defaults(db)
+        except Exception:
+            logger.exception("seed_defaults failed on startup")
+            raise

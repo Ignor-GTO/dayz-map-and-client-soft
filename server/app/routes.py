@@ -16,9 +16,9 @@ from app.auth import (
     hash_client_key,
     set_session,
 )
-from app.config import CLIENT_DOWNLOAD_URL, MAP_ATTRIBUTION, SERVER_PUBLIC_URL
 from app.database import get_db
-from app.models import DayZMap, MapPoi, Marker, Position, User
+from app.maps_service import list_enabled_maps, resolve_map_config
+from app.models import MapPoi, Marker, Position, User
 from app.schemas import (
     CoordsPayload,
     LoginRequest,
@@ -30,57 +30,26 @@ from app.schemas import (
     PositionResponse,
     RoomStateResponse,
 )
+from app.seed import DEFAULT_MAP_SLUG
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
 
 
-def map_to_config(game_map: DayZMap) -> MapConfigResponse:
-    size = game_map.map_size
-    return MapConfigResponse(
-        slug=game_map.slug,
-        name=game_map.name,
-        bounds={
-            "min_x": 0,
-            "max_x": size,
-            "min_y": 0,
-            "max_y": size,
-        },
-        map_size=size,
-        max_native_zoom=game_map.max_native_zoom,
-        extra_zoom=game_map.extra_zoom,
-        tiles_satellite=game_map.tiles_satellite,
-        tiles_topographic=game_map.tiles_topographic,
-        attribution=MAP_ATTRIBUTION,
-        server_url=SERVER_PUBLIC_URL,
-        client_download_url=CLIENT_DOWNLOAD_URL,
-    )
-
-
 @router.get("/maps", response_model=list[MapListItem])
 async def list_maps(db: Annotated[AsyncSession, Depends(get_db)]):
-    result = await db.execute(
-        select(DayZMap).where(DayZMap.enabled.is_(True)).order_by(DayZMap.sort_order, DayZMap.name)
-    )
-    return [MapListItem(slug=m.slug, name=m.name) for m in result.scalars().all()]
+    return await list_enabled_maps(db)
 
 
 @router.get("/maps/{slug}/config", response_model=MapConfigResponse)
 async def map_config(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
-    game_map = await get_map_by_slug(db, slug)
-    return map_to_config(game_map)
+    return await resolve_map_config(db, slug)
 
 
 @router.get("/map/config", response_model=MapConfigResponse)
 async def legacy_map_config(db: Annotated[AsyncSession, Depends(get_db)]):
     """Backward-compatible endpoint for cached old map.js."""
-    result = await db.execute(
-        select(DayZMap).where(DayZMap.enabled.is_(True)).order_by(DayZMap.sort_order, DayZMap.id)
-    )
-    game_map = result.scalars().first()
-    if not game_map:
-        raise HTTPException(status_code=404, detail="No maps configured")
-    return map_to_config(game_map)
+    return await resolve_map_config(db, DEFAULT_MAP_SLUG)
 
 
 @router.post("/auth/login", response_model=LoginResponse)

@@ -142,6 +142,9 @@ async def get_current_user_from_ws(db: AsyncSession, token: str | None) -> User 
 
 
 async def get_map_by_slug(db: AsyncSession, slug: str, *, require_enabled: bool = True) -> DayZMap:
+    from app.seed import ensure_maps_seeded
+
+    await ensure_maps_seeded(db)
     query = select(DayZMap).where(DayZMap.slug == slug.strip().lower())
     if require_enabled:
         query = query.where(DayZMap.enabled.is_(True))
