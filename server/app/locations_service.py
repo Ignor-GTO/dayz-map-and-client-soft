@@ -5,10 +5,12 @@ Based on https://github.com/WoozyMasta/dzmap coordinate conversion.
 
 from __future__ import annotations
 
+import json
 import logging
 import math
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import httpx
 from sqlalchemy import select
@@ -31,6 +33,11 @@ CATEGORY_LABELS = {
 DEFAULT_IZURVIVE_URLS: dict[str, str] = {
     "pripyat": "https://www.izurvive.com/assets/pripyat/citynames-d65541f5.json",
 }
+
+def _static_locations_path(slug: str) -> Path | None:
+    base = Path(__file__).resolve().parent.parent / "static" / "data"
+    path = base / f"{slug.lower()}-locations.json"
+    return path if path.is_file() else None
 
 XAM_JSON_URLS: dict[str, str] = {
     "chernarusplus": "https://static.xam.nu/dayz/json/chernarusplus/1.28-2.json",
@@ -190,6 +197,15 @@ async def get_map_locations(db: AsyncSession, game_map: DayZMap) -> dict:
             parsed = parse_izurvive(raw if isinstance(raw, list) else [], game_map.map_size)
     except Exception:
         logger.exception("Failed to fetch locations for %s from %s", game_map.slug, url)
+        static_path = _static_locations_path(game_map.slug)
+        if static_path and static_path.is_file():
+            try:
+                result = json.loads(static_path.read_text(encoding="utf-8"))
+                _cache[cache_key] = (time.time(), result)
+                logger.info("Loaded %d locations for %s from static fallback", len(result.get("locations", [])), game_map.slug)
+                return result
+            except Exception:
+                logger.exception("Static locations fallback failed for %s", game_map.slug)
         result = {"categories": [], "locations": []}
         _cache[cache_key] = (time.time(), result)
         return result

@@ -405,7 +405,7 @@ function renderRadiationLayer(data) {
       color: zone.color || "#ff9800",
       weight: zone.weight ?? 2,
       fillColor: zone.color || "#ff9800",
-      fillOpacity: zone.fillOpacity ?? 0.12,
+      fillOpacity: zone.fillOpacity ?? 0.15,
       interactive: false,
       pane: "radiationPane",
     });

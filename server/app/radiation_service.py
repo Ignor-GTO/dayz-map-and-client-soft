@@ -29,13 +29,14 @@ def _static_json_path(url: str) -> Path | None:
 
 
 def _normalize_payload(raw: dict, map_size: float) -> dict:
-    overlay = raw.get("overlay")
-    if overlay and isinstance(overlay, dict):
-        bounds = overlay.get("bounds") or {}
-    overlay = {
-            "url": str(overlay.get("url", "")),
-            "enabled": bool(overlay.get("enabled", False)),
-            "opacity": float(overlay.get("opacity", 0.3)),
+    overlay_raw = raw.get("overlay")
+    overlay = None
+    if overlay_raw and isinstance(overlay_raw, dict):
+        bounds = overlay_raw.get("bounds") or {}
+        overlay = {
+            "url": str(overlay_raw.get("url", "")),
+            "enabled": bool(overlay_raw.get("enabled", False)),
+            "opacity": float(overlay_raw.get("opacity", 0.3)),
             "bounds": {
                 "x1": float(bounds.get("x1", 0)),
                 "y1": float(bounds.get("y1", 0)),

@@ -17,6 +17,7 @@ from app.auth import (
     set_session,
 )
 from app.database import get_db
+from app.locations_service import get_map_locations
 from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.models import MapPoi, Marker, Position, Room, User
