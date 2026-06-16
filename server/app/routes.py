@@ -17,6 +17,7 @@ from app.auth import (
     set_session,
 )
 from app.database import get_db
+from app.locations_service import get_map_locations
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.models import MapPoi, Marker, Position, User
 from app.schemas import (
@@ -25,6 +26,7 @@ from app.schemas import (
     LoginResponse,
     MapConfigResponse,
     MapListItem,
+    MapLocationsResponse,
     MarkerResponse,
     PoiResponse,
     PositionResponse,
@@ -44,6 +46,13 @@ async def list_maps(db: Annotated[AsyncSession, Depends(get_db)]):
 @router.get("/maps/{slug}/config", response_model=MapConfigResponse)
 async def map_config(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     return await resolve_map_config(db, slug)
+
+
+@router.get("/maps/{slug}/locations", response_model=MapLocationsResponse)
+async def map_locations(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    game_map = await get_map_by_slug(db, slug)
+    data = await get_map_locations(db, game_map)
+    return MapLocationsResponse(**data)
 
 
 @router.get("/map/config", response_model=MapConfigResponse)

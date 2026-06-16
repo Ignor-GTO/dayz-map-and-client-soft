@@ -106,12 +106,98 @@ button.secondary:hover { background: #3a4858; }
   position: fixed;
   bottom: 1rem;
   right: 1rem;
-  width: 260px;
+  width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
   padding: 1rem;
   background: rgba(26, 35, 50, 0.95);
   border-radius: 10px;
   font-size: 0.85rem;
   z-index: 1000;
+}
+
+.filter-list {
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #2a3848;
+  padding-bottom: 0.5rem;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.filter-row input {
+  width: auto;
+  margin: 0;
+}
+
+.map-label {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  font-size: 13px;
+  color: #3a2d49;
+  white-space: nowrap;
+  text-align: center;
+  pointer-events: none;
+  text-shadow:
+    2px 0 0 #fff, -2px 0 0 #fff, 0 2px 0 #fff, 0 -2px 0 #fff,
+    1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+}
+
+.map-label span {
+  display: block;
+  line-height: 1.1;
+}
+
+.map-label.type-capital {
+  font-size: 18px;
+  font-weight: 900;
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.map-label.type-city {
+  font-size: 15px;
+  font-weight: 800;
+  color: #222;
+  text-transform: uppercase;
+}
+
+.map-label.type-village {
+  font-size: 14px;
+  font-weight: 700;
+  color: #333;
+}
+
+.map-label.type-marine {
+  font-size: 12px;
+  font-style: italic;
+  color: #01579b;
+}
+
+.map-label.type-hill {
+  font-size: 12px;
+  font-style: italic;
+  color: #5d4037;
+}
+
+.map-label.type-camp {
+  font-weight: 700;
+  color: #8b0000;
+}
+
+.map-label.type-ruin {
+  color: #5d4037;
+  font-style: italic;
 }
 
 #legend h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }

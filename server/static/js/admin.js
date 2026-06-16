@@ -107,6 +107,8 @@ document.getElementById("map-form").addEventListener("submit", async (e) => {
     map_size: Number(fd.get("map_size")),
     tiles_satellite: fd.get("tiles_satellite"),
     tiles_topographic: fd.get("tiles_topographic"),
+    locations_url: fd.get("locations_url") || "",
+    locations_source: fd.get("locations_source") || "izurvive",
     max_native_zoom: Number(fd.get("max_native_zoom")),
     extra_zoom: Number(fd.get("extra_zoom")),
     sort_order: Number(fd.get("sort_order")),

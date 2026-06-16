@@ -21,6 +21,8 @@ class DayZMap(Base):
     tiles_topographic: Mapped[str] = mapped_column(Text)
     max_native_zoom: Mapped[int] = mapped_column(Integer, default=7)
     extra_zoom: Mapped[int] = mapped_column(Integer, default=3)
+    locations_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    locations_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

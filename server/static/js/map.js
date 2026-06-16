@@ -8,6 +8,19 @@ const state = {
   liveMarkers: new Map(),
   pinMarkers: new Map(),
   poiMarkers: new Map(),
+  locationLayer: null,
+  locationEntries: [],
+  filters: {
+    labels: true,
+    cities: true,
+    military: true,
+    local: true,
+    water: true,
+    terrain: true,
+    players: true,
+    markers: true,
+    poi: true,
+  },
   ws: null,
 };
 
@@ -127,6 +140,9 @@ function initLeaflet(config) {
     attributionControl: true,
   });
 
+  state.locationLayer = L.layerGroup().addTo(state.map);
+  state.map.on("zoomend", updateLocationVisibility);
+
   setTileLayer("satellite");
   state.map.fitBounds(TILE_BOUNDS);
 
@@ -135,6 +151,7 @@ function initLeaflet(config) {
 }
 
 function upsertLive(pos) {
+  if (!state.filters.players) return;
   const latlng = gameToLatLng(pos.x, pos.y);
   const color = colorForUser(pos.user_id);
   let marker = state.liveMarkers.get(pos.user_id);
@@ -159,6 +176,7 @@ function upsertLive(pos) {
 }
 
 function upsertPin(m) {
+  if (!state.filters.markers) return;
   const latlng = gameToLatLng(m.x, m.y);
   const color = colorForUser(m.user_id);
   let marker = state.pinMarkers.get(m.id);
@@ -194,6 +212,7 @@ function upsertPin(m) {
 }
 
 function upsertPoi(p) {
+  if (!state.filters.poi) return;
   const latlng = gameToLatLng(p.x, p.y);
   let marker = state.poiMarkers.get(p.id);
   const desc = p.description ? `<br>${p.description}` : "";
@@ -264,9 +283,118 @@ function connectWebSocket() {
 
 async function loadRoomState() {
   const data = await api("/api/room/state");
-  data.positions.forEach(upsertLive);
-  data.markers.forEach(upsertPin);
-  data.pois.forEach(upsertPoi);
+  if (state.filters.players) data.positions.forEach(upsertLive);
+  if (state.filters.markers) data.markers.forEach(upsertPin);
+  if (state.filters.poi) data.pois.forEach(upsertPoi);
+}
+
+function locationMinMapZoom(minZoom) {
+  if (minZoom <= 1) return 0;
+  if (minZoom === 2) return 2;
+  if (minZoom === 3) return 3;
+  return 4;
+}
+
+function renderLocationLabels(locations) {
+  if (!state.locationLayer) return;
+  state.locationLayer.clearLayers();
+  state.locationEntries = [];
+
+  locations.forEach((loc, idx) => {
+    const latlng = gameToLatLng(loc.x, loc.y);
+    const icon = L.divIcon({
+      className: `map-label type-${loc.label_class || "local"}`,
+      html: `<span>${loc.title}</span>`,
+      iconSize: [200, 30],
+      iconAnchor: [100, 15],
+    });
+    const marker = L.marker(latlng, { icon, interactive: false });
+    marker._locMeta = loc;
+    marker._locId = idx;
+    state.locationEntries.push(marker);
+  });
+  applyLocationFilters();
+}
+
+function applyLocationFilters() {
+  if (!state.locationLayer || !state.map) return;
+  state.locationLayer.clearLayers();
+  if (!state.filters.labels) return;
+
+  const zoom = state.map.getZoom();
+  state.locationEntries.forEach((marker) => {
+    const loc = marker._locMeta;
+    if (!state.filters[loc.category]) return;
+    if (zoom < locationMinMapZoom(loc.min_zoom || 4)) return;
+    state.locationLayer.addLayer(marker);
+  });
+}
+
+function updateLocationVisibility() {
+  applyLocationFilters();
+}
+
+function renderFilterPanel(categories) {
+  const el = document.getElementById("filter-list");
+  if (!el) return;
+
+  const staticFilters = [
+    { id: "labels", label: "Названия мест" },
+    { id: "players", label: "Игроки (live)" },
+    { id: "markers", label: "Метки группы" },
+    { id: "poi", label: "POI админки" },
+  ];
+
+  const dynamic = (categories || []).map((c) => ({
+    id: c.id,
+    label: `${c.label} (${c.count})`,
+  }));
+  const all = [...staticFilters, ...dynamic];
+
+  el.innerHTML = all
+    .map(
+      (f) => `
+    <label class="filter-row">
+      <input type="checkbox" data-filter="${f.id}" ${state.filters[f.id] !== false ? "checked" : ""}>
+      ${f.label}
+    </label>`
+    )
+    .join("");
+
+  el.querySelectorAll("input[data-filter]").forEach((input) => {
+    input.addEventListener("change", () => {
+      state.filters[input.dataset.filter] = input.checked;
+      applyLocationFilters();
+      refreshDynamicLayers();
+    });
+  });
+}
+
+function refreshDynamicLayers() {
+  if (!state.map) return;
+  state.liveMarkers.forEach((m) => {
+    if (state.filters.players) m.addTo(state.map);
+    else state.map.removeLayer(m);
+  });
+  state.pinMarkers.forEach((m) => {
+    if (state.filters.markers) m.addTo(state.map);
+    else state.map.removeLayer(m);
+  });
+  state.poiMarkers.forEach((m) => {
+    if (state.filters.poi) m.addTo(state.map);
+    else state.map.removeLayer(m);
+  });
+}
+
+async function loadMapLocations() {
+  if (!state.me) return;
+  try {
+    const data = await api(`/api/maps/${state.me.map_slug}/locations`);
+    renderFilterPanel(data.categories || []);
+    renderLocationLabels(data.locations || []);
+  } catch {
+    renderFilterPanel([]);
+  }
 }
 
 async function bootstrapMapView() {
@@ -285,7 +413,7 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
-  await loadRoomState();
+  await Promise.all([loadRoomState(), loadMapLocations()]);
   connectWebSocket();
 }
 
@@ -328,6 +456,8 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   state.liveMarkers.clear();
   state.pinMarkers.clear();
   state.poiMarkers.clear();
+  state.locationEntries = [];
+  if (state.locationLayer) state.locationLayer.clearLayers();
   showLogin();
 });
 

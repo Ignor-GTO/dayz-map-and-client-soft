@@ -52,6 +52,15 @@
           </div>
           <label>URL спутник <input name="tiles_satellite" required placeholder="https://.../{z}/{x}/{y}.jpg"></label>
           <label>URL топо <input name="tiles_topographic" required placeholder="https://.../{z}/{x}/{y}.jpg"></label>
+          <label>URL локаций (iZurvive/xam.nu)
+            <input name="locations_url" placeholder="https://www.izurvive.com/assets/pripyat/citynames-....json">
+          </label>
+          <label>Источник локаций
+            <select name="locations_source">
+              <option value="izurvive">iZurvive</option>
+              <option value="xam">xam.nu</option>
+            </select>
+          </label>
           <label class="checkbox"><input name="enabled" type="checkbox" checked> Включена</label>
           <button type="submit">Добавить карту</button>
         </form>

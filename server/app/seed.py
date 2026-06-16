@@ -11,6 +11,7 @@ from app.config import (
     MAP_TILES_SATELLITE,
     MAP_TILES_TOPOGRAPHIC,
 )
+from app.locations_service import DEFAULT_IZURVIVE_URLS
 from app.models import DayZMap, Setting
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,12 @@ def _migrate_sqlite(conn) -> None:
     if cols and "map_id" not in cols:
         conn.execute(text("ALTER TABLE rooms ADD COLUMN map_id INTEGER"))
 
+    map_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(dayz_maps)")).fetchall()}
+    if map_cols and "locations_url" not in map_cols:
+        conn.execute(text("ALTER TABLE dayz_maps ADD COLUMN locations_url TEXT"))
+    if map_cols and "locations_source" not in map_cols:
+        conn.execute(text("ALTER TABLE dayz_maps ADD COLUMN locations_source VARCHAR(16)"))
+
 
 def default_map_kwargs() -> dict:
     return {
@@ -49,6 +56,8 @@ def default_map_kwargs() -> dict:
         "tiles_topographic": MAP_TILES_TOPOGRAPHIC,
         "max_native_zoom": MAP_MAX_NATIVE_ZOOM,
         "extra_zoom": MAP_EXTRA_ZOOM,
+        "locations_url": DEFAULT_IZURVIVE_URLS.get(DEFAULT_MAP_SLUG),
+        "locations_source": "izurvive",
         "enabled": True,
         "sort_order": 0,
     }
@@ -67,6 +76,10 @@ async def seed_defaults(db: AsyncSession) -> None:
     if game_map is None:
         db.add(DayZMap(**default_map_kwargs()))
         logger.info("Created default map: %s", DEFAULT_MAP_SLUG)
+    else:
+        if not game_map.locations_url:
+            game_map.locations_url = DEFAULT_IZURVIVE_URLS.get(DEFAULT_MAP_SLUG)
+            game_map.locations_source = "izurvive"
 
     setting = await db.get(Setting, ADMIN_PASSWORD_KEY)
     if setting is None:

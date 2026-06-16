@@ -75,6 +75,27 @@ class MapConfigResponse(BaseModel):
     client_download_url: str
 
 
+class MapLocationItem(BaseModel):
+    title: str
+    category: str
+    type: str
+    label_class: str
+    x: float
+    y: float
+    min_zoom: int = 4
+
+
+class LocationCategory(BaseModel):
+    id: str
+    label: str
+    count: int
+
+
+class MapLocationsResponse(BaseModel):
+    categories: list[LocationCategory]
+    locations: list[MapLocationItem]
+
+
 class AdminLoginRequest(BaseModel):
     password: str
 
@@ -92,6 +113,8 @@ class MapCreateRequest(BaseModel):
     tiles_topographic: str
     max_native_zoom: int = 7
     extra_zoom: int = 3
+    locations_url: str = ""
+    locations_source: str = "izurvive"
     enabled: bool = True
     sort_order: int = 0
 
@@ -103,6 +126,8 @@ class MapUpdateRequest(BaseModel):
     tiles_topographic: str | None = None
     max_native_zoom: int | None = None
     extra_zoom: int | None = None
+    locations_url: str | None = None
+    locations_source: str | None = None
     enabled: bool | None = None
     sort_order: int | None = None
 
