@@ -88,7 +88,23 @@ def _grab_dib_clipboard() -> Image.Image | None:
         user32.CloseClipboard()
 
 
-def grab_clipboard_image() -> Image.Image | None:
+def grab_clipboard_image(retries: int = 6, delay: float = 0.12) -> Image.Image | None:
+    """Return RGB image from clipboard or None. Retries for Win+Shift+S lag."""
+    import time
+
+    last: Image.Image | None = None
+    for attempt in range(max(1, retries)):
+        img = _grab_clipboard_image_once()
+        if img is not None:
+            last = img
+            if attempt > 0 or img.size[0] >= 30:
+                return img
+        if attempt + 1 < retries:
+            time.sleep(delay)
+    return last
+
+
+def _grab_clipboard_image_once() -> Image.Image | None:
     """Return RGB image from clipboard or None."""
     try:
         data = ImageGrab.grabclipboard()
@@ -113,6 +129,10 @@ def grab_clipboard_image() -> Image.Image | None:
     dib = _grab_dib_clipboard()
     if dib is not None:
         return dib.convert("RGB")
+
+    png = _grab_png_clipboard()
+    if png is not None:
+        return png.convert("RGB")
 
     # Snipping Tool sometimes leaves only a file path in clipboard text.
     try:
@@ -141,6 +161,39 @@ def grab_clipboard_image() -> Image.Image | None:
         pass
 
     return None
+
+
+def _grab_png_clipboard() -> Image.Image | None:
+    import sys
+
+    if sys.platform != "win32":
+        return None
+    import ctypes
+
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    fmt = user32.RegisterClipboardFormatW("PNG")
+    if not fmt:
+        return None
+    if not user32.OpenClipboard(0):
+        return None
+    try:
+        if not user32.IsClipboardFormatAvailable(fmt):
+            return None
+        handle = user32.GetClipboardData(fmt)
+        if not handle:
+            return None
+        ptr = kernel32.GlobalLock(handle)
+        if not ptr:
+            return None
+        try:
+            size = kernel32.GlobalSize(handle)
+            data = ctypes.string_at(ptr, size)
+            return Image.open(io.BytesIO(data))
+        finally:
+            kernel32.GlobalUnlock(handle)
+    finally:
+        user32.CloseClipboard()
 
 
 def grab_clipboard_text() -> str | None:
@@ -173,7 +226,7 @@ def grab_clipboard_text() -> str | None:
 
 
 def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int, int]):
-    """Crop OCR strip from large snips; upscale tiny coord strips."""
+    """Use snip as-is when small; only crop huge full-screen captures."""
     from capture import resolve_monitor
     from PIL import Image, ImageOps
 
@@ -181,29 +234,41 @@ def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int
     if w <= 0 or h <= 0:
         return img
 
-    if w <= 520 and h <= 120:
-        scale = max(2, min(4, 180 // max(h, 1)))
+    # User snipped exactly the coord strip — OCR the whole selection.
+    if w <= 960 and h <= 220:
+        scale = max(3, min(6, 220 // max(h, 1)))
+        out = img.convert("RGB")
         if scale > 1:
-            img = img.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
-        return ImageOps.autocontrast(img.convert("RGB"), cutoff=1)
+            out = out.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
+        return ImageOps.autocontrast(out, cutoff=1)
 
     mon = resolve_monitor(monitor_index)
     if not mon:
-        return img
+        return ImageOps.autocontrast(img.convert("RGB"), cutoff=1)
+
+    # Full-screen snip: take bottom-left strip (where iZurvive coords usually are).
+    if w > 960 or h > 220:
+        rh = min(90, max(40, h // 14))
+        rw = min(480, max(180, w // 5))
+        crop = img.crop((0, max(0, h - rh - 6), rw, h))
+        cw, ch = crop.size
+        scale = max(3, min(6, 220 // max(ch, 1)))
+        if scale > 1:
+            crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
+        return ImageOps.autocontrast(crop.convert("RGB"), cutoff=1)
 
     left, top, right, bottom = ocr_region
     rw = max(1, right - left)
     rh = max(1, bottom - top)
-    sx = max(0, int(left - mon.left)) if left >= mon.left else left
-    sy = max(0, int(top - mon.top)) if top >= mon.top else max(0, h - rh - 8)
-    ex = min(w, sx + rw)
-    ey = min(h, sy + rh)
-    if ex - sx < 40 or ey - sy < 12:
-        sx, sy = 0, max(0, h - rh - 4)
-        ex, ey = min(w, rw + 40), h
+    sx = max(0, int(left))
+    sy = max(0, int(top))
+    ex = min(w, sx + rw + 24)
+    ey = min(h, sy + rh + 12)
+    if ex - sx < 60 or ey - sy < 16:
+        return ImageOps.autocontrast(img.convert("RGB"), cutoff=1)
     crop = img.crop((sx, sy, ex, ey))
     cw, ch = crop.size
-    scale = max(2, min(5, 180 // max(ch, 1)))
+    scale = max(3, min(6, 220 // max(ch, 1)))
     if scale > 1:
         crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
     return ImageOps.autocontrast(crop.convert("RGB"), cutoff=1)

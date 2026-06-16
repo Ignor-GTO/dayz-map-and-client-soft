@@ -94,7 +94,7 @@ class GameHudOverlay:
         self.show("!", text, _ERR, auto_hide_ms=3500)
 
     def show_map_session(self) -> None:
-        self.show("🗺", "Карта · двойной клик или Ctrl+Shift+D", _WARN)
+        self.show("🗺", "Карта · Ctrl+Shift+D — метка", _WARN)
 
     def hide(self) -> None:
         self._cancel_hide()

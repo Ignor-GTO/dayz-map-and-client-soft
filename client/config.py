@@ -21,7 +21,7 @@ def load_config() -> dict:
         "server_url": DEFAULT_SERVER,
         "client_key": "",
         "monitor_index": 1,
-        "ocr_region": [210, 915, 330, 945],
+        "ocr_region": [130, 888, 500, 970],
         "mouse_nudge_before_ocr": True,
         "mouse_nudge_side": "left",
         "mouse_nudge_delay_ms": 400,

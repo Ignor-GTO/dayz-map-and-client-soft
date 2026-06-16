@@ -11,10 +11,10 @@ from api_client import MapClient
 from capture import grab_region, list_monitors
 from clipboard_util import grab_clipboard_image, grab_clipboard_text, prepare_coord_image
 from config import load_config, save_config
-from map_session import DoubleClickListener
-from ocr import extract_coordinates, parse_coordinates
+from ocr import extract_coordinates, extract_coordinates_with_text, parse_coordinates
 from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
+from ocr_preprocess import IZURVIVE_OCR_REGION
 from version import __version__
 
 
@@ -29,12 +29,13 @@ class ClientApp(tk.Tk):
         self.map_client: MapClient | None = None
         self.hotkeys_active = False
         self._map_session_active = False
-        self._dblclick_listener = DoubleClickListener()
+        self._session_player_coords: tuple[float, float] | None = None
         self._clipboard_hash: str | None = None
         self._stop_clipboard = threading.Event()
         self._snip_watch_active = False
         self._snip_check_attempt = 0
         self._clipboard_pending_at = 0.0
+        self._clipboard_watch_digest: str | None = None
         self._region_editor: OcrRegionEditor | None = None
         self._hud: GameHudOverlay | None = None
 
@@ -69,7 +70,7 @@ class ClientApp(tk.Tk):
         ttk.Label(frm, text="OCR область (L,T,R,B)").grid(row=3, column=0, sticky="w", **pad)
         region_frm = ttk.Frame(frm)
         region_frm.grid(row=3, column=1, sticky="w", **pad)
-        self.region_vars = [tk.IntVar(value=v) for v in self.cfg.get("ocr_region", [10, 900, 300, 1050])]
+        self.region_vars = [tk.IntVar(value=v) for v in self.cfg.get("ocr_region", IZURVIVE_OCR_REGION)]
         for i, var in enumerate(self.region_vars):
             entry = ttk.Entry(region_frm, textvariable=var, width=8)
             entry.pack(side="left", padx=2)
@@ -89,7 +90,7 @@ class ClientApp(tk.Tk):
             side="left", padx=5
         )
 
-        ttk.Label(frm, text="M — позиция · повтор M — закрыть · двойной клик — метка").grid(
+        ttk.Label(frm, text="M — позиция · повтор M — закрыть · Ctrl+Shift+D — метка").grid(
             row=5, column=0, columnspan=2, **pad
         )
         ttk.Label(
@@ -164,6 +165,19 @@ class ClientApp(tk.Tk):
     def _ocr_region(self) -> tuple[int, int, int, int]:
         return tuple(v.get() for v in self.region_vars)
 
+    def _grab_ocr_image(self):
+        left, top, right, bottom = self._ocr_region()
+        pad_x, pad_y = 24, 12
+        return grab_region(
+            self._monitor_index(),
+            (
+                max(0, left - pad_x),
+                max(0, top - pad_y),
+                right + pad_x,
+                bottom + pad_y,
+            ),
+        )
+
     def _ensure_hud(self) -> GameHudOverlay:
         if self._hud is None:
             self._hud = GameHudOverlay(self, self._monitor_index)
@@ -179,8 +193,6 @@ class ClientApp(tk.Tk):
         return self._region_editor
 
     def _apply_izurvive_preset(self) -> None:
-        from ocr_preprocess import IZURVIVE_OCR_REGION
-
         for var, value in zip(self.region_vars, IZURVIVE_OCR_REGION):
             var.set(value)
         self.log_line(
@@ -312,9 +324,7 @@ class ClientApp(tk.Tk):
 
         def capture() -> None:
             try:
-                from ocr import extract_coordinates_with_text
-
-                img = grab_region(monitor, region)
+                img = self._grab_ocr_image()
                 coords, raw = extract_coordinates_with_text(img)
                 result["coords"] = coords
                 result["raw"] = raw
@@ -372,7 +382,7 @@ class ClientApp(tk.Tk):
         )
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
-        self.log_line("[Запуск] Hotkeys активны")
+        self.log_line("[Запуск] Hotkeys: M, Ctrl+Shift+D, Ctrl+Shift+S; Win+Shift+S — авто из буфера")
 
     def stop_hotkeys(self) -> None:
         self.hotkeys_active = False
@@ -387,31 +397,23 @@ class ClientApp(tk.Tk):
         if not self._map_session_active:
             return
         self._map_session_active = False
-        self._dblclick_listener.stop()
+        self._session_player_coords = None
         self._ensure_hud().hide()
         if not silent:
-            self.log_line("[M] Карта закрыта — OCR и метки по клику отключены")
+            self.log_line("[M] Карта закрыта — OCR отключён")
         self._update_session_status()
 
     def _start_map_session(self) -> None:
         self._map_session_active = True
-        ok = self._dblclick_listener.start(lambda: self.after(0, self._handle_map_double_click))
         self._update_session_status()
-        hud = self._ensure_hud()
-        if ok:
-            hud.show_map_session()
-            self.log_line("[M] Сессия карты: двойной клик или Ctrl+Shift+D — метка")
-        else:
-            from status_overlay import _WARN
-
-            hud.show("!", "Карта · Ctrl+Shift+D для метки", _WARN)
-            self.log_line("[M] Хук мыши недоступен — используйте Ctrl+Shift+D для метки")
+        self._ensure_hud().show_map_session()
+        self.log_line("[M] Сессия карты — Ctrl+Shift+D для метки")
 
     def _update_session_status(self) -> None:
         if not self.hotkeys_active:
             return
         if self._map_session_active:
-            self.status_var.set("Карта открыта — M закрыть · двойной клик — метка")
+            self.status_var.set("Карта открыта — M закрыть · Ctrl+Shift+D — метка")
         else:
             self.status_var.set("Работает — M открыть карту / позиция")
 
@@ -422,8 +424,10 @@ class ClientApp(tk.Tk):
 
         def capture() -> None:
             try:
-                img = grab_region(monitor, region)
-                result["coords"] = extract_coordinates(img)
+                img = self._grab_ocr_image()
+                coords, raw = extract_coordinates_with_text(img)
+                result["coords"] = coords
+                result["raw"] = raw
             except Exception as exc:
                 result["error"] = exc
 
@@ -436,26 +440,61 @@ class ClientApp(tk.Tk):
 
         if err := result.get("error"):
             raise err
-        return result.get("coords")
+        raw = result.get("raw")
+        if raw:
+            self.after(0, lambda t=raw: self.log_line(f"[OCR] {t!r}"))
+        coords = result.get("coords")
+        if coords and self._session_player_coords:
+            coords = self._reconcile_marker_coords(coords, self._session_player_coords)
+        return coords
 
-    def _handle_map_double_click(self) -> None:
+    def _reconcile_marker_coords(
+        self,
+        coords: tuple[float, float],
+        reference: tuple[float, float],
+    ) -> tuple[float, float]:
+        """Fix hover/truncated OCR: prefer session player coords when marker read is clearly wrong."""
+        x, y = coords
+        ref_x, ref_y = reference
+        if abs(x - ref_x) > 2500:
+            return coords
+        if y >= 500 or ref_y < 500:
+            return coords
+        # Typical failure: 16119/1753 -> 16058/177 (hover + truncated Y)
+        if len(str(int(abs(y)))) < len(str(int(abs(ref_y)))):
+            self.after(
+                0,
+                lambda: self.log_line(
+                    f"[OCR] Y={y:.0f} похоже обрезан — используем позицию с M: {ref_x:.0f} / {ref_y:.0f}"
+                ),
+            )
+            return ref_x, ref_y
+        return coords
+
+    def _handle_marker_hotkey(self) -> None:
         if not self.hotkeys_active:
             return
-        if not self._map_session_active:
-            self.log_line("[Метка] Двойной клик — сначала M (открыть сессию карты)")
-            self._ensure_hud().show_error("Нажмите M")
-            return
-        self._send_marker_from_screen(source="Двойной клик")
 
-    def _handle_snip_hotkey(self) -> None:
-        if not self.hotkeys_active:
-            return
-        img = self._clipboard_image()
-        if img is None:
-            self.log_line("[Ctrl+Shift+S] Буфер пуст — сделайте Win+Shift+S и выделите координаты")
-            return
-        self.log_line("[Ctrl+Shift+S] Чтение из буфера…")
-        self._process_snip_marker(img, source="Ctrl+Shift+S")
+        def work() -> None:
+            img = None
+            for attempt in range(10):
+                img = self._clipboard_image()
+                if img is not None and img.size[0] >= 30:
+                    break
+                time.sleep(0.12)
+            if img is None:
+                self.after(
+                    0,
+                    lambda: self.log_line(
+                        "[Ctrl+Shift+S] Буфер пуст — Win+Shift+S, выделите полоску координат, "
+                        "затем Ctrl+Shift+S (или дождитесь авто-чтения)"
+                    ),
+                )
+                return
+            self.after(0, lambda: self.log_line("[Ctrl+Shift+S] Чтение из буфера…"))
+            self._process_snip_marker(img, source="Ctrl+Shift+S")
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _handle_marker_hotkey(self) -> None:
         if not self.hotkeys_active:
@@ -475,7 +514,7 @@ class ClientApp(tk.Tk):
         def work() -> None:
             try:
                 time.sleep(0.2)
-                coords = self._capture_coords(nudge=False)
+                coords = self._capture_coords(nudge=True)
                 if coords:
                     x, y = coords
                     self.after(0, lambda: self.log_line(f"[Метка] {x:.0f} / {y:.0f}"))
@@ -512,6 +551,7 @@ class ClientApp(tk.Tk):
                 coords = self._capture_coords(nudge=True)
                 if coords:
                     x, y = coords
+                    self._session_player_coords = (x, y)
                     self.after(0, lambda: self.log_line(f"[M] {x:.0f} / {y:.0f}"))
                     if self.map_client and self.map_client.send_position(x, y):
                         self.after(0, lambda: self.log_line("[M] Позиция отправлена"))
@@ -528,7 +568,7 @@ class ClientApp(tk.Tk):
         threading.Thread(target=work, daemon=True).start()
 
     def _clipboard_image(self):
-        return grab_clipboard_image()
+        return grab_clipboard_image(retries=8, delay=0.1)
 
     def _image_hash(self, img) -> str:
         buf = io.BytesIO()
@@ -582,23 +622,28 @@ class ClientApp(tk.Tk):
 
         threading.Thread(target=work, daemon=True).start()
 
-    def _schedule_clipboard_process(self, img, source: str) -> None:
+    def _schedule_clipboard_process(self, source: str) -> None:
         self._clipboard_pending_at = time.monotonic()
 
         def run() -> None:
-            if time.monotonic() - self._clipboard_pending_at < 1.0:
-                self.after(200, run)
+            if time.monotonic() - self._clipboard_pending_at < 0.35:
+                self.after(80, run)
+                return
+            img = self._clipboard_image()
+            if img is None:
                 return
             h = self._image_hash(img)
             if h == self._clipboard_hash:
                 return
             self._clipboard_hash = h
+            self._clipboard_watch_digest = None
+            self.after(0, lambda: self.log_line(f"[{source}] Новое изображение в буфере"))
             self._process_snip_marker(img, source=source)
 
-        self.after(1200, run)
+        self.after(450, run)
 
     def _clipboard_loop(self) -> None:
-        time.sleep(2)
+        time.sleep(0.5)
         img = self._clipboard_image()
         if img is not None:
             self._clipboard_hash = self._image_hash(img)
@@ -607,19 +652,17 @@ class ClientApp(tk.Tk):
             if img is not None and self.map_client:
                 w, h = img.size
                 if w >= 30 and h >= 10:
-                    buf = io.BytesIO()
-                    img.save(buf, format="PNG")
-                    digest = str(hash(buf.getvalue()))
-                    if digest != self._clipboard_hash:
-                        self._schedule_clipboard_process(img, source="Скриншот")
-            time.sleep(0.3)
+                    digest = self._image_hash(img)
+                    if digest != self._clipboard_hash and digest != self._clipboard_watch_digest:
+                        self._clipboard_watch_digest = digest
+                        self._schedule_clipboard_process(source="Win+Shift+S")
+            time.sleep(0.2)
 
     def on_close(self) -> None:
         if self._region_editor and self._region_editor.active:
             self._region_editor.stop()
         if self._hud:
             self._hud.destroy()
-        self._dblclick_listener.stop()
         if self.hotkeys_active:
             self.stop_hotkeys()
         self.destroy()

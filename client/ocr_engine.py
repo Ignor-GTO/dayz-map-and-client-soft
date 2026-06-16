@@ -181,10 +181,18 @@ def recognize_text(image: Image.Image) -> str:
 def recognize_text_all(image: Image.Image) -> list[str]:
     """Run OCR on every preprocess variant; return non-empty results."""
     from ocr_preprocess import preprocess_variants
+    from ocr_tesseract import is_available as tesseract_available
+    from ocr_tesseract import recognize_digits_all
 
     seen: set[str] = set()
     out: list[str] = []
     for prepared in preprocess_variants(image):
+        if tesseract_available():
+            for text in recognize_digits_all(prepared):
+                text = text.strip()
+                if text and text not in seen:
+                    seen.add(text)
+                    out.append(text)
         text = _recognize_prepared(prepared).strip()
         if text and text not in seen:
             seen.add(text)
@@ -194,9 +202,13 @@ def recognize_text_all(image: Image.Image) -> list[str]:
 
 def _recognize_prepared(prepared: Image.Image) -> str:
     from ocr_tesseract import is_available as tesseract_available
-    from ocr_tesseract import recognize_digits
+    from ocr_tesseract import recognize_digits, recognize_digits_all
 
     if tesseract_available():
+        texts = recognize_digits_all(prepared)
+        for text in texts:
+            if text.strip():
+                return text
         text = recognize_digits(prepared)
         if text:
             return text
