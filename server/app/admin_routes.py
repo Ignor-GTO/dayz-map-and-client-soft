@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +12,7 @@ from app.auth import (
 from app.database import get_db
 from app.models import DayZMap, MapPoi, Room, Setting, User
 from app.poi_icons import POI_ICONS, normalize_poi_icon
+from app.poi_upload import delete_poi_image_file, save_poi_image
 from app.schemas import (
     AdminLoginRequest,
     AdminPasswordRequest,
@@ -256,6 +257,7 @@ async def admin_list_pois(
             "map_slug": game_map.slug,
             "title": p.title,
             "description": p.description,
+            "description_image_url": p.description_image_url or "",
             "icon": p.icon or "star",
             "x": p.x,
             "y": p.y,
@@ -312,6 +314,39 @@ async def admin_delete_poi(
     poi = await db.get(MapPoi, poi_id)
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
+    delete_poi_image_file(poi.description_image_url)
     await db.delete(poi)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/pois/{poi_id}/image")
+async def admin_upload_poi_image(
+    poi_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+    file: UploadFile = File(...),
+):
+    poi = await db.get(MapPoi, poi_id)
+    if not poi:
+        raise HTTPException(status_code=404, detail="POI not found")
+    delete_poi_image_file(poi.description_image_url)
+    url = await save_poi_image(poi_id, file)
+    poi.description_image_url = url
+    await db.commit()
+    return {"description_image_url": url}
+
+
+@router.delete("/pois/{poi_id}/image")
+async def admin_delete_poi_image(
+    poi_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    poi = await db.get(MapPoi, poi_id)
+    if not poi:
+        raise HTTPException(status_code=404, detail="POI not found")
+    delete_poi_image_file(poi.description_image_url)
+    poi.description_image_url = None
     await db.commit()
     return {"ok": True}

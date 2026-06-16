@@ -10,6 +10,7 @@ from app.auth import channel_key, get_current_user_from_ws
 from app.config import CLIENT_DOWNLOAD_URL
 from app.database import SessionLocal, init_db
 from app.routes import router
+from app.poi_upload import ensure_upload_dir
 from app.websocket import manager
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -17,6 +18,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_upload_dir()
     await init_db()
     yield
 
@@ -54,4 +56,5 @@ async def map_websocket(websocket: WebSocket):
         await manager.disconnect(ch, websocket)
 
 
+app.mount("/uploads", StaticFiles(directory=ensure_upload_dir()), name="uploads")
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

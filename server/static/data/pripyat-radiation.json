@@ -1,47 +1,16 @@
 {
-  "overlay": null,
-  "zones": [
-    {
-      "id": "cnpp-green",
-      "label": "Слабая радиация",
-      "x": 7310,
-      "y": 15285,
-      "radius": 5800,
-      "color": "#4caf50",
-      "fillOpacity": 0.07,
-      "weight": 1
-    },
-    {
-      "id": "cnpp-yellow",
-      "label": "Средняя радиация",
-      "x": 7310,
-      "y": 15285,
-      "radius": 3800,
-      "color": "#cddc39",
-      "fillOpacity": 0.09,
-      "weight": 1
-    },
-    {
-      "id": "cnpp-orange",
-      "label": "Высокая радиация",
-      "x": 7310,
-      "y": 15285,
-      "radius": 2200,
-      "color": "#ff9800",
-      "fillOpacity": 0.11,
-      "weight": 2
-    },
-    {
-      "id": "cnpp-red",
-      "label": "Смертельная радиация",
-      "x": 7310,
-      "y": 15285,
-      "radius": 950,
-      "color": "#f44336",
-      "fillOpacity": 0.14,
-      "weight": 2
+  "overlay": {
+    "url": "/static/data/pripyat-radiation-mask.webp",
+    "enabled": true,
+    "opacity": 0.72,
+    "bounds": {
+      "x1": 0,
+      "y1": 0,
+      "x2": 20480,
+      "y2": 20480
     }
-  ],
+  },
+  "zones": [],
   "legend": [
     { "color": "#4caf50", "label": "Слабая радиация" },
     { "color": "#cddc39", "label": "Средняя" },

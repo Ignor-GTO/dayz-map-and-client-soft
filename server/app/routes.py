@@ -319,6 +319,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                 id=p.id,
                 title=p.title,
                 description=p.description,
+                description_image_url=p.description_image_url,
                 icon=p.icon or "star",
                 x=p.x,
                 y=p.y,

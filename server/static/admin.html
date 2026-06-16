@@ -94,6 +94,13 @@
             <div id="poi-icon-picker" class="icon-picker"></div>
           </label>
           <label>Описание <textarea name="description" rows="3"></textarea></label>
+          <label>Картинка к описанию
+            <input type="file" id="poi-image-file" accept="image/jpeg,image/png,image/webp,image/gif">
+          </label>
+          <div id="poi-image-preview" class="poi-image-preview hidden">
+            <img id="poi-image-preview-img" alt="">
+            <button type="button" class="secondary" id="poi-image-remove">Удалить картинку</button>
+          </div>
           <div class="form-actions">
             <button type="submit" id="poi-form-submit">Добавить метку</button>
             <button type="button" class="secondary hidden" id="poi-form-cancel">Отмена</button>
@@ -139,7 +146,7 @@
       </div>
     </section>
   </div>
-  <script src="/js/poi-icons.js"></script>
-  <script src="/js/admin.js"></script>
+  <script src="/js/poi-icons.js?v=2"></script>
+  <script src="/js/admin.js?v=2"></script>
 </body>
 </html>

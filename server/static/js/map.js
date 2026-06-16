@@ -252,8 +252,7 @@ function upsertPoi(p) {
   if (!state.filters.poi) return;
   const latlng = gameToLatLng(p.x, p.y);
   let marker = state.poiMarkers.get(p.id);
-  const desc = p.description ? `<br>${p.description}` : "";
-  const popup = `<b>${p.title}</b>${desc}<br>${Math.round(p.x)} / ${Math.round(p.y)}`;
+  const popup = poiPopupHtml(p);
   const icon = L.divIcon({
     className: "poi-map-pin",
     html: poiLabelHtml(p.icon || "star", p.title),
@@ -391,7 +390,7 @@ function renderRadiationLayer(data) {
   if (overlay?.url && overlay?.enabled) {
     const bounds = gameBoundsToLatLng(overlay.bounds || {});
     state.radiationOverlay = L.imageOverlay(overlay.url, bounds, {
-      opacity: Math.min(overlay.opacity ?? 0.3, 0.35),
+      opacity: Math.min(overlay.opacity ?? 0.55, 0.85),
       interactive: false,
       pane: "radiationPane",
     });

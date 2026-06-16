@@ -11,5 +11,7 @@ build/
 client/dist/
 client/build/
 server/data/
+server/static/data/pripyat-radiation-ref.jpg
+server/static/data/pripyat-radiation-mask.png
 .DS_Store
 Thumbs.db

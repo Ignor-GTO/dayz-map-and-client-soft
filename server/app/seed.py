@@ -54,6 +54,8 @@ def _migrate_sqlite(conn) -> None:
     poi_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(map_pois)")).fetchall()}
     if poi_cols and "icon" not in poi_cols:
         conn.execute(text("ALTER TABLE map_pois ADD COLUMN icon VARCHAR(32) DEFAULT 'star'"))
+    if poi_cols and "description_image_url" not in poi_cols:
+        conn.execute(text("ALTER TABLE map_pois ADD COLUMN description_image_url TEXT"))
 
 
 def default_map_kwargs() -> dict:

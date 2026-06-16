@@ -36,6 +36,7 @@ class PoiResponse(BaseModel):
     id: int
     title: str
     description: str
+    description_image_url: str | None = None
     icon: str = "star"
     x: float
     y: float

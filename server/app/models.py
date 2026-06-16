@@ -39,6 +39,7 @@ class MapPoi(Base):
     map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
     title: Mapped[str] = mapped_column(String(128))
     description: Mapped[str] = mapped_column(Text, default="")
+    description_image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     icon: Mapped[str] = mapped_column(String(32), default="star")
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)

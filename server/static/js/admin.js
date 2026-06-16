@@ -38,6 +38,50 @@ function poiIconBadge(iconKey) {
 let mapsCache = [];
 let poisCache = [];
 let selectedPoiIcon = "star";
+let poiImageFile = null;
+let poiImageRemovePending = false;
+
+function setPoiImagePreview(url) {
+  const wrap = document.getElementById("poi-image-preview");
+  const img = document.getElementById("poi-image-preview-img");
+  if (!wrap || !img) return;
+  if (url) {
+    img.src = url;
+    wrap.classList.remove("hidden");
+  } else {
+    img.removeAttribute("src");
+    wrap.classList.add("hidden");
+  }
+}
+
+function resetPoiImageState() {
+  poiImageFile = null;
+  poiImageRemovePending = false;
+  const input = document.getElementById("poi-image-file");
+  if (input) input.value = "";
+  setPoiImagePreview("");
+}
+
+async function uploadPoiImage(poiId, file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  const res = await fetch(`/api/admin/pois/${poiId}/image`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: fd,
+  });
+  const data = res.ok ? await res.json().catch(() => ({})) : null;
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    if (data?.detail) msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+    throw new Error(msg);
+  }
+  return data;
+}
+
+async function deletePoiImage(poiId) {
+  await api(`/api/admin/pois/${poiId}/image`, { method: "DELETE" });
+}
 
 function setPoiIcon(iconKey) {
   selectedPoiIcon = normalizePoiIcon(iconKey);
@@ -89,6 +133,7 @@ function resetPoiForm() {
   document.getElementById("poi-form-title").textContent = "Добавить метку";
   document.getElementById("poi-form-submit").textContent = "Добавить метку";
   document.getElementById("poi-form-cancel").classList.add("hidden");
+  resetPoiImageState();
   initPoiIconPicker("star");
 }
 
@@ -102,6 +147,10 @@ function fillPoiForm(poi) {
   form.querySelector('[name="x"]').value = poi.x;
   form.querySelector('[name="y"]').value = poi.y;
   form.querySelector('[name="description"]').value = poi.description || "";
+  resetPoiImageState();
+  if (poi.description_image_url) {
+    setPoiImagePreview(poi.description_image_url);
+  }
   initPoiIconPicker(poi.icon || "star");
   form.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -143,7 +192,8 @@ async function loadPois() {
       <div class="card" data-id="${p.id}">
         <div class="card-head"><strong>${poiIconBadge(p.icon)}${p.title}</strong></div>
         <div class="card-meta">${Math.round(p.x)} / ${Math.round(p.y)}</div>
-        ${p.description ? `<p class="card-desc">${p.description}</p>` : ""}
+        ${p.description ? `<p class="card-desc">${escapeHtml(p.description)}</p>` : ""}
+        ${p.description_image_url ? `<img class="card-poi-image" src="${escapeHtml(p.description_image_url)}" alt="">` : ""}
         <div class="card-actions">
           <button type="button" class="secondary edit-poi" data-id="${p.id}">Редактировать</button>
           <button type="button" class="danger delete-poi" data-id="${p.id}">Удалить</button>
@@ -339,17 +389,26 @@ document.getElementById("poi-form").addEventListener("submit", async (e) => {
     y: Number(fd.get("y")),
   };
   try {
+    let poiId = editId;
     if (editId) {
       await api(`/api/admin/pois/${editId}`, { method: "PUT", body: JSON.stringify(payload) });
     } else {
-      await api("/api/admin/pois", {
+      const created = await api("/api/admin/pois", {
         method: "POST",
         body: JSON.stringify({
           map_slug: document.getElementById("poi-map-select").value,
           ...payload,
         }),
       });
+      poiId = created.id;
     }
+
+    if (poiImageRemovePending && poiId) {
+      await deletePoiImage(poiId);
+    } else if (poiImageFile && poiId) {
+      await uploadPoiImage(poiId, poiImageFile);
+    }
+
     resetPoiForm();
     await loadPois();
   } catch (err) {
@@ -369,6 +428,25 @@ document.getElementById("pois-list").addEventListener("click", async (e) => {
   if (!confirm("Удалить метку?")) return;
   await api(`/api/admin/pois/${del.dataset.id}`, { method: "DELETE" });
   await loadPois();
+});
+
+document.getElementById("poi-image-file")?.addEventListener("change", (e) => {
+  const file = e.target.files?.[0];
+  poiImageFile = file || null;
+  poiImageRemovePending = false;
+  if (file) {
+    setPoiImagePreview(URL.createObjectURL(file));
+  } else if (!document.getElementById("poi-edit-id").value) {
+    setPoiImagePreview("");
+  }
+});
+
+document.getElementById("poi-image-remove")?.addEventListener("click", () => {
+  poiImageFile = null;
+  poiImageRemovePending = true;
+  const input = document.getElementById("poi-image-file");
+  if (input) input.value = "";
+  setPoiImagePreview("");
 });
 
 document.getElementById("password-form").addEventListener("submit", async (e) => {
