@@ -12,13 +12,14 @@ from api_client import MapClient
 from capture import grab_region, list_monitors
 from config import load_config, save_config
 from ocr import extract_coordinates
+from region_overlay import show_ocr_region_overlay
 
 
 class ClientApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title("DayZ Map Client — GTO Team")
-        self.geometry("560x640")
+        self.geometry("560x680")
         self.resizable(False, False)
 
         self.cfg = load_config()
@@ -56,6 +57,9 @@ class ClientApp(tk.Tk):
         self.region_vars = [tk.IntVar(value=v) for v in self.cfg.get("ocr_region", [10, 900, 300, 1050])]
         for i, var in enumerate(self.region_vars):
             ttk.Entry(region_frm, textvariable=var, width=8).pack(side="left", padx=2)
+        ttk.Button(region_frm, text="Показать область", command=self.show_ocr_region).pack(
+            side="left", padx=6
+        )
 
         btn_frm = ttk.Frame(frm)
         btn_frm.grid(row=4, column=0, columnspan=2, pady=10)
@@ -63,6 +67,7 @@ class ClientApp(tk.Tk):
         self.start_btn = ttk.Button(btn_frm, text="Запустить hotkeys", command=self.toggle_hotkeys)
         self.start_btn.pack(side="left", padx=5)
         ttk.Button(btn_frm, text="Тест OCR (M)", command=self.test_ocr).pack(side="left", padx=5)
+        ttk.Button(btn_frm, text="Проверка OCR", command=self.check_ocr).pack(side="left", padx=5)
 
         ttk.Label(frm, text="M — live позиция · Win+Shift+S — метка со скриншота").grid(
             row=5, column=0, columnspan=2, **pad
@@ -116,6 +121,40 @@ class ClientApp(tk.Tk):
     def _ocr_region(self) -> tuple[int, int, int, int]:
         return tuple(v.get() for v in self.region_vars)
 
+    def show_ocr_region(self) -> None:
+        try:
+            region = self._ocr_region()
+            if region[2] <= region[0] or region[3] <= region[1]:
+                messagebox.showerror("Ошибка", "Неверная область: правый/нижний край должен быть больше левого/верхнего")
+                return
+            self.log_line(
+                f"[Область] Монитор {self._monitor_index()}, "
+                f"L={region[0]} T={region[1]} R={region[2]} B={region[3]}"
+            )
+            show_ocr_region_overlay(
+                self._monitor_index(),
+                region,
+                root=self,
+                on_close=lambda: self.deiconify(),
+            )
+        except Exception as exc:
+            messagebox.showerror("Область OCR", str(exc))
+            self.deiconify()
+
+    def check_ocr(self) -> None:
+        from ocr_engine import get_ocr_engine, list_ocr_languages
+
+        try:
+            engine = get_ocr_engine()
+            lang = engine.recognizer_language.language_tag
+            langs = list_ocr_languages()
+            self.log_line(f"[OCR OK] Язык: {lang}")
+            if langs:
+                self.log_line(f"[OCR OK] Доступно: {', '.join(langs)}")
+        except Exception as exc:
+            self.log_line(f"[OCR] {exc}")
+            messagebox.showerror("Windows OCR", str(exc))
+
     def test_ocr(self) -> None:
         self.save_settings()
         try:
@@ -137,6 +176,14 @@ class ClientApp(tk.Tk):
     def start_hotkeys(self) -> None:
         self.save_settings()
         if not self.map_client:
+            return
+        from ocr_engine import get_ocr_engine
+
+        try:
+            get_ocr_engine()
+        except Exception as exc:
+            messagebox.showerror("Windows OCR", str(exc))
+            self.log_line(f"[OCR] {exc}")
             return
         self.hotkeys_active = True
         self.status_var.set("Работает — hotkeys активны")

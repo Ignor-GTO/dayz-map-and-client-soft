@@ -21,6 +21,7 @@ for pkg in (
     'winrt.windows.storage.streams',
     'winrt.windows.globalization',
     'winrt.windows.foundation',
+    'winrt.windows.foundation.collections',
 ):
     try:
         pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
