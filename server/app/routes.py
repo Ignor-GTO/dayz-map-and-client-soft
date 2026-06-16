@@ -71,6 +71,18 @@ async def map_config(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     return map_to_config(game_map)
 
 
+@router.get("/map/config", response_model=MapConfigResponse)
+async def legacy_map_config(db: Annotated[AsyncSession, Depends(get_db)]):
+    """Backward-compatible endpoint for cached old map.js."""
+    result = await db.execute(
+        select(DayZMap).where(DayZMap.enabled.is_(True)).order_by(DayZMap.sort_order, DayZMap.id)
+    )
+    game_map = result.scalars().first()
+    if not game_map:
+        raise HTTPException(status_code=404, detail="No maps configured")
+    return map_to_config(game_map)
+
+
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(
     payload: LoginRequest,
