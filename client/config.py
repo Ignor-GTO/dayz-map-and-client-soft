@@ -21,7 +21,7 @@ def load_config() -> dict:
         "server_url": DEFAULT_SERVER,
         "client_key": "",
         "monitor_index": 1,
-        "ocr_region": [10, 900, 300, 1050],
+        "ocr_region": [210, 915, 330, 945],
     }
 
 

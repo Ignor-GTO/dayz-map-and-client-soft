@@ -10,7 +10,8 @@ except ImportError:
 
 from PIL import Image
 
-from ocr_fallback import preprocess_coordinate_region, recognize_text as recognize_text_fallback
+from ocr_fallback import recognize_text as recognize_text_fallback
+from ocr_preprocess import preprocess_coordinate_region
 from ocr_setup import diagnose, format_setup_message, list_ocr_languages, open_ocr_language_settings
 
 _ocr_loop: asyncio.AbstractEventLoop | None = None

@@ -67,6 +67,7 @@ class ClientApp(tk.Tk):
             entry.pack(side="left", padx=2)
         self.region_btn = ttk.Button(region_frm, text="Редактор области", command=self.toggle_ocr_region)
         self.region_btn.pack(side="left", padx=6)
+        ttk.Button(region_frm, text="iZurvive", command=self._apply_izurvive_preset).pack(side="left", padx=2)
         self.monitor_combo.bind("<<ComboboxSelected>>", self._on_monitor_changed)
 
         btn_frm = ttk.Frame(frm)
@@ -83,12 +84,17 @@ class ClientApp(tk.Tk):
         ttk.Label(frm, text="M — live позиция · Win+Shift+S — метка со скриншота").grid(
             row=5, column=0, columnspan=2, **pad
         )
+        ttk.Label(
+            frm,
+            text="OCR: нижний левый угол iZurvive — «15100 / 879» (кнопка iZurvive)",
+            wraplength=580,
+        ).grid(row=6, column=0, columnspan=2, **pad)
 
         self.status_var = tk.StringVar(value="Остановлено")
-        ttk.Label(frm, textvariable=self.status_var).grid(row=6, column=0, columnspan=2, **pad)
+        ttk.Label(frm, textvariable=self.status_var).grid(row=7, column=0, columnspan=2, **pad)
 
         self.log = scrolledtext.ScrolledText(frm, height=18, width=64, state="disabled")
-        self.log.grid(row=7, column=0, columnspan=2, pady=8)
+        self.log.grid(row=8, column=0, columnspan=2, pady=8)
 
     def _refresh_monitors(self) -> None:
         prev_index = self.monitor_combo.current() if hasattr(self, "monitor_combo") else -1
@@ -144,6 +150,16 @@ class ClientApp(tk.Tk):
                 region_vars=self.region_vars,
             )
         return self._region_editor
+
+    def _apply_izurvive_preset(self) -> None:
+        from ocr_preprocess import IZURVIVE_OCR_REGION
+
+        for var, value in zip(self.region_vars, IZURVIVE_OCR_REGION):
+            var.set(value)
+        self.log_line(
+            "[OCR] Пресет iZurvive: область «15100 / 879» внизу слева. "
+            "Подстройте рамкой на своём мониторе."
+        )
 
     def _on_monitor_changed(self, _event=None) -> None:
         editor = self._region_editor
@@ -241,12 +257,16 @@ class ClientApp(tk.Tk):
     def test_ocr(self) -> None:
         self.save_settings()
         try:
+            from ocr import extract_coordinates_with_text
+
             img = grab_region(self._monitor_index(), self._ocr_region())
-            coords = extract_coordinates(img)
+            coords, raw = extract_coordinates_with_text(img)
+            if raw:
+                self.log_line(f"[Тест] OCR текст: {raw!r}")
             if coords:
                 self.log_line(f"[Тест] OCR: {coords[0]:.0f} / {coords[1]:.0f}")
             else:
-                self.log_line("[Тест] Координаты не распознаны")
+                self.log_line("[Тест] Координаты не распознаны — проверьте область (кнопка iZurvive)")
         except Exception as exc:
             messagebox.showerror("OCR", str(exc))
 

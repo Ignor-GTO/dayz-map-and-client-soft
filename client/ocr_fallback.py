@@ -5,22 +5,11 @@ from __future__ import annotations
 import logging
 
 import numpy as np
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image
+
+from ocr_preprocess import preprocess_coordinate_region
 
 _engine = None
-_log = logging.getLogger(__name__)
-
-
-def preprocess_coordinate_region(image: Image.Image) -> Image.Image:
-    """Upscale and boost contrast — helps small in-game coordinate text."""
-    gray = image.convert("L")
-    gray = ImageOps.autocontrast(gray, cutoff=2)
-    w, h = gray.size
-    scale = max(2, min(4, 140 // max(h, 1)))
-    if scale > 1:
-        gray = gray.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
-    gray = ImageEnhance.Contrast(gray).enhance(1.6)
-    return gray.convert("RGB")
 
 
 def _get_engine():
