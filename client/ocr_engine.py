@@ -1,12 +1,41 @@
 import asyncio
 import io
+import threading
+import uuid  # noqa: F401 — required by winrt in PyInstaller builds
 
 from PIL import Image
+
+_ocr_loop: asyncio.AbstractEventLoop | None = None
+_ocr_thread: threading.Thread | None = None
+_ocr_lock = threading.Lock()
+
+
+def _ensure_ocr_loop() -> asyncio.AbstractEventLoop:
+    global _ocr_loop, _ocr_thread
+    with _ocr_lock:
+        if _ocr_loop is None or not _ocr_loop.is_running():
+            ready = threading.Event()
+
+            def run_loop() -> None:
+                global _ocr_loop
+                _ocr_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(_ocr_loop)
+                ready.set()
+                _ocr_loop.run_forever()
+
+            _ocr_thread = threading.Thread(target=run_loop, name="ocr-loop", daemon=True)
+            _ocr_thread.start()
+            ready.wait(timeout=5)
+            if _ocr_loop is None:
+                raise RuntimeError("Failed to start OCR event loop")
+    return _ocr_loop
 
 
 def recognize_text(image: Image.Image) -> str:
     try:
-        return asyncio.run(_recognize_async(image))
+        loop = _ensure_ocr_loop()
+        future = asyncio.run_coroutine_threadsafe(_recognize_async(image), loop)
+        return future.result(timeout=30)
     except Exception as exc:
         raise RuntimeError(f"Windows OCR error: {exc}") from exc
 
