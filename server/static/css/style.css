@@ -1,0 +1,172 @@
+:root {
+  --bg: #0f1419;
+  --panel: #1a2332;
+  --accent: #3d9ee5;
+  --accent-hover: #5eb0ef;
+  --text: #e8edf4;
+  --muted: #8b9cb3;
+  --error: #ff6b6b;
+  --live: #ff4757;
+  --marker: #ffa502;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+.hidden { display: none !important; }
+
+.panel {
+  max-width: 420px;
+  margin: 8vh auto;
+  padding: 2rem;
+  background: var(--panel);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
+.subtitle { color: var(--muted); margin: 0 0 1.5rem; }
+
+form label {
+  display: block;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+input {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1rem;
+}
+
+button, .btn-link {
+  display: inline-block;
+  padding: 0.65rem 1rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+button:hover, .btn-link:hover { background: var(--accent-hover); }
+button.secondary { background: #2a3848; }
+button.secondary:hover { background: #3a4858; }
+
+#login-form button { width: 100%; margin-top: 0.5rem; }
+
+.error { color: var(--error); margin-top: 1rem; }
+.download-link {
+  display: block;
+  margin-top: 1.5rem;
+  text-align: center;
+  color: var(--accent);
+}
+
+#map-view { display: flex; flex-direction: column; height: 100vh; }
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: var(--panel);
+  border-bottom: 1px solid #2a3848;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.user-info span { color: var(--muted); margin-left: 0.75rem; }
+.toolbar-actions { display: flex; gap: 0.5rem; align-items: center; }
+
+#map { flex: 1; min-height: 0; }
+
+#legend {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 260px;
+  padding: 1rem;
+  background: rgba(26, 35, 50, 0.95);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  z-index: 1000;
+}
+
+#legend h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
+#legend ul { list-style: none; padding: 0; margin: 0 0 0.75rem; }
+#legend li { margin-bottom: 0.35rem; }
+
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.dot.live { background: var(--live); }
+.dot.marker { background: var(--marker); }
+
+#players-list { border-top: 1px solid #2a3848; padding-top: 0.5rem; }
+.player-row { padding: 0.25rem 0; color: var(--muted); }
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-content {
+  background: var(--panel);
+  padding: 1.5rem;
+  border-radius: 12px;
+  max-width: 480px;
+  width: 90%;
+}
+
+.modal-content code {
+  display: block;
+  word-break: break-all;
+  padding: 0.75rem;
+  background: var(--bg);
+  border-radius: 8px;
+  margin: 1rem 0;
+  font-size: 0.8rem;
+}
+
+.leaflet-popup-content { color: #222; }
+
+.marker-delete {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  background: #c0392b;
+}
+
+@media (max-width: 768px) {
+  #legend {
+    position: static;
+    width: auto;
+    border-radius: 0;
+  }
+}

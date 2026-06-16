@@ -1,0 +1,5 @@
+pillow==11.0.0
+keyboard==0.13.5
+pytesseract==0.3.13
+httpx==0.28.1
+pyinstaller==6.11.1

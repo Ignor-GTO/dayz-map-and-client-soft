@@ -1,0 +1,22 @@
+services:
+  dayz-map:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    expose:
+      - "8000"
+    volumes:
+      - dayz_map_data:/data
+    environment:
+      SECRET_KEY: ${SECRET_KEY}
+      SERVER_PUBLIC_URL: ${SERVER_PUBLIC_URL:-https://dayz-map.gto-team.uz}
+      MAP_MIN_X: ${MAP_MIN_X:-0}
+      MAP_MAX_X: ${MAP_MAX_X:-15360}
+      MAP_MIN_Y: ${MAP_MIN_Y:-0}
+      MAP_MAX_Y: ${MAP_MAX_Y:-15360}
+      CLIENT_EXE_PATH: /data/DayZMapClient.exe
+      DATA_DIR: /data
+
+volumes:
+  dayz_map_data:

@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DayZ Pripyat Map — GTO Team</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="app">
+    <section id="login-view" class="panel">
+      <h1>DayZ Pripyat Map</h1>
+      <p class="subtitle">Карта сервера DayZavr · группы по PIN-коду</p>
+      <form id="login-form">
+        <label>
+          PIN группы
+          <input type="text" id="pin" placeholder="9029" required minlength="4" maxlength="16">
+        </label>
+        <label>
+          Никнейм
+          <input type="text" id="nickname" placeholder="IgnorGTO" required minlength="2" maxlength="64">
+        </label>
+        <button type="submit">Войти</button>
+      </form>
+      <p id="login-error" class="error hidden"></p>
+      <a class="download-link" href="/api/download/client">Скачать клиент (Windows .exe)</a>
+    </section>
+
+    <section id="map-view" class="hidden">
+      <header class="toolbar">
+        <div class="user-info">
+          <strong id="user-label"></strong>
+          <span id="room-label"></span>
+        </div>
+        <div class="toolbar-actions">
+          <button id="reset-key-btn" class="secondary">Новый ключ</button>
+          <button id="copy-key-btn" class="secondary">Ключ клиента</button>
+          <a href="/api/download/client" class="btn-link">Скачать .exe</a>
+          <button id="logout-btn" class="secondary">Выйти</button>
+        </div>
+      </header>
+
+      <div id="key-modal" class="modal hidden">
+        <div class="modal-content">
+          <h2>Ключ клиента</h2>
+          <p>Сохраните ключ в настройках клиента. При повторном входе выдаётся новый ключ.</p>
+          <code id="client-key-display"></code>
+          <button id="copy-key-confirm">Скопировать</button>
+          <button id="close-key-modal" class="secondary">Закрыть</button>
+        </div>
+      </div>
+
+      <div id="map"></div>
+      <aside id="legend">
+        <h3>Легенда</h3>
+        <ul>
+          <li><span class="dot live"></span> Live-позиция (клавиша M в игре)</li>
+          <li><span class="dot marker"></span> Метка (Win+Shift+S → OCR)</li>
+        </ul>
+        <div id="players-list"></div>
+      </aside>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="/js/map.js"></script>
+</body>
+</html>
