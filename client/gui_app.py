@@ -13,12 +13,13 @@ from capture import grab_region, list_monitors
 from config import load_config, save_config
 from ocr import extract_coordinates
 from region_overlay import OcrRegionEditor
+from version import __version__
 
 
 class ClientApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
-        self.title("DayZ Map Client — GTO Team")
+        self.title(f"DayZ Map Client v{__version__} — GTO Team")
         self.geometry("560x680")
         self.resizable(False, False)
 
@@ -31,6 +32,7 @@ class ClientApp(tk.Tk):
 
         self._build_ui()
         self._load_fields()
+        self.log_line(f"[Клиент] v{__version__}")
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def _build_ui(self) -> None:

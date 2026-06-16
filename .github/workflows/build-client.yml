@@ -16,10 +16,32 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+
+      - name: Bump version
+        id: ver
+        shell: pwsh
+        run: |
+          $version = python client/bump_version.py --bump
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          Write-Host "Building client v$version"
+
+      - name: Commit version bump
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add client/VERSION client/version.py
+          git diff --staged --quiet
+          if ($LASTEXITCODE -ne 0) {
+            git commit -m "chore(client): release v${{ steps.ver.outputs.version }} [skip ci]"
+            git push
+          }
 
       - name: Install dependencies
         run: pip install -r client/requirements.txt
@@ -32,16 +54,17 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: client-latest
-          name: DayZ Map Client (Latest)
+          name: DayZ Map Client v${{ steps.ver.outputs.version }}
           body: |
             Windows OCR client with GUI. No Tesseract required.
 
+            **Версия:** v${{ steps.ver.outputs.version }}
             **Сборка:** `${{ github.sha }}`
             **Коммит:** ${{ github.event.head_commit.message }}
             **Время (UTC):** ${{ github.event.head_commit.timestamp }}
 
             Скачивайте `DayZMapClient.exe` ниже — файл перезаписывается при каждой сборке.
-            Дата «N hours ago» у релиза — это создание страницы, смотрите время у файла exe.
+            Дата «N hours ago» у релиза — это создание страницы, смотрите версию и время у файла exe.
           artifacts: client/dist/DayZMapClient.exe
           allowUpdates: true
           replacesArtifacts: true
