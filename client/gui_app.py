@@ -95,7 +95,7 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_var = tk.BooleanVar(value=self.cfg.get("mouse_nudge_before_ocr", True))
         ttk.Checkbutton(
             nudge_frm,
-            text="Перед M сдвигать мышь на левую панель (координаты игрока, не карты)",
+            text="Перед M сдвигать мышь к левому краю (координаты игрока iZurvive)",
             variable=self.mouse_nudge_var,
         ).pack(side="left")
 
@@ -141,7 +141,8 @@ class ClientApp(tk.Tk):
                 "ocr_region": [v.get() for v in self.region_vars],
                 "mouse_nudge_before_ocr": self.mouse_nudge_var.get(),
                 "mouse_nudge_side": "left",
-                "mouse_nudge_delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 350)),
+                "mouse_nudge_delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 400)),
+                "mouse_nudge_edge_offset": int(self.cfg.get("mouse_nudge_edge_offset", 8)),
                 "mouse_nudge_restore": self.cfg.get("mouse_nudge_restore", True),
             }
         )
@@ -267,13 +268,20 @@ class ClientApp(tk.Tk):
         except Exception as exc:
             self._show_ocr_error(exc)
 
+    def _log_mouse_nudge(self, target: tuple[int, int], saved: tuple[int, int], actual: tuple[int, int]) -> None:
+        self.log_line(f"[OCR] Мышь {saved[0]},{saved[1]} → {target[0]},{target[1]} (сейчас {actual[0]},{actual[1]})")
+        if abs(actual[0] - target[0]) > 40 or abs(actual[1] - target[1]) > 40:
+            self.log_line("[OCR] Внимание: курсор не дошёл до цели — запустите клиент от администратора?")
+
     def _mouse_nudge_kwargs(self) -> dict:
         return {
             "enabled": self.mouse_nudge_var.get(),
             "side": "left",
-            "delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 350)),
+            "delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 400)),
             "restore": self.cfg.get("mouse_nudge_restore", True),
-            "on_nudged": lambda pos: self.log_line(f"[OCR] Мышь → левая панель ({pos[0]}, {pos[1]})"),
+            "edge_offset": int(self.cfg.get("mouse_nudge_edge_offset", 8)),
+            "on_nudged": self._log_mouse_nudge,
+            "on_skipped": lambda reason: self.log_line(f"[OCR] Сдвиг мыши пропущен: {reason}"),
         }
 
     def test_ocr(self) -> None:

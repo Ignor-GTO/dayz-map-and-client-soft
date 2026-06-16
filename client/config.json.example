@@ -5,6 +5,7 @@
   "ocr_region": [210, 915, 330, 945],
   "mouse_nudge_before_ocr": true,
   "mouse_nudge_side": "left",
-  "mouse_nudge_delay_ms": 350,
+  "mouse_nudge_delay_ms": 400,
+  "mouse_nudge_edge_offset": 8,
   "mouse_nudge_restore": true
 }
