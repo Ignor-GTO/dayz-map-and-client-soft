@@ -271,7 +271,11 @@ class ClientApp(tk.Tk):
     def _log_mouse_nudge(self, target: tuple[int, int], saved: tuple[int, int], actual: tuple[int, int]) -> None:
         self.log_line(f"[OCR] Мышь {saved[0]},{saved[1]} → {target[0]},{target[1]} (сейчас {actual[0]},{actual[1]})")
         if abs(actual[0] - target[0]) > 40 or abs(actual[1] - target[1]) > 40:
-            self.log_line("[OCR] Внимание: курсор не дошёл до цели — запустите клиент от администратора?")
+            self.log_line(
+                "[OCR] Курсор не двигается — DayZ удерживает мышь в полном экране. "
+                "Варианты: iZurvive на 2-м мониторе, DayZ в оконном режиме, "
+                "Alt+Tab на браузер перед M. Отправлен hover в окно под курсором."
+            )
 
     def _mouse_nudge_kwargs(self) -> dict:
         return {

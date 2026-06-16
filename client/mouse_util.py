@@ -13,6 +13,7 @@ if sys.platform == "win32":
     from ctypes import wintypes
 
     user32 = ctypes.WinDLL("user32", use_last_error=True)
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
     SM_XVIRTUALSCREEN = 76
     SM_YVIRTUALSCREEN = 77
@@ -27,12 +28,12 @@ if sys.platform == "win32":
 
     class _MOUSEINPUT(ctypes.Structure):
         _fields_ = [
-            ("dx", wintypes.LONG),
-            ("dy", wintypes.LONG),
-            ("mouseData", wintypes.DWORD),
-            ("dwFlags", wintypes.DWORD),
-            ("time", wintypes.DWORD),
-            ("dwExtraInfo", ctypes.c_size_t),
+            ("dx", ctypes.c_long),
+            ("dy", ctypes.c_long),
+            ("mouseData", ctypes.c_ulong),
+            ("dwFlags", ctypes.c_ulong),
+            ("time", ctypes.c_ulong),
+            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
         ]
 
     class _INPUT(ctypes.Structure):
@@ -40,7 +41,9 @@ if sys.platform == "win32":
             _fields_ = [("mi", _MOUSEINPUT)]
 
         _anonymous_ = ("u",)
-        _fields_ = [("type", wintypes.DWORD), ("u", _U)]
+        _fields_ = [("type", ctypes.c_ulong), ("u", _U)]
+
+    _EXTRA = ctypes.c_ulong(0)
 
     def get_cursor_pos() -> tuple[int, int]:
         pt = _POINT()
@@ -49,21 +52,17 @@ if sys.platform == "win32":
         return int(pt.x), int(pt.y)
 
     def _virtual_screen() -> tuple[int, int, int, int]:
-        left = int(user32.GetSystemMetrics(SM_XVIRTUALSCREEN))
-        top = int(user32.GetSystemMetrics(SM_YVIRTUALSCREEN))
-        width = int(user32.GetSystemMetrics(SM_CXVIRTUALSCREEN))
-        height = int(user32.GetSystemMetrics(SM_CYVIRTUALSCREEN))
-        return left, top, width, height
+        return (
+            int(user32.GetSystemMetrics(SM_XVIRTUALSCREEN)),
+            int(user32.GetSystemMetrics(SM_YVIRTUALSCREEN)),
+            int(user32.GetSystemMetrics(SM_CXVIRTUALSCREEN)),
+            int(user32.GetSystemMetrics(SM_CYVIRTUALSCREEN)),
+        )
 
-    def set_cursor_pos(x: int, y: int) -> bool:
-        """Move cursor using SendInput (more reliable than SetCursorPos alone)."""
-        x, y = int(x), int(y)
-        ok = bool(user32.SetCursorPos(x, y))
-
+    def _sendinput_absolute(x: int, y: int) -> None:
         vleft, vtop, vwidth, vheight = _virtual_screen()
         nx = int((x - vleft) * 65535 / max(1, vwidth - 1))
         ny = int((y - vtop) * 65535 / max(1, vheight - 1))
-
         inp = _INPUT(type=INPUT_MOUSE)
         inp.mi = _MOUSEINPUT(
             dx=nx,
@@ -71,17 +70,92 @@ if sys.platform == "win32":
             mouseData=0,
             dwFlags=MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE,
             time=0,
-            dwExtraInfo=0,
+            dwExtraInfo=ctypes.pointer(_EXTRA),
         )
-        sent = int(user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT)))
-        ok = ok or sent == 1
-        user32.SetCursorPos(x, y)
-        return ok
+        user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(_INPUT))
+
+    def _move_steps(cx: int, cy: int, tx: int, ty: int, steps: int = 40) -> None:
+        for i in range(1, steps + 1):
+            t = i / steps
+            nx = int(cx + (tx - cx) * t)
+            ny = int(cy + (ty - cy) * t)
+            user32.SetCursorPos(nx, ny)
+            time.sleep(0.003)
+
+    def move_cursor_to(x: int, y: int, tolerance: int = 10) -> tuple[int, int]:
+        """Try several strategies — games/fullscreen often block instant warp."""
+        user32.ClipCursor(None)
+        tx, ty = int(x), int(y)
+
+        if hasattr(user32, "SetPhysicalCursorPos"):
+            try:
+                user32.SetPhysicalCursorPos(tx, ty)
+                time.sleep(0.02)
+                ax, ay = get_cursor_pos()
+                if abs(ax - tx) <= tolerance and abs(ay - ty) <= tolerance:
+                    return ax, ay
+            except Exception:
+                pass
+
+        for _ in range(4):
+            cx, cy = get_cursor_pos()
+            if abs(cx - tx) <= tolerance and abs(cy - ty) <= tolerance:
+                return cx, cy
+
+            _move_steps(cx, cy, tx, ty)
+            time.sleep(0.02)
+            cx, cy = get_cursor_pos()
+            if abs(cx - tx) <= tolerance and abs(cy - ty) <= tolerance:
+                return cx, cy
+
+            rdx, rdy = tx - cx, ty - cy
+            user32.mouse_event(MOUSEEVENTF_MOVE, rdx, rdy, 0, 0)
+            time.sleep(0.02)
+            cx, cy = get_cursor_pos()
+            if abs(cx - tx) <= tolerance and abs(cy - ty) <= tolerance:
+                return cx, cy
+
+            _sendinput_absolute(tx, ty)
+            user32.SetCursorPos(tx, ty)
+            time.sleep(0.02)
+
+        return get_cursor_pos()
+
+    def inject_mouse_hover(screen_x: int, screen_y: int) -> None:
+        """Send WM_MOUSEMOVE to the window under the point (works when game traps cursor)."""
+        WM_MOUSEMOVE = 0x0200
+        pt = _POINT(screen_x, screen_y)
+        hwnd = user32.WindowFromPoint(pt)
+        if not hwnd:
+            return
+        seen: set[int] = set()
+        for _ in range(12):
+            if hwnd in seen:
+                break
+            seen.add(hwnd)
+            client = _POINT(screen_x, screen_y)
+            if user32.ScreenToClient(hwnd, ctypes.byref(client)):
+                lparam = (client.y << 16) | (client.x & 0xFFFF)
+                user32.SendMessageW(hwnd, WM_MOUSEMOVE, 0, lparam)
+            child = user32.ChildWindowFromPoint(hwnd, pt)
+            if not child or child == hwnd:
+                break
+            hwnd = child
+
+    def set_cursor_pos(x: int, y: int) -> bool:
+        ax, ay = move_cursor_to(x, y)
+        return abs(ax - int(x)) <= 15 and abs(ay - int(y)) <= 15
 
 else:
 
     def get_cursor_pos() -> tuple[int, int]:
         return 0, 0
+
+    def move_cursor_to(x: int, y: int, tolerance: int = 10) -> tuple[int, int]:
+        return 0, 0
+
+    def inject_mouse_hover(screen_x: int, screen_y: int) -> None:
+        return None
 
     def set_cursor_pos(x: int, y: int) -> bool:
         return False
@@ -93,27 +167,29 @@ def nudge_mouse_for_coordinates(
     *,
     side: NudgeSide = "left",
     edge_offset: int = 8,
-) -> tuple[int, int] | None:
-    """Move cursor to the left edge of the selected monitor (iZurvive sidebar)."""
+) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Move cursor to the left edge of the selected monitor. Returns (target, actual)."""
     from capture import resolve_monitor
 
     mon = resolve_monitor(monitor_index)
     if not mon:
-        return None
+        return (0, 0), get_cursor_pos()
 
     _left, top, _right, bottom = ocr_region
     y_center = mon.top + int(mon.height * 0.5)
 
     if side == "left":
-        x = mon.left + max(4, edge_offset)
-        y = y_center
+        tx = mon.left + max(4, edge_offset)
+        ty = y_center
     else:
         margin = max(80, min(220, mon.width // 8))
-        x = mon.left + mon.width - margin
-        y = mon.top + max(0, (top + bottom) // 2)
+        tx = mon.left + mon.width - margin
+        ty = mon.top + max(0, (top + bottom) // 2)
 
-    set_cursor_pos(x, y)
-    return x, y
+    actual = move_cursor_to(tx, ty)
+    inject_mouse_hover(tx, ty)
+    time.sleep(0.05)
+    return (tx, ty), actual
 
 
 def with_mouse_nudge(
@@ -144,12 +220,10 @@ def with_mouse_nudge(
 
     saved = get_cursor_pos()
     try:
-        target = nudge_mouse_for_coordinates(
+        target, actual = nudge_mouse_for_coordinates(
             monitor_index, ocr_region, side=side, edge_offset=edge_offset
         )
-        time.sleep(0.03)
-        actual = get_cursor_pos()
-        if target and on_nudged:
+        if on_nudged:
             on_nudged(target, saved, actual)
         if delay_ms > 0:
             time.sleep(delay_ms / 1000.0)
@@ -157,4 +231,4 @@ def with_mouse_nudge(
     finally:
         if restore:
             time.sleep(0.08)
-            set_cursor_pos(*saved)
+            move_cursor_to(saved[0], saved[1])
