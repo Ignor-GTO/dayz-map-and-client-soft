@@ -209,3 +209,24 @@ class PoiUpdateRequest(BaseModel):
     icon: str | None = None
     x: float | None = None
     y: float | None = None
+
+
+class RadiationBoundsInput(BaseModel):
+    x1: float = 0
+    y1: float = 0
+    x2: float = 20480
+    y2: float = 20480
+
+
+class RadiationOverlayInput(BaseModel):
+    url: str = ""
+    opacity: float = 0.65
+    bounds: RadiationBoundsInput = RadiationBoundsInput()
+    editorOnly: bool = True
+
+
+class RadiationSaveRequest(BaseModel):
+    map_slug: str
+    zones: list[RadiationZone]
+    legend: list[RadiationLegendItem] = []
+    overlay: RadiationOverlayInput | None = None

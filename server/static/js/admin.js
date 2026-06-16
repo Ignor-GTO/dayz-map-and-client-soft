@@ -27,6 +27,9 @@ function switchTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
   document.getElementById(`tab-${name}`).classList.remove("hidden");
+  if (name === "radiation" && window.RadiationEditor) {
+    window.RadiationEditor.ensureLoaded();
+  }
 }
 
 function poiIconBadge(iconKey) {
@@ -179,6 +182,10 @@ async function loadMaps() {
   const pinSel = document.getElementById("pin-map-select");
   if (pinSel) {
     pinSel.innerHTML = mapsCache.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
+  }
+
+  if (window.RadiationEditor) {
+    window.RadiationEditor.refreshMapSelect();
   }
 }
 

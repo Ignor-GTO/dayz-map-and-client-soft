@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Админка — DayZ Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="/css/style.css">
   <link rel="stylesheet" href="/css/admin.css">
 </head>
@@ -34,6 +35,7 @@
       <nav class="admin-tabs">
         <button type="button" class="tab active" data-tab="maps">Карты</button>
         <button type="button" class="tab" data-tab="pois">Метки сервера</button>
+        <button type="button" class="tab" data-tab="radiation">Радиация</button>
         <button type="button" class="tab" data-tab="pins">PIN группы</button>
         <button type="button" class="tab" data-tab="password">Пароль</button>
       </nav>
@@ -108,6 +110,70 @@
         </form>
       </div>
 
+      <div id="tab-radiation" class="tab-panel hidden tab-panel-wide">
+        <input type="hidden" id="rad-ui-bound" value="">
+        <h2>Зоны радиации</h2>
+        <p class="muted">Загрузите подложку для выравнивания, расставьте круги по ней — на публичной карте отобразятся только круги.</p>
+
+        <div class="rad-toolbar">
+          <label>
+            Карта
+            <select id="rad-map-select"></select>
+          </label>
+          <label class="rad-file-label">
+            Подложка
+            <input type="file" id="rad-overlay-file" accept="image/jpeg,image/png,image/webp,image/gif">
+          </label>
+          <span id="rad-overlay-name" class="rad-overlay-name muted">нет подложки</span>
+          <button type="button" class="secondary" id="rad-overlay-delete">Убрать подложку</button>
+          <button type="button" id="rad-save-btn">Сохранить зоны</button>
+        </div>
+        <p id="rad-status" class="success hidden"></p>
+
+        <div class="radiation-editor-layout">
+          <div class="rad-map-col">
+            <div id="rad-tier-buttons" class="rad-tier-buttons"></div>
+            <label class="rad-inline-label">
+              Радиус новой зоны
+              <input type="number" id="rad-default-radius" value="500" min="10" step="10">
+            </label>
+            <div id="radiation-map" class="radiation-map"></div>
+
+            <div class="rad-bounds-panel">
+              <h4>Подложка — границы на карте</h4>
+              <div class="form-grid">
+                <label>X1 <input type="number" id="rad-bounds-x1" step="any"></label>
+                <label>Y1 <input type="number" id="rad-bounds-y1" step="any"></label>
+                <label>X2 <input type="number" id="rad-bounds-x2" step="any"></label>
+                <label>Y2 <input type="number" id="rad-bounds-y2" step="any"></label>
+                <label>Прозрачность
+                  <input type="range" id="rad-overlay-opacity" min="0.1" max="1" step="0.05" value="0.65">
+                </label>
+              </div>
+              <button type="button" class="secondary" id="rad-apply-bounds">Применить границы</button>
+            </div>
+          </div>
+
+          <aside class="rad-sidebar">
+            <h3>Зоны (<span id="rad-zones-count">0</span>)</h3>
+            <div id="rad-zones-list" class="rad-zones-list"></div>
+            <div class="rad-zone-edit">
+              <h4>Выбранная зона</h4>
+              <label>Метка <input type="text" id="rad-zone-label" placeholder="350 мЗв/ч"></label>
+              <div class="form-grid">
+                <label>X <input type="number" id="rad-zone-x" step="any"></label>
+                <label>Y <input type="number" id="rad-zone-y" step="any"></label>
+                <label>Радиус <input type="number" id="rad-zone-radius" step="any" min="10"></label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="secondary" id="rad-apply-zone">Применить</button>
+                <button type="button" class="danger" id="rad-delete-zone">Удалить</button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+
       <div id="tab-pins" class="tab-panel hidden">
         <h2>PIN группы</h2>
         <form id="pin-policy-form" class="admin-form">
@@ -146,7 +212,9 @@
       </div>
     </section>
   </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=2"></script>
-  <script src="/js/admin.js?v=2"></script>
+  <script src="/js/admin.js?v=3"></script>
+  <script src="/js/admin-radiation.js?v=1"></script>
 </body>
 </html>

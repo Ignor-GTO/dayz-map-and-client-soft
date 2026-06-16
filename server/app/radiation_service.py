@@ -21,6 +21,59 @@ DEFAULT_RADIATION_FILES: dict[str, str] = {
 
 _cache: dict[str, dict] = {}
 
+DEFAULT_LEGEND = [
+    {"color": "#4caf50", "label": "250 мЗв/ч"},
+    {"color": "#cddc39", "label": "280 мЗв/ч"},
+    {"color": "#ff9800", "label": "350 мЗв/ч"},
+    {"color": "#f44336", "label": "530 мЗв/ч"},
+]
+
+
+def radiation_config_path(slug: str) -> Path:
+    return STATIC_DIR / "data" / f"{slug}-radiation.json"
+
+
+def invalidate_radiation_cache(slug: str) -> None:
+    keys = [k for k in _cache if k.startswith(f"{slug}:")]
+    for k in keys:
+        _cache.pop(k, None)
+
+
+async def load_raw_radiation_config_async(game_map: DayZMap) -> dict:
+    url = resolve_radiation_url(game_map)
+    if not url:
+        return {"overlay": None, "zones": [], "legend": list(DEFAULT_LEGEND)}
+    try:
+        return await _fetch_json(url)
+    except Exception as exc:
+        logger.warning("radiation raw load failed for %s: %s", game_map.slug, exc)
+        return {"overlay": None, "zones": [], "legend": list(DEFAULT_LEGEND)}
+
+
+async def save_radiation_config(game_map: DayZMap, db: AsyncSession, raw: dict) -> str:
+    slug = game_map.slug
+    path = radiation_config_path(slug)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    zones = _normalize_zones(raw.get("zones") or [])
+    legend = raw.get("legend") or list(DEFAULT_LEGEND)
+    overlay = raw.get("overlay")
+
+    payload = {
+        "overlay": overlay,
+        "zones": zones,
+        "legend": legend,
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+
+    public_url = f"/static/data/{slug}-radiation.json"
+    if not game_map.radiation_url:
+        game_map.radiation_url = public_url
+        await db.commit()
+
+    invalidate_radiation_cache(slug)
+    return public_url
+
 
 def _static_json_path(url: str) -> Path | None:
     if url.startswith("/static/"):
@@ -42,7 +95,7 @@ def _normalize_payload(raw: dict, map_size: float) -> dict:
         bounds = overlay_raw.get("bounds") or {}
         overlay = {
             "url": _public_static_url(str(overlay_raw.get("url", ""))),
-            "enabled": bool(overlay_raw.get("enabled", False)),
+            "enabled": bool(overlay_raw.get("enabled", False)) and not bool(overlay_raw.get("editorOnly")),
             "opacity": float(overlay_raw.get("opacity", 0.3)),
             "bounds": {
                 "x1": float(bounds.get("x1", 0)),

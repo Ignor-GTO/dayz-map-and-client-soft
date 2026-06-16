@@ -13,6 +13,12 @@ from app.database import get_db
 from app.models import DayZMap, MapPoi, Room, Setting, User
 from app.poi_icons import POI_ICONS, normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
+from app.radiation_service import (
+    get_map_radiation,
+    load_raw_radiation_config_async,
+    save_radiation_config,
+)
+from app.radiation_upload import delete_overlay_file, save_radiation_overlay
 from app.schemas import (
     AdminLoginRequest,
     AdminPasswordRequest,
@@ -22,6 +28,7 @@ from app.schemas import (
     MapUpdateRequest,
     PoiCreateRequest,
     PoiUpdateRequest,
+    RadiationSaveRequest,
 )
 from app.seed import ADMIN_PASSWORD_KEY, hash_admin_password, verify_admin_password
 from app.settings_service import is_public_pin_creation, set_public_pin_creation
@@ -349,4 +356,124 @@ async def admin_delete_poi_image(
     delete_poi_image_file(poi.description_image_url)
     poi.description_image_url = None
     await db.commit()
+    return {"ok": True}
+
+
+@router.get("/radiation")
+async def admin_get_radiation(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    raw = await load_raw_radiation_config_async(game_map)
+    data = await get_map_radiation(db, game_map)
+    overlay_raw = raw.get("overlay") if isinstance(raw.get("overlay"), dict) else None
+    overlay = None
+    if overlay_raw and overlay_raw.get("url"):
+        bounds = overlay_raw.get("bounds") or {}
+        overlay = {
+            "url": overlay_raw.get("url", ""),
+            "opacity": float(overlay_raw.get("opacity", 0.65)),
+            "bounds": {
+                "x1": float(bounds.get("x1", 0)),
+                "y1": float(bounds.get("y1", 0)),
+                "x2": float(bounds.get("x2", game_map.map_size)),
+                "y2": float(bounds.get("y2", game_map.map_size)),
+            },
+            "editorOnly": bool(overlay_raw.get("editorOnly", True)),
+        }
+    return {
+        "map_slug": game_map.slug,
+        "map_size": game_map.map_size,
+        "tiles_satellite": game_map.tiles_satellite,
+        "max_native_zoom": game_map.max_native_zoom,
+        "extra_zoom": game_map.extra_zoom,
+        "zones": data.get("zones") or [],
+        "legend": data.get("legend") or [],
+        "overlay": overlay,
+    }
+
+
+@router.put("/radiation")
+async def admin_save_radiation(
+    payload: RadiationSaveRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, payload.map_slug)
+    raw: dict = {
+        "zones": [z.model_dump() for z in payload.zones],
+        "legend": [item.model_dump() for item in payload.legend],
+        "overlay": None,
+    }
+    if payload.overlay and payload.overlay.url:
+        raw["overlay"] = {
+            "url": payload.overlay.url.strip(),
+            "opacity": payload.overlay.opacity,
+            "bounds": payload.overlay.bounds.model_dump(),
+            "editorOnly": payload.overlay.editorOnly,
+            "enabled": False,
+        }
+    url = await save_radiation_config(game_map, db, raw)
+    return {"ok": True, "radiation_url": url, "zones": len(payload.zones)}
+
+
+@router.post("/radiation/overlay")
+async def admin_upload_radiation_overlay(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+    file: UploadFile = File(...),
+):
+    game_map = await _get_map(db, map_slug)
+    url = await save_radiation_overlay(game_map.slug, file)
+    bounds = {
+        "x1": 0.0,
+        "y1": 0.0,
+        "x2": float(game_map.map_size),
+        "y2": float(game_map.map_size),
+    }
+    raw = await load_raw_radiation_config_async(game_map)
+    zones = raw.get("zones") or []
+    if not zones:
+        data = await get_map_radiation(db, game_map)
+        zones = data.get("zones") or []
+    await save_radiation_config(
+        game_map,
+        db,
+        {
+            "zones": zones,
+            "legend": raw.get("legend") or [],
+            "overlay": {
+                "url": url,
+                "opacity": 0.65,
+                "bounds": bounds,
+                "editorOnly": True,
+                "enabled": False,
+            },
+        },
+    )
+    return {"url": url, "opacity": 0.65, "bounds": bounds, "editorOnly": True}
+
+
+@router.delete("/radiation/overlay")
+async def admin_delete_radiation_overlay(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    delete_overlay_file(game_map.slug)
+    data = await get_map_radiation(db, game_map)
+    raw = await load_raw_radiation_config_async(game_map)
+    await save_radiation_config(
+        game_map,
+        db,
+        {
+            "zones": data.get("zones") or [],
+            "legend": data.get("legend") or raw.get("legend") or [],
+            "overlay": None,
+        },
+    )
     return {"ok": True}
