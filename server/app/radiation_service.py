@@ -11,9 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DayZMap
 
+from app.config import DATA_DIR
+
 logger = logging.getLogger(__name__)
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+DATA_RADIATION_DIR = DATA_DIR / "radiation"
 
 DEFAULT_RADIATION_FILES: dict[str, str] = {
     "pripyat": "/static/data/pripyat-radiation.json",
@@ -30,7 +33,31 @@ DEFAULT_LEGEND = [
 
 
 def radiation_config_path(slug: str) -> Path:
+    return DATA_RADIATION_DIR / f"{slug}.json"
+
+
+def radiation_config_fallback_path(slug: str) -> Path:
     return STATIC_DIR / "data" / f"{slug}-radiation.json"
+
+
+def resolve_radiation_config_file(slug: str) -> Path | None:
+    preferred = radiation_config_path(slug)
+    if preferred.is_file():
+        return preferred
+    fallback = radiation_config_fallback_path(slug)
+    if fallback.is_file():
+        return fallback
+    return None
+
+
+async def load_radiation_raw(game_map: DayZMap) -> dict:
+    local = resolve_radiation_config_file(game_map.slug)
+    if local:
+        return json.loads(local.read_text(encoding="utf-8"))
+    url = resolve_radiation_url(game_map)
+    if not url:
+        return {"overlay": None, "zones": [], "legend": list(DEFAULT_LEGEND)}
+    return await _fetch_json(url)
 
 
 def invalidate_radiation_cache(slug: str) -> None:
@@ -40,11 +67,8 @@ def invalidate_radiation_cache(slug: str) -> None:
 
 
 async def load_raw_radiation_config_async(game_map: DayZMap) -> dict:
-    url = resolve_radiation_url(game_map)
-    if not url:
-        return {"overlay": None, "zones": [], "legend": list(DEFAULT_LEGEND)}
     try:
-        return await _fetch_json(url)
+        return await load_radiation_raw(game_map)
     except Exception as exc:
         logger.warning("radiation raw load failed for %s: %s", game_map.slug, exc)
         return {"overlay": None, "zones": [], "legend": list(DEFAULT_LEGEND)}
@@ -88,13 +112,20 @@ def _public_static_url(url: str) -> str:
     return url
 
 
+def _public_overlay_url(url: str) -> str:
+    url = str(url or "").strip()
+    if url.startswith("/uploads/"):
+        return url
+    return _public_static_url(url)
+
+
 def _normalize_payload(raw: dict, map_size: float) -> dict:
     overlay_raw = raw.get("overlay")
     overlay = None
     if overlay_raw and isinstance(overlay_raw, dict):
         bounds = overlay_raw.get("bounds") or {}
         overlay = {
-            "url": _public_static_url(str(overlay_raw.get("url", ""))),
+            "url": _public_overlay_url(str(overlay_raw.get("url", ""))),
             "enabled": bool(overlay_raw.get("enabled", False)) and not bool(overlay_raw.get("editorOnly")),
             "opacity": float(overlay_raw.get("opacity", 0.3)),
             "bounds": {
@@ -233,16 +264,12 @@ def resolve_radiation_url(game_map: DayZMap) -> str | None:
 
 async def get_map_radiation(db: AsyncSession, game_map: DayZMap) -> dict:
     del db  # reserved for future DB-stored zones
-    url = resolve_radiation_url(game_map)
-    if not url:
-        return {"overlay": None, "polygons": [], "zones": [], "legend": []}
-
-    cache_key = f"{game_map.slug}:{url}"
+    cache_key = f"{game_map.slug}:{resolve_radiation_url(game_map) or 'data'}"
     if cache_key in _cache:
         return _cache[cache_key]
 
     try:
-        raw = await _fetch_json(url)
+        raw = await load_radiation_raw(game_map)
         zones = await _load_zones(raw)
         polygons = await _load_polygons(raw) if not zones else []
         data = _normalize_payload(raw, game_map.map_size)

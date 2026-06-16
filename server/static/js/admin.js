@@ -27,6 +27,7 @@ function switchTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
   document.getElementById(`tab-${name}`).classList.remove("hidden");
+  document.getElementById("admin-panel")?.classList.toggle("admin-radiation-mode", name === "radiation");
   if (name === "radiation" && window.RadiationEditor) {
     window.RadiationEditor.ensureLoaded();
   }

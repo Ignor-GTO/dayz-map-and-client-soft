@@ -10,7 +10,8 @@ from fastapi import HTTPException, UploadFile
 
 from app.config import DATA_DIR
 
-UPLOAD_DIR = DATA_DIR / "uploads" / "poi"
+UPLOADS_ROOT = DATA_DIR / "uploads"
+UPLOAD_DIR = UPLOADS_ROOT / "poi"
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -21,8 +22,9 @@ MAX_BYTES = 5 * 1024 * 1024
 
 
 def ensure_upload_dir() -> Path:
+    UPLOADS_ROOT.mkdir(parents=True, exist_ok=True)
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    return UPLOAD_DIR
+    return UPLOADS_ROOT
 
 
 def _local_path_from_url(url: str | None) -> Path | None:

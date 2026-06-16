@@ -1,13 +1,11 @@
-/** Radiation zone editor — Leaflet map + alignment overlay + draggable circles. */
+/** Radiation zone editor — full-page Leaflet + overlay alignment + draggable circles. */
 
-const RAD_TIERS = [
-  { color: "#4caf50", label: "250 мЗв/ч", radius: 900 },
-  { color: "#cddc39", label: "280 мЗв/ч", radius: 700 },
-  { color: "#ff9800", label: "350 мЗв/ч", radius: 500 },
-  { color: "#f44336", label: "530 мЗв/ч", radius: 300 },
+const RAD_DEFAULT_TIERS = [
+  { id: "t-green", color: "#4caf50", label: "250 мЗв/ч", radius: 900 },
+  { id: "t-yellow", color: "#cddc39", label: "280 мЗв/ч", radius: 700 },
+  { id: "t-orange", color: "#ff9800", label: "350 мЗв/ч", radius: 500 },
+  { id: "t-red", color: "#f44336", label: "530 мЗв/ч", radius: 300 },
 ];
-
-const DEFAULT_LEGEND = RAD_TIERS.map((t) => ({ color: t.color, label: t.label }));
 
 const radState = {
   map: null,
@@ -15,14 +13,20 @@ const radState = {
   overlayLayer: null,
   config: null,
   zones: [],
+  tiers: [],
   legend: [],
   overlay: null,
   selectedId: null,
-  activeTier: 2,
+  activeTierId: "t-orange",
   defaultRadius: 500,
   zoneLayers: new Map(),
   loadedSlug: null,
+  addZoneMode: false,
 };
+
+function radDefaultLegend() {
+  return radState.tiers.map((t) => ({ color: t.color, label: t.label }));
+}
 
 function radMapSize(config) {
   return config?.map_size || 20480;
@@ -37,10 +41,7 @@ function radGameToLatLng(x, y, config = radState.config) {
 function radLatLngToGame(latlng, config = radState.config) {
   const size = radMapSize(config);
   const ratio = size / 256;
-  return {
-    x: latlng.lng * ratio,
-    y: (latlng.lat + 256) * ratio,
-  };
+  return { x: latlng.lng * ratio, y: (latlng.lat + 256) * ratio };
 }
 
 function radGameRadiusToLeaflet(radius, config = radState.config) {
@@ -49,13 +50,9 @@ function radGameRadiusToLeaflet(radius, config = radState.config) {
 
 function radGameBoundsToLatLng(bounds, config = radState.config) {
   const size = radMapSize(config);
-  const x1 = bounds?.x1 ?? 0;
-  const y1 = bounds?.y1 ?? 0;
-  const x2 = bounds?.x2 ?? size;
-  const y2 = bounds?.y2 ?? size;
   return L.latLngBounds(
-    radGameToLatLng(x1, y2, config),
-    radGameToLatLng(x2, y1, config),
+    radGameToLatLng(bounds?.x1 ?? 0, bounds?.y2 ?? size, config),
+    radGameToLatLng(bounds?.x2 ?? size, bounds?.y1 ?? 0, config),
   );
 }
 
@@ -64,7 +61,13 @@ function radNewZoneId() {
 }
 
 function radActiveTier() {
-  return RAD_TIERS[radState.activeTier] || RAD_TIERS[2];
+  return radState.tiers.find((t) => t.id === radState.activeTierId) || radState.tiers[0] || RAD_DEFAULT_TIERS[2];
+}
+
+function radOverlaySrc(url) {
+  if (!url) return "";
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}t=${Date.now()}`;
 }
 
 function radSetStatus(text, isError = false) {
@@ -92,32 +95,89 @@ function radClearZoneLayers() {
   radState.zoneLayers.clear();
 }
 
-function radSelectZone(id) {
-  radState.selectedId = id;
-  document.querySelectorAll(".rad-zone-item").forEach((el) => {
-    el.classList.toggle("active", el.dataset.id === id);
+function radBringZonesToFront() {
+  radState.zoneLayers.forEach(({ circle, marker }) => {
+    circle.bringToFront();
+    marker.setZIndexOffset(2000);
   });
-  const zone = radState.zones.find((z) => z.id === id);
-  if (zone) {
-    document.getElementById("rad-zone-x").value = Math.round(zone.x);
-    document.getElementById("rad-zone-y").value = Math.round(zone.y);
-    document.getElementById("rad-zone-radius").value = Math.round(zone.radius);
-    document.getElementById("rad-zone-label").value = zone.label || "";
-    const tierIdx = RAD_TIERS.findIndex((t) => t.color === zone.color);
-    if (tierIdx >= 0) radSetActiveTier(tierIdx);
+}
+
+function radRenderTierSelect() {
+  const sel = document.getElementById("rad-tier-select");
+  if (!sel) return;
+  const prev = radState.activeTierId;
+  sel.innerHTML = radState.tiers
+    .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`)
+    .join("");
+  if (radState.tiers.some((t) => t.id === prev)) sel.value = prev;
+  else if (radState.tiers.length) {
+    radState.activeTierId = radState.tiers[0].id;
+    sel.value = radState.activeTierId;
+  }
+  const tier = radActiveTier();
+  const radiusInput = document.getElementById("rad-default-radius");
+  if (tier && radiusInput && !radiusInput.matches(":focus")) {
+    radiusInput.value = tier.radius;
+    radState.defaultRadius = tier.radius;
   }
 }
 
-function radSetActiveTier(idx) {
-  radState.activeTier = idx;
-  document.querySelectorAll(".rad-tier-btn").forEach((btn, i) => {
-    btn.classList.toggle("active", i === idx);
-  });
-  const tier = radActiveTier();
-  const radiusInput = document.getElementById("rad-default-radius");
-  if (radiusInput && !radiusInput.matches(":focus")) {
-    radiusInput.value = tier.radius;
-    radState.defaultRadius = tier.radius;
+function radRenderOverlaySelect() {
+  const sel = document.getElementById("rad-overlay-select");
+  if (!sel) return;
+  sel.innerHTML = `<option value="">— нет подложки —</option>`;
+  if (radState.overlay?.url) {
+    const name = radState.overlay.url.split("/").pop();
+    sel.innerHTML += `<option value="active" selected>${escapeHtml(name)}</option>`;
+  }
+  const preview = document.getElementById("rad-overlay-preview");
+  if (preview) {
+    if (radState.overlay?.url) {
+      preview.src = radOverlaySrc(radState.overlay.url);
+      preview.classList.remove("hidden");
+    } else {
+      preview.removeAttribute("src");
+      preview.classList.add("hidden");
+    }
+  }
+}
+
+function radRenderZoneSelect() {
+  const sel = document.getElementById("rad-zone-select");
+  const count = document.getElementById("rad-zones-count");
+  if (count) count.textContent = String(radState.zones.length);
+  if (!sel) return;
+
+  if (!radState.zones.length) {
+    sel.innerHTML = `<option value="">Нет зон — кликните «+ Зона» и по карте</option>`;
+    return;
+  }
+
+  sel.innerHTML = radState.zones
+    .map((z, i) => {
+      const label = z.label || `Зона ${i + 1}`;
+      return `<option value="${escapeHtml(z.id)}" ${z.id === radState.selectedId ? "selected" : ""}>#${i + 1} ${escapeHtml(label)} · ${Math.round(z.x)}/${Math.round(z.y)} · r${Math.round(z.radius)}</option>`;
+    })
+    .join("");
+}
+
+function radSelectZone(id) {
+  radState.selectedId = id || null;
+  radRenderZoneSelect();
+  const zone = radState.zones.find((z) => z.id === id);
+  if (!zone) return;
+  document.getElementById("rad-zone-x").value = Math.round(zone.x);
+  document.getElementById("rad-zone-y").value = Math.round(zone.y);
+  document.getElementById("rad-zone-radius").value = Math.round(zone.radius);
+  document.getElementById("rad-zone-label").value = zone.label || "";
+  const tier = radState.tiers.find((t) => t.color === zone.color);
+  if (tier) {
+    radState.activeTierId = tier.id;
+    radRenderTierSelect();
+  }
+  if (radState.map) {
+    const latlng = radGameToLatLng(zone.x, zone.y);
+    radState.map.panTo(latlng, { animate: true, duration: 0.35 });
   }
 }
 
@@ -140,7 +200,7 @@ function radUpsertZoneLayer(zone) {
   const marker = L.marker(latlng, {
     draggable: true,
     icon: radCenterIcon(zone.color),
-    zIndexOffset: 1000,
+    zIndexOffset: 2000,
   });
 
   const syncFromMarker = () => {
@@ -151,8 +211,8 @@ function radUpsertZoneLayer(zone) {
     if (radState.selectedId === zone.id) {
       document.getElementById("rad-zone-x").value = Math.round(zone.x);
       document.getElementById("rad-zone-y").value = Math.round(zone.y);
+      radRenderZoneSelect();
     }
-    radRenderZoneList();
   };
 
   marker.on("drag", syncFromMarker);
@@ -174,29 +234,8 @@ function radUpsertZoneLayer(zone) {
 function radRenderAllZones() {
   radClearZoneLayers();
   radState.zones.forEach((z) => radUpsertZoneLayer(z));
-  radRenderZoneList();
-}
-
-function radRenderZoneList() {
-  const list = document.getElementById("rad-zones-list");
-  const count = document.getElementById("rad-zones-count");
-  if (!list) return;
-  if (count) count.textContent = String(radState.zones.length);
-
-  if (!radState.zones.length) {
-    list.innerHTML = "<p class='muted'>Кликните по карте, чтобы добавить зону</p>";
-    return;
-  }
-
-  list.innerHTML = radState.zones
-    .map((z, i) => `
-      <button type="button" class="rad-zone-item ${z.id === radState.selectedId ? "active" : ""}" data-id="${escapeHtml(z.id)}">
-        <span class="rad-zone-swatch" style="background:${escapeHtml(z.color)}"></span>
-        <span class="rad-zone-meta">#${i + 1} · ${Math.round(z.x)} / ${Math.round(z.y)} · r=${Math.round(z.radius)}</span>
-        <span class="rad-zone-del" data-del="${escapeHtml(z.id)}" title="Удалить">×</span>
-      </button>
-    `)
-    .join("");
+  radBringZonesToFront();
+  radRenderZoneSelect();
 }
 
 function radAddZone(x, y) {
@@ -215,8 +254,10 @@ function radAddZone(x, y) {
   };
   radState.zones.push(zone);
   radUpsertZoneLayer(zone);
+  radBringZonesToFront();
   radSelectZone(zone.id);
-  radRenderZoneList();
+  radState.addZoneMode = false;
+  document.getElementById("rad-add-zone-btn")?.classList.remove("active");
 }
 
 function radDeleteZone(id) {
@@ -228,7 +269,7 @@ function radDeleteZone(id) {
   }
   radState.zones = radState.zones.filter((z) => z.id !== id);
   if (radState.selectedId === id) radState.selectedId = null;
-  radRenderZoneList();
+  radRenderZoneSelect();
 }
 
 function radApplySelectedFields() {
@@ -243,7 +284,8 @@ function radApplySelectedFields() {
   const tier = radActiveTier();
   zone.color = tier.color;
   radUpsertZoneLayer(zone);
-  radRenderZoneList();
+  radBringZonesToFront();
+  radRenderZoneSelect();
 }
 
 function radSyncOverlayLayer() {
@@ -255,36 +297,37 @@ function radSyncOverlayLayer() {
 
   const b = radState.overlay.bounds || {};
   const bounds = radGameBoundsToLatLng(b);
-  radState.overlayLayer = L.imageOverlay(radState.overlay.url, bounds, {
+  const src = radOverlaySrc(radState.overlay.url);
+
+  radState.overlayLayer = L.imageOverlay(src, bounds, {
     opacity: radState.overlay.opacity ?? 0.65,
     interactive: false,
+    zIndex: 450,
   });
+
+  radState.overlayLayer.on("error", () => {
+    radSetStatus(`Не удалось загрузить подложку: ${radState.overlay.url}`, true);
+  });
+
   radState.overlayLayer.addTo(radState.map);
+  radState.overlayLayer.bringToFront();
+  radBringZonesToFront();
 }
 
 function radFillBoundsInputs() {
-  const b = radState.overlay?.bounds || {
-    x1: 0,
-    y1: 0,
-    x2: radMapSize(radState.config),
-    y2: radMapSize(radState.config),
-  };
+  const size = radMapSize(radState.config);
+  const b = radState.overlay?.bounds || { x1: 0, y1: 0, x2: size, y2: size };
   document.getElementById("rad-bounds-x1").value = Math.round(b.x1 ?? 0);
   document.getElementById("rad-bounds-y1").value = Math.round(b.y1 ?? 0);
-  document.getElementById("rad-bounds-x2").value = Math.round(b.x2 ?? radMapSize(radState.config));
-  document.getElementById("rad-bounds-y2").value = Math.round(b.y2 ?? radMapSize(radState.config));
+  document.getElementById("rad-bounds-x2").value = Math.round(b.x2 ?? size);
+  document.getElementById("rad-bounds-y2").value = Math.round(b.y2 ?? size);
   const op = document.getElementById("rad-overlay-opacity");
   if (op) op.value = String(radState.overlay?.opacity ?? 0.65);
-  const hint = document.getElementById("rad-overlay-name");
-  if (hint) {
-    hint.textContent = radState.overlay?.url ? radState.overlay.url.split("/").pop() : "нет подложки";
-  }
+  radRenderOverlaySelect();
 }
 
 function radReadBoundsFromInputs() {
-  if (!radState.overlay) {
-    radState.overlay = { url: "", opacity: 0.65, bounds: {}, editorOnly: true };
-  }
+  if (!radState.overlay) return;
   radState.overlay.bounds = {
     x1: Number(document.getElementById("rad-bounds-x1").value),
     y1: Number(document.getElementById("rad-bounds-y1").value),
@@ -306,8 +349,7 @@ function radEnsureMap() {
     attributionControl: false,
   });
 
-  const center = radGameToLatLng(size / 2, size / 2);
-  radState.map.setView(center, 0);
+  radState.map.setView(radGameToLatLng(size / 2, size / 2), 0);
 
   radState.tileLayer = L.tileLayer(radState.config.tiles_satellite, {
     maxNativeZoom: radState.config.max_native_zoom || 7,
@@ -317,11 +359,12 @@ function radEnsureMap() {
   }).addTo(radState.map);
 
   radState.map.on("click", (e) => {
+    if (!radState.addZoneMode) return;
     const { x, y } = radLatLngToGame(e.latlng);
     radAddZone(x, y);
   });
 
-  setTimeout(() => radState.map.invalidateSize(), 120);
+  setTimeout(() => radState.map?.invalidateSize(), 200);
 }
 
 function radDestroyMap() {
@@ -335,8 +378,45 @@ function radDestroyMap() {
   radState.overlayLayer = null;
 }
 
+function radInitTiersFromLegend(legend) {
+  const base = RAD_DEFAULT_TIERS.map((t) => ({ ...t }));
+  const extra = [];
+  (legend || []).forEach((item) => {
+    if (!item?.label || !item?.color) return;
+    if (base.some((t) => t.color === item.color && t.label === item.label)) return;
+    extra.push({
+      id: `t-custom-${extra.length}-${item.color.replace("#", "")}`,
+      color: item.color,
+      label: item.label,
+      radius: 500,
+    });
+  });
+  radState.tiers = [...base, ...extra];
+  if (!radState.tiers.some((t) => t.id === radState.activeTierId)) {
+    radState.activeTierId = radState.tiers[2]?.id || radState.tiers[0]?.id;
+  }
+  radRenderTierSelect();
+}
+
+function radAddCustomTier() {
+  const label = prompt("Название уровня радиации:", "400 мЗв/ч");
+  if (!label) return;
+  const color = prompt("Цвет (#rrggbb):", "#9c27b0");
+  if (!color || !/^#[0-9a-fA-F]{6}$/.test(color)) {
+    radSetStatus("Неверный цвет, используйте формат #rrggbb", true);
+    return;
+  }
+  const id = `t-custom-${Date.now()}`;
+  radState.tiers.push({ id, color, label, radius: Number(document.getElementById("rad-default-radius")?.value) || 500 });
+  radState.activeTierId = id;
+  radRenderTierSelect();
+}
+
 async function radLoadForSlug(slug) {
-  if (!slug) return;
+  if (!slug) {
+    radSetStatus("Выберите карту", true);
+    return;
+  }
   radSetStatus("Загрузка…");
   try {
     const data = await api(`/api/admin/radiation?map_slug=${encodeURIComponent(slug)}`);
@@ -349,16 +429,19 @@ async function radLoadForSlug(slug) {
       extra_zoom: data.extra_zoom,
     };
     radState.zones = (data.zones || []).map((z) => ({ ...z }));
-    radState.legend = data.legend?.length ? data.legend : DEFAULT_LEGEND;
+    radState.legend = data.legend || [];
     radState.overlay = data.overlay || null;
     radState.loadedSlug = slug;
     radState.selectedId = null;
+    radState.addZoneMode = false;
 
+    radInitTiersFromLegend(radState.legend);
     radEnsureMap();
+    radSyncOverlayLayer();
     radRenderAllZones();
     radFillBoundsInputs();
-    radSyncOverlayLayer();
-    radSetStatus(`Зон: ${radState.zones.length}`);
+    radSetStatus(`Зон: ${radState.zones.length}${radState.overlay?.url ? " · подложка загружена" : ""}`);
+    setTimeout(() => radState.map?.invalidateSize(), 300);
   } catch (err) {
     radSetStatus(err.message, true);
   }
@@ -366,14 +449,17 @@ async function radLoadForSlug(slug) {
 
 async function radSave() {
   const slug = document.getElementById("rad-map-select")?.value;
-  if (!slug) return;
+  if (!slug) {
+    radSetStatus("Выберите карту", true);
+    return;
+  }
   radReadBoundsFromInputs();
   radSetStatus("Сохранение…");
   try {
     const payload = {
       map_slug: slug,
       zones: radState.zones,
-      legend: radState.legend?.length ? radState.legend : DEFAULT_LEGEND,
+      legend: radDefaultLegend(),
       overlay: radState.overlay?.url
         ? {
             url: radState.overlay.url,
@@ -395,7 +481,14 @@ async function radSave() {
 
 async function radUploadOverlay(file) {
   const slug = document.getElementById("rad-map-select")?.value;
-  if (!slug || !file) return;
+  if (!slug) {
+    radSetStatus("Сначала выберите карту", true);
+    return;
+  }
+  if (!file) {
+    radSetStatus("Файл не выбран", true);
+    return;
+  }
   radSetStatus("Загрузка подложки…");
   const fd = new FormData();
   fd.append("file", file);
@@ -417,13 +510,15 @@ async function radUploadOverlay(file) {
   };
   radFillBoundsInputs();
   radSyncOverlayLayer();
-  radSetStatus("Подложка загружена");
+  setTimeout(() => radState.map?.invalidateSize(), 200);
+  radSetStatus("Подложка загружена — подгоните границы если нужно");
 }
 
 async function radDeleteOverlay() {
   const slug = document.getElementById("rad-map-select")?.value;
   if (!slug) return;
-  if (!confirm("Удалить подложку для выравнивания?")) return;
+  if (!radState.overlay?.url) return;
+  if (!confirm("Удалить подложку?")) return;
   await api(`/api/admin/radiation/overlay?map_slug=${encodeURIComponent(slug)}`, { method: "DELETE" });
   radState.overlay = null;
   radFillBoundsInputs();
@@ -431,59 +526,71 @@ async function radDeleteOverlay() {
   radSetStatus("Подложка удалена");
 }
 
-function radInitTierButtons() {
-  const wrap = document.getElementById("rad-tier-buttons");
-  if (!wrap || wrap.childElementCount) return;
-  wrap.innerHTML = RAD_TIERS.map(
-    (t, i) => `
-      <button type="button" class="rad-tier-btn ${i === radState.activeTier ? "active" : ""}" data-tier="${i}" style="--tier-color:${t.color}">
-        <span class="rad-tier-dot"></span>${t.label}
-      </button>
-    `,
-  ).join("");
-  wrap.addEventListener("click", (e) => {
-    const btn = e.target.closest(".rad-tier-btn");
-    if (!btn) return;
-    radSetActiveTier(Number(btn.dataset.tier));
-    if (radState.selectedId) radApplySelectedFields();
-  });
-}
-
 function radBindUi() {
-  if (document.getElementById("rad-ui-bound")) return;
+  if (document.getElementById("rad-ui-bound")?.value === "1") return;
   document.getElementById("rad-ui-bound").value = "1";
 
-  radInitTierButtons();
+  radState.tiers = RAD_DEFAULT_TIERS.map((t) => ({ ...t }));
+  radRenderTierSelect();
 
   document.getElementById("rad-map-select")?.addEventListener("change", (e) => {
     radLoadForSlug(e.target.value);
+  });
+
+  document.getElementById("rad-tier-select")?.addEventListener("change", (e) => {
+    radState.activeTierId = e.target.value;
+    radRenderTierSelect();
+    if (radState.selectedId) radApplySelectedFields();
+  });
+
+  document.getElementById("rad-tier-add")?.addEventListener("click", radAddCustomTier);
+
+  document.getElementById("rad-zone-select")?.addEventListener("change", (e) => {
+    if (e.target.value) radSelectZone(e.target.value);
+  });
+
+  document.getElementById("rad-add-zone-btn")?.addEventListener("click", () => {
+    radState.addZoneMode = !radState.addZoneMode;
+    document.getElementById("rad-add-zone-btn")?.classList.toggle("active", radState.addZoneMode);
+    radSetStatus(radState.addZoneMode ? "Кликните по карте, чтобы поставить зону" : "");
   });
 
   document.getElementById("rad-save-btn")?.addEventListener("click", () => {
     radSave().catch((err) => radSetStatus(err.message, true));
   });
 
+  document.getElementById("rad-overlay-upload-btn")?.addEventListener("click", () => {
+    document.getElementById("rad-overlay-file")?.click();
+  });
+
   document.getElementById("rad-overlay-file")?.addEventListener("change", (e) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
     radUploadOverlay(file).catch((err) => radSetStatus(err.message, true));
-    e.target.value = "";
   });
 
   document.getElementById("rad-overlay-delete")?.addEventListener("click", () => {
     radDeleteOverlay().catch((err) => radSetStatus(err.message, true));
   });
 
+  document.getElementById("rad-overlay-select")?.addEventListener("change", (e) => {
+    if (e.target.value === "" && radState.overlay) {
+      radState.overlay = null;
+      radSyncOverlayLayer();
+      radRenderOverlaySelect();
+    }
+  });
+
   document.getElementById("rad-apply-bounds")?.addEventListener("click", () => {
     radReadBoundsFromInputs();
     radSyncOverlayLayer();
+    radSetStatus("Границы подложки применены");
   });
 
   document.getElementById("rad-overlay-opacity")?.addEventListener("input", () => {
     radReadBoundsFromInputs();
-    if (radState.overlayLayer) {
-      radState.overlayLayer.setOpacity(radState.overlay.opacity);
-    }
+    if (radState.overlayLayer) radState.overlayLayer.setOpacity(radState.overlay.opacity);
   });
 
   document.getElementById("rad-apply-zone")?.addEventListener("click", radApplySelectedFields);
@@ -495,19 +602,8 @@ function radBindUi() {
     radState.defaultRadius = Number(e.target.value) || 500;
   });
 
-  ["rad-zone-x", "rad-zone-y", "rad-zone-radius"].forEach((id) => {
+  ["rad-zone-x", "rad-zone-y", "rad-zone-radius", "rad-zone-label"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", radApplySelectedFields);
-  });
-
-  document.getElementById("rad-zones-list")?.addEventListener("click", (e) => {
-    const del = e.target.closest("[data-del]");
-    if (del) {
-      e.stopPropagation();
-      radDeleteZone(del.dataset.del);
-      return;
-    }
-    const item = e.target.closest(".rad-zone-item");
-    if (item) radSelectZone(item.dataset.id);
   });
 }
 
@@ -522,7 +618,7 @@ const RadiationEditor = {
     if (slug && slug !== radState.loadedSlug) {
       radLoadForSlug(slug);
     } else if (radState.map) {
-      setTimeout(() => radState.map.invalidateSize(), 120);
+      setTimeout(() => radState.map.invalidateSize(), 300);
     }
   },
   refreshMapSelect() {
