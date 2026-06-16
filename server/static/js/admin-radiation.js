@@ -499,7 +499,14 @@ async function radUploadOverlay(file) {
   });
   const data = res.ok ? await res.json().catch(() => ({})) : null;
   if (!res.ok) {
-    const msg = data?.detail ? (typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail)) : `HTTP ${res.status}`;
+    let msg = `HTTP ${res.status}`;
+    if (data?.detail) {
+      msg = typeof data.detail === "string"
+        ? data.detail
+        : Array.isArray(data.detail)
+          ? data.detail.map((d) => d.msg || JSON.stringify(d)).join("; ")
+          : JSON.stringify(data.detail);
+    }
     throw new Error(msg);
   }
   radState.overlay = {
