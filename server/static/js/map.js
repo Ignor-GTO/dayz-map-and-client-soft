@@ -10,6 +10,8 @@ const state = {
   poiMarkers: new Map(),
   locationLayer: null,
   locationEntries: [],
+  radiationLayer: null,
+  radiationOverlay: null,
   filters: {
     labels: true,
     cities: true,
@@ -20,6 +22,7 @@ const state = {
     players: true,
     markers: true,
     poi: true,
+    radiation: true,
   },
   ws: null,
 };
@@ -101,6 +104,22 @@ function gameToLatLng(x, y, config = state.config) {
   return L.latLng(y / ratio - 256, x / ratio);
 }
 
+function gameBoundsToLatLng(bounds, config = state.config) {
+  const x1 = bounds.x1 ?? 0;
+  const y1 = bounds.y1 ?? 0;
+  const x2 = bounds.x2 ?? mapSize(config);
+  const y2 = bounds.y2 ?? mapSize(config);
+  return L.latLngBounds(
+    gameToLatLng(x1, y2, config),
+    gameToLatLng(x2, y1, config),
+  );
+}
+
+function gameRadiusToLeaflet(radius, config = state.config) {
+  const ratio = mapSize(config) / 256;
+  return radius / ratio;
+}
+
 function setTileLayer(type) {
   if (!state.map || !state.config) return;
   state.layerType = type;
@@ -141,6 +160,7 @@ function initLeaflet(config) {
   });
 
   state.locationLayer = L.layerGroup().addTo(state.map);
+  state.radiationLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
 
   setTileLayer("satellite");
@@ -339,6 +359,81 @@ function updateLocationVisibility() {
   applyLocationFilters();
 }
 
+function clearRadiationLayers() {
+  if (state.radiationLayer) state.radiationLayer.clearLayers();
+  if (state.radiationOverlay && state.map) {
+    state.map.removeLayer(state.radiationOverlay);
+    state.radiationOverlay = null;
+  }
+}
+
+function renderRadiationLayer(data) {
+  if (!state.map || !state.radiationLayer) return;
+  clearRadiationLayers();
+
+  const overlay = data?.overlay;
+  if (overlay?.url && state.filters.radiation) {
+    const bounds = gameBoundsToLatLng(overlay.bounds || {});
+    state.radiationOverlay = L.imageOverlay(overlay.url, bounds, {
+      opacity: overlay.opacity ?? 0.55,
+      interactive: false,
+    }).addTo(state.map);
+  }
+
+  (data?.zones || []).forEach((zone) => {
+    const latlng = gameToLatLng(zone.x, zone.y);
+    const circle = L.circle(latlng, {
+      radius: gameRadiusToLeaflet(zone.radius),
+      color: zone.color || "#ff9800",
+      weight: zone.weight ?? 2,
+      fillColor: zone.color || "#ff9800",
+      fillOpacity: zone.fillOpacity ?? 0.18,
+      interactive: false,
+    });
+    if (zone.label) {
+      circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
+    }
+    state.radiationLayer.addLayer(circle);
+  });
+
+  applyRadiationVisibility();
+  renderRadiationLegend(data?.legend || []);
+}
+
+function applyRadiationVisibility() {
+  if (!state.radiationLayer || !state.map) return;
+  if (state.filters.radiation) {
+    if (!state.map.hasLayer(state.radiationLayer)) {
+      state.radiationLayer.addTo(state.map);
+    }
+    if (state.radiationOverlay && !state.map.hasLayer(state.radiationOverlay)) {
+      state.radiationOverlay.addTo(state.map);
+    }
+  } else {
+    state.map.removeLayer(state.radiationLayer);
+    if (state.radiationOverlay) state.map.removeLayer(state.radiationOverlay);
+  }
+}
+
+function renderRadiationLegend(legend) {
+  const el = document.getElementById("radiation-legend");
+  if (!el) return;
+  if (!legend.length) {
+    el.innerHTML = "";
+    el.classList.add("hidden");
+    return;
+  }
+  el.classList.remove("hidden");
+  el.innerHTML = `
+    <h3>Радиация</h3>
+    <ul>${legend
+      .map(
+        (item) =>
+          `<li><span class="rad-dot" style="background:${item.color}"></span>${item.label}</li>`,
+      )
+      .join("")}</ul>`;
+}
+
 function renderFilterPanel(categories) {
   const el = document.getElementById("filter-list");
   if (!el) return;
@@ -348,6 +443,7 @@ function renderFilterPanel(categories) {
     { id: "players", label: "Игроки (live)" },
     { id: "markers", label: "Метки группы" },
     { id: "poi", label: "POI админки" },
+    { id: "radiation", label: "Радиационные зоны" },
   ];
 
   const dynamic = (categories || []).map((c) => ({
@@ -371,6 +467,7 @@ function renderFilterPanel(categories) {
       state.filters[input.dataset.filter] = input.checked;
       applyLocationFilters();
       refreshDynamicLayers();
+      applyRadiationVisibility();
     });
   });
 }
@@ -389,6 +486,7 @@ function refreshDynamicLayers() {
     if (state.filters.poi) m.addTo(state.map);
     else state.map.removeLayer(m);
   });
+  applyRadiationVisibility();
 }
 
 async function loadMapLocations() {
@@ -415,6 +513,19 @@ async function loadMapLocations() {
   renderLocationLabels(data.locations || []);
 }
 
+async function loadMapRadiation() {
+  if (!state.me) return;
+  const slug = state.me.map_slug;
+  try {
+    const res = await fetch(`/api/maps/${slug}/radiation`, { credentials: "same-origin" });
+    if (!res.ok) return;
+    const data = await res.json();
+    renderRadiationLayer(data);
+  } catch {
+    /* optional layer */
+  }
+}
+
 async function bootstrapMapView() {
   state.me = await api("/api/auth/me");
   state.config = await api(`/api/maps/${state.me.map_slug}/config`);
@@ -431,7 +542,7 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
-  await Promise.all([loadRoomState(), loadMapLocations()]);
+  await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation()]);
   connectWebSocket();
 }
 
@@ -494,6 +605,7 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   state.poiMarkers.clear();
   state.locationEntries = [];
   if (state.locationLayer) state.locationLayer.clearLayers();
+  clearRadiationLayers();
   showLogin();
 });
 

@@ -1,0 +1,19 @@
+{
+  "overlay": {
+    "url": "https://i.ibb.co/yBVBxBM/2.jpg",
+    "opacity": 0.58,
+    "bounds": {
+      "x1": 0,
+      "y1": 0,
+      "x2": 20480,
+      "y2": 20480
+    }
+  },
+  "zones": [],
+  "legend": [
+    { "color": "#4caf50", "label": "Слабая радиация" },
+    { "color": "#ffeb3b", "label": "Средняя" },
+    { "color": "#ff9800", "label": "Высокая" },
+    { "color": "#f44336", "label": "Смертельная" }
+  ]
+}

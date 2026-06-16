@@ -169,6 +169,7 @@ async def admin_list_maps(
             "extra_zoom": m.extra_zoom,
             "locations_url": m.locations_url or "",
             "locations_source": m.locations_source or "izurvive",
+            "radiation_url": m.radiation_url or "",
             "enabled": m.enabled,
             "sort_order": m.sort_order,
         }
@@ -195,6 +196,7 @@ async def admin_create_map(
         extra_zoom=payload.extra_zoom,
         locations_url=payload.locations_url.strip() or None,
         locations_source=(payload.locations_source or "izurvive").strip().lower(),
+        radiation_url=payload.radiation_url.strip() or None,
         enabled=payload.enabled,
         sort_order=payload.sort_order,
     )

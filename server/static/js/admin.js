@@ -76,6 +76,7 @@ function fillMapForm(map) {
   form.querySelector('[name="tiles_satellite"]').value = map.tiles_satellite;
   form.querySelector('[name="tiles_topographic"]').value = map.tiles_topographic;
   form.querySelector('[name="locations_url"]').value = map.locations_url || "";
+  form.querySelector('[name="radiation_url"]').value = map.radiation_url || "";
   form.querySelector('[name="locations_source"]').value = map.locations_source || "izurvive";
   form.querySelector('[name="enabled"]').checked = !!map.enabled;
   form.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -267,6 +268,7 @@ document.getElementById("map-form").addEventListener("submit", async (e) => {
     tiles_satellite: fd.get("tiles_satellite"),
     tiles_topographic: fd.get("tiles_topographic"),
     locations_url: fd.get("locations_url") || "",
+    radiation_url: fd.get("radiation_url") || "",
     locations_source: fd.get("locations_source") || "izurvive",
     max_native_zoom: Number(fd.get("max_native_zoom")),
     extra_zoom: Number(fd.get("extra_zoom")),

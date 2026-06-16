@@ -12,6 +12,7 @@ from app.config import (
     MAP_TILES_TOPOGRAPHIC,
 )
 from app.locations_service import DEFAULT_IZURVIVE_URLS
+from app.radiation_service import DEFAULT_RADIATION_FILES
 from app.models import DayZMap, Setting
 from app.settings_service import PUBLIC_PIN_CREATION_KEY
 
@@ -47,6 +48,8 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("ALTER TABLE dayz_maps ADD COLUMN locations_url TEXT"))
     if map_cols and "locations_source" not in map_cols:
         conn.execute(text("ALTER TABLE dayz_maps ADD COLUMN locations_source VARCHAR(16)"))
+    if map_cols and "radiation_url" not in map_cols:
+        conn.execute(text("ALTER TABLE dayz_maps ADD COLUMN radiation_url TEXT"))
 
     poi_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(map_pois)")).fetchall()}
     if poi_cols and "icon" not in poi_cols:
@@ -64,6 +67,7 @@ def default_map_kwargs() -> dict:
         "extra_zoom": MAP_EXTRA_ZOOM,
         "locations_url": DEFAULT_IZURVIVE_URLS.get(DEFAULT_MAP_SLUG),
         "locations_source": "izurvive",
+        "radiation_url": DEFAULT_RADIATION_FILES.get(DEFAULT_MAP_SLUG),
         "enabled": True,
         "sort_order": 0,
     }
@@ -86,6 +90,8 @@ async def seed_defaults(db: AsyncSession) -> None:
         if not game_map.locations_url:
             game_map.locations_url = DEFAULT_IZURVIVE_URLS.get(DEFAULT_MAP_SLUG)
             game_map.locations_source = "izurvive"
+        if not game_map.radiation_url and DEFAULT_MAP_SLUG == game_map.slug:
+            game_map.radiation_url = DEFAULT_RADIATION_FILES.get(DEFAULT_MAP_SLUG)
 
     setting = await db.get(Setting, ADMIN_PASSWORD_KEY)
     if setting is None:

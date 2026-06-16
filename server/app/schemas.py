@@ -97,6 +97,41 @@ class MapLocationsResponse(BaseModel):
     locations: list[MapLocationItem]
 
 
+class RadiationBounds(BaseModel):
+    x1: float
+    y1: float
+    x2: float
+    y2: float
+
+
+class RadiationOverlay(BaseModel):
+    url: str
+    opacity: float = 0.55
+    bounds: RadiationBounds
+
+
+class RadiationZone(BaseModel):
+    id: str = ""
+    label: str = ""
+    x: float
+    y: float
+    radius: float
+    color: str = "#ff9800"
+    fillOpacity: float = 0.18
+    weight: int = 2
+
+
+class RadiationLegendItem(BaseModel):
+    color: str
+    label: str
+
+
+class MapRadiationResponse(BaseModel):
+    overlay: RadiationOverlay | None = None
+    zones: list[RadiationZone] = []
+    legend: list[RadiationLegendItem] = []
+
+
 class AdminLoginRequest(BaseModel):
     password: str
 
@@ -125,6 +160,7 @@ class MapCreateRequest(BaseModel):
     extra_zoom: int = 3
     locations_url: str = ""
     locations_source: str = "izurvive"
+    radiation_url: str = ""
     enabled: bool = True
     sort_order: int = 0
 
@@ -138,6 +174,7 @@ class MapUpdateRequest(BaseModel):
     extra_zoom: int | None = None
     locations_url: str | None = None
     locations_source: str | None = None
+    radiation_url: str | None = None
     enabled: bool | None = None
     sort_order: int | None = None
 

@@ -210,6 +210,29 @@ button.secondary:hover { background: #3a4858; }
   font-style: italic;
 }
 
+#radiation-legend ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+#radiation-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.rad-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  flex-shrink: 0;
+}
+
 #legend h3 { margin: 0 0 0.5rem; font-size: 0.95rem; }
 #legend h3 + h3 { margin-top: 0.75rem; }
 
