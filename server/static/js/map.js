@@ -172,6 +172,11 @@ function upsertLive(pos) {
     marker.bindPopup(popup);
     state.liveMarkers.set(pos.user_id, marker);
   }
+
+  // Для текущего пользователя двигаем карту как навигатор.
+  if (state.me && pos.user_id === state.me.user_id && state.map) {
+    state.map.panTo(latlng, { animate: true, duration: 0.6 });
+  }
   updatePlayersList();
 }
 
