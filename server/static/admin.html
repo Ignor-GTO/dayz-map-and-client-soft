@@ -130,7 +130,12 @@
           </label>
           <label>
             Уровень
-            <select id="rad-tier-select"></select>
+            <select id="rad-tier-select">
+              <option value="t-green">250 мЗв/ч</option>
+              <option value="t-yellow">280 мЗв/ч</option>
+              <option value="t-orange">350 мЗв/ч</option>
+              <option value="t-red">530 мЗв/ч</option>
+            </select>
           </label>
           <button type="button" class="secondary" id="rad-tier-add" title="Добавить свой уровень">+ Уровень</button>
           <label class="rad-inline-label">
@@ -182,7 +187,12 @@
             </label>
             <div class="rad-zone-edit">
               <label>Уровень
-                <select id="rad-zone-tier" class="rad-zone-tier-select"></select>
+                <select id="rad-zone-tier" class="rad-zone-tier-select">
+                  <option value="t-green">250 мЗв/ч</option>
+                  <option value="t-yellow">280 мЗв/ч</option>
+                  <option value="t-orange">350 мЗв/ч</option>
+                  <option value="t-red">530 мЗв/ч</option>
+                </select>
               </label>
               <button type="button" class="secondary" id="rad-zone-tier-add">+ Уровень</button>
               <div class="form-grid">
@@ -240,6 +250,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=2"></script>
   <script src="/js/admin.js?v=4"></script>
-  <script src="/js/admin-radiation.js?v=5"></script>
+  <script src="/js/admin-radiation.js?v=6"></script>
 </body>
 </html>

@@ -252,7 +252,12 @@ select {
 }
 
 .rad-toolbar label { margin: 0; min-width: 140px; }
-.rad-toolbar select { max-width: 220px; }
+select option {
+  background: #1a2430;
+  color: #e8eef4;
+}
+
+.rad-toolbar select { max-width: 220px; min-width: 140px; }
 .rad-file-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 
 .rad-inline-label {

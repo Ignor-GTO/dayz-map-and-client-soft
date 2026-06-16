@@ -102,7 +102,17 @@ function radBringZonesToFront() {
   });
 }
 
+function radEnsureTiers() {
+  if (!radState.tiers.length) {
+    radState.tiers = RAD_DEFAULT_TIERS.map((t) => ({ ...t }));
+  }
+  if (!radState.tiers.some((t) => t.id === radState.activeTierId)) {
+    radState.activeTierId = radState.tiers[2]?.id || radState.tiers[0]?.id || "t-orange";
+  }
+}
+
 function radRenderTierSelect() {
+  radEnsureTiers();
   const sel = document.getElementById("rad-tier-select");
   if (!sel) return;
   const prev = radState.activeTierId;
@@ -141,21 +151,21 @@ function radTiersForZone(zone) {
 function radRenderZoneTierSelect() {
   const sel = document.getElementById("rad-zone-tier");
   if (!sel) return;
+  radEnsureTiers();
   const zone = radState.zones.find((z) => z.id === radState.selectedId);
-  sel.disabled = !zone;
-  if (!zone) {
-    sel.innerHTML = `<option value="">— выберите зону —</option>`;
-    return;
-  }
-  const tiers = radTiersForZone(zone);
+  const tiers = zone ? radTiersForZone(zone) : radState.tiers;
   sel.innerHTML = tiers
     .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`)
     .join("");
-  const match =
-    tiers.find((t) => t.color === zone.color && t.label === zone.label)
-    || tiers.find((t) => t.color === zone.color)
-    || tiers[0];
-  if (match) sel.value = match.id;
+  if (zone) {
+    const match =
+      tiers.find((t) => t.color === zone.color && t.label === zone.label)
+      || tiers.find((t) => t.color === zone.color)
+      || tiers[0];
+    if (match) sel.value = match.id;
+  } else {
+    sel.value = radState.activeTierId;
+  }
 }
 
 function radRenderOverlaySelect() {
@@ -476,6 +486,9 @@ async function radLoadForSlug(slug) {
     radSyncOverlayLayer();
     radRenderAllZones();
     radFillBoundsInputs();
+    if (radState.zones.length && !radState.selectedId) {
+      radSelectZone(radState.zones[0].id);
+    }
     radSetStatus(`Зон: ${radState.zones.length}${radState.overlay?.url ? " · подложка загружена" : ""}`);
     setTimeout(() => radState.map?.invalidateSize(), 300);
   } catch (err) {
@@ -595,7 +608,13 @@ function radBindUi() {
   document.getElementById("rad-tier-add")?.addEventListener("click", radAddCustomTier);
   document.getElementById("rad-zone-tier-add")?.addEventListener("click", radAddCustomTier);
 
-  document.getElementById("rad-zone-tier")?.addEventListener("change", () => {
+  document.getElementById("rad-zone-tier")?.addEventListener("change", (e) => {
+    const tier = radState.tiers.find((t) => t.id === e.target.value);
+    if (tier) {
+      radState.activeTierId = tier.id;
+      const toolbar = document.getElementById("rad-tier-select");
+      if (toolbar) toolbar.value = tier.id;
+    }
     if (radState.selectedId) radApplySelectedFields();
   });
 
@@ -664,6 +683,9 @@ function radBindUi() {
 const RadiationEditor = {
   ensureLoaded() {
     radBindUi();
+    radEnsureTiers();
+    this.refreshMapSelect();
+    radRenderTierSelect();
     const sel = document.getElementById("rad-map-select");
     if (!sel?.value && typeof mapsCache !== "undefined" && mapsCache.length) {
       sel.value = mapsCache[0].slug;
@@ -673,6 +695,8 @@ const RadiationEditor = {
       radLoadForSlug(slug);
     } else if (radState.map) {
       setTimeout(() => radState.map.invalidateSize(), 300);
+    } else if (slug && !radState.zones.length) {
+      radLoadForSlug(slug);
     }
   },
   refreshMapSelect() {
