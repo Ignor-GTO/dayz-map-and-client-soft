@@ -471,7 +471,7 @@ class ClientApp(tk.Tk):
             return ref_x, ref_y
         return coords
 
-    def _handle_marker_hotkey(self) -> None:
+    def _handle_snip_hotkey(self) -> None:
         if not self.hotkeys_active:
             return
 
@@ -514,7 +514,7 @@ class ClientApp(tk.Tk):
         def work() -> None:
             try:
                 time.sleep(0.2)
-                coords = self._capture_coords(nudge=True)
+                coords = self._capture_coords(nudge=False)
                 if coords:
                     x, y = coords
                     self.after(0, lambda: self.log_line(f"[Метка] {x:.0f} / {y:.0f}"))
