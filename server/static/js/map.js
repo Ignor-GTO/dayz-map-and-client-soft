@@ -7,6 +7,7 @@ const state = {
   clientKey: null,
   liveMarkers: new Map(),
   pinMarkers: new Map(),
+  poiMarkers: new Map(),
   ws: null,
 };
 
@@ -53,6 +54,22 @@ function showLogin() {
 function showMap() {
   document.getElementById("login-view").classList.add("hidden");
   document.getElementById("map-view").classList.remove("hidden");
+}
+
+function waitForLayout() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(resolve));
+  });
+}
+
+function refreshMapLayout() {
+  if (!state.map) return;
+  state.map.invalidateSize({ animate: false });
+  state.map.fitBounds(TILE_BOUNDS, { animate: false });
+  if (state.config) {
+    const center = gameToLatLng(mapSize(state.config) / 2, mapSize(state.config) / 2, state.config);
+    state.map.setView(center, state.map.getZoom(), { animate: false });
+  }
 }
 
 function showKeyModal(key) {
@@ -117,12 +134,8 @@ function initLeaflet(config) {
   state.map.setView(center, 3);
 }
 
-function gameToLatLngMarker(x, y) {
-  return gameToLatLng(x, y);
-}
-
 function upsertLive(pos) {
-  const latlng = gameToLatLngMarker(pos.x, pos.y);
+  const latlng = gameToLatLng(pos.x, pos.y);
   const color = colorForUser(pos.user_id);
   let marker = state.liveMarkers.get(pos.user_id);
 
@@ -146,7 +159,7 @@ function upsertLive(pos) {
 }
 
 function upsertPin(m) {
-  const latlng = gameToLatLngMarker(m.x, m.y);
+  const latlng = gameToLatLng(m.x, m.y);
   const color = colorForUser(m.user_id);
   let marker = state.pinMarkers.get(m.id);
 
@@ -180,6 +193,29 @@ function upsertPin(m) {
   }
 }
 
+function upsertPoi(p) {
+  const latlng = gameToLatLng(p.x, p.y);
+  let marker = state.poiMarkers.get(p.id);
+  const desc = p.description ? `<br>${p.description}` : "";
+  const popup = `<b>${p.title}</b>${desc}<br>${Math.round(p.x)} / ${Math.round(p.y)}`;
+
+  if (marker) {
+    marker.setLatLng(latlng);
+    marker.setPopupContent(popup);
+  } else {
+    marker = L.marker(latlng, {
+      icon: L.divIcon({
+        className: "poi-icon",
+        html: `<div class="poi-marker">★</div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      }),
+    }).addTo(state.map);
+    marker.bindPopup(popup);
+    state.poiMarkers.set(p.id, marker);
+  }
+}
+
 function removePin(id) {
   const marker = state.pinMarkers.get(id);
   if (marker) {
@@ -199,17 +235,8 @@ async function deleteMarker(id) {
 
 function updatePlayersList() {
   const el = document.getElementById("players-list");
-  const names = [...state.liveMarkers.keys()].map((uid) => {
-    for (const [_, m] of state.liveMarkers) {
-      const pop = m.getPopup()?.getContent() || "";
-      if (pop.includes(`user-${uid}`)) return pop;
-    }
-    return null;
-  });
-  void names;
-
   const entries = [];
-  state.liveMarkers.forEach((marker, userId) => {
+  state.liveMarkers.forEach((marker) => {
     const content = marker.getPopup()?.getContent() || "";
     const match = content.match(/^<b>(.+?)<\/b>/);
     if (match) entries.push(match[1]);
@@ -239,17 +266,37 @@ async function loadRoomState() {
   const data = await api("/api/room/state");
   data.positions.forEach(upsertLive);
   data.markers.forEach(upsertPin);
+  data.pois.forEach(upsertPoi);
 }
 
 async function bootstrapMapView() {
-  state.config = await api("/api/map/config");
-  if (!state.map) initLeaflet(state.config);
   state.me = await api("/api/auth/me");
+  state.config = await api(`/api/maps/${state.me.map_slug}/config`);
+
+  showMap();
+  await waitForLayout();
+
+  if (!state.map) {
+    initLeaflet(state.config);
+  } else {
+    setTileLayer(state.layerType);
+  }
+  refreshMapLayout();
+
   document.getElementById("user-label").textContent = state.me.nickname;
-  document.getElementById("room-label").textContent = `PIN: ${state.me.pin}`;
+  document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
   await loadRoomState();
   connectWebSocket();
-  showMap();
+}
+
+async function loadMapOptions() {
+  const maps = await api("/api/maps");
+  const sel = document.getElementById("map-slug");
+  if (!maps.length) {
+    sel.innerHTML = `<option value="">Нет доступных карт</option>`;
+    return;
+  }
+  sel.innerHTML = maps.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
 }
 
 document.getElementById("login-form").addEventListener("submit", async (e) => {
@@ -257,11 +304,12 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   const errEl = document.getElementById("login-error");
   errEl.classList.add("hidden");
   try {
+    const map_slug = document.getElementById("map-slug").value;
     const pin = document.getElementById("pin").value.trim();
     const nickname = document.getElementById("nickname").value.trim();
     const data = await api("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ pin, nickname }),
+      body: JSON.stringify({ map_slug, pin, nickname }),
     });
     if (data.client_key) {
       showKeyModal(data.client_key);
@@ -279,6 +327,7 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   await api("/api/auth/logout", { method: "POST" });
   state.liveMarkers.clear();
   state.pinMarkers.clear();
+  state.poiMarkers.clear();
   showLogin();
 });
 
@@ -308,6 +357,10 @@ document.getElementById("close-key-modal").addEventListener("click", () => {
 document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTileLayer("satellite"));
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
+window.addEventListener("resize", () => {
+  if (state.map) state.map.invalidateSize({ animate: false });
+});
+
 function applyClientDownloadUrl(url) {
   document.querySelectorAll(".client-download").forEach((el) => {
     el.href = url;
@@ -316,7 +369,9 @@ function applyClientDownloadUrl(url) {
 
 async function initClientDownloadLinks() {
   try {
-    const cfg = await api("/api/map/config");
+    const maps = await api("/api/maps");
+    if (!maps.length) return;
+    const cfg = await api(`/api/maps/${maps[0].slug}/config`);
     if (cfg.client_download_url) applyClientDownloadUrl(cfg.client_download_url);
   } catch {
     /* keep default href from HTML */
@@ -324,7 +379,12 @@ async function initClientDownloadLinks() {
 }
 
 (async () => {
-  await initClientDownloadLinks();
+  try {
+    await loadMapOptions();
+    await initClientDownloadLinks();
+  } catch {
+    /* login page still usable */
+  }
   try {
     await api("/api/auth/me");
     await bootstrapMapView();

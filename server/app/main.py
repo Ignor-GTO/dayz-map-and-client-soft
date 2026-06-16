@@ -1,22 +1,13 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.auth import get_current_user_from_ws
-from app.config import (
-    CLIENT_DOWNLOAD_URL,
-    MAP_ATTRIBUTION,
-    MAP_BOUNDS,
-    MAP_EXTRA_ZOOM,
-    MAP_MAX_NATIVE_ZOOM,
-    MAP_SIZE,
-    MAP_TILES_SATELLITE,
-    MAP_TILES_TOPOGRAPHIC,
-    SERVER_PUBLIC_URL,
-)
+from app.admin_routes import router as admin_router
+from app.auth import channel_key, get_current_user_from_ws
+from app.config import CLIENT_DOWNLOAD_URL
 from app.database import SessionLocal, init_db
 from app.routes import router
 from app.websocket import manager
@@ -30,28 +21,14 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="DayZ Pripyat Map", lifespan=lifespan)
+app = FastAPI(title="DayZ Map", lifespan=lifespan)
 app.include_router(router)
+app.include_router(admin_router)
 
 
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
-
-
-@app.get("/api/map/config")
-async def map_config():
-    return {
-        "bounds": MAP_BOUNDS,
-        "map_size": MAP_SIZE,
-        "max_native_zoom": MAP_MAX_NATIVE_ZOOM,
-        "extra_zoom": MAP_EXTRA_ZOOM,
-        "tiles_satellite": MAP_TILES_SATELLITE,
-        "tiles_topographic": MAP_TILES_TOPOGRAPHIC,
-        "attribution": MAP_ATTRIBUTION,
-        "server_url": SERVER_PUBLIC_URL,
-        "client_download_url": CLIENT_DOWNLOAD_URL,
-    }
 
 
 @app.get("/api/download/client")
@@ -67,14 +44,14 @@ async def map_websocket(websocket: WebSocket):
         if not user:
             await websocket.close(code=4401)
             return
-        room_id = user.room_id
+        ch = channel_key(user.room.map_id, user.room_id)
 
-    await manager.connect(room_id, websocket)
+    await manager.connect(ch, websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
-        await manager.disconnect(room_id, websocket)
+        await manager.disconnect(ch, websocket)
 
 
 app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")

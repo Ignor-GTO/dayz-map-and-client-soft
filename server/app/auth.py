@@ -10,9 +10,11 @@ from sqlalchemy.orm import selectinload
 
 from app.config import SECRET_KEY, SESSION_COOKIE
 from app.database import get_db
-from app.models import Room, User
+from app.models import DayZMap, Room, User
 
 serializer = URLSafeSerializer(SECRET_KEY, salt="dayz-map-session")
+admin_serializer = URLSafeSerializer(SECRET_KEY, salt="dayz-map-admin")
+ADMIN_SESSION_COOKIE = "dayz_map_admin"
 
 
 def hash_client_key(key: str) -> str:
@@ -21,6 +23,10 @@ def hash_client_key(key: str) -> str:
 
 def generate_client_key() -> str:
     return secrets.token_urlsafe(32)
+
+
+def channel_key(map_id: int, room_id: int) -> str:
+    return f"map:{map_id}:room:{room_id}"
 
 
 def set_session(response: Response, user_id: int) -> None:
@@ -38,6 +44,33 @@ def clear_session(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE)
 
 
+def set_admin_session(response: Response) -> None:
+    token = admin_serializer.dumps({"admin": True})
+    response.set_cookie(
+        key=ADMIN_SESSION_COOKIE,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 7,
+    )
+
+
+def clear_admin_session(response: Response) -> None:
+    response.delete_cookie(ADMIN_SESSION_COOKIE)
+
+
+async def require_admin(request: Request) -> None:
+    token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if not token:
+        raise HTTPException(status_code=401, detail="Admin not authenticated")
+    try:
+        data = admin_serializer.loads(token)
+        if not data.get("admin"):
+            raise HTTPException(status_code=401, detail="Invalid admin session")
+    except BadSignature:
+        raise HTTPException(status_code=401, detail="Invalid admin session")
+
+
 async def get_current_user(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -53,7 +86,7 @@ async def get_current_user(
 
     result = await db.execute(
         select(User)
-        .options(selectinload(User.room))
+        .options(selectinload(User.room).selectinload(Room.map))
         .where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
@@ -75,7 +108,7 @@ async def get_user_by_client_key(
     key_hash = hash_client_key(key)
     result = await db.execute(
         select(User)
-        .options(selectinload(User.room))
+        .options(selectinload(User.room).selectinload(Room.map))
         .where(User.client_key_hash == key_hash)
     )
     user = result.scalar_one_or_none()
@@ -102,18 +135,29 @@ async def get_current_user_from_ws(db: AsyncSession, token: str | None) -> User 
 
     result = await db.execute(
         select(User)
-        .options(selectinload(User.room))
+        .options(selectinload(User.room).selectinload(Room.map))
         .where(User.id == user_id)
     )
     return result.scalar_one_or_none()
 
 
-async def get_or_create_room(db: AsyncSession, pin: str) -> Room:
-    result = await db.execute(select(Room).where(Room.pin == pin))
+async def get_map_by_slug(db: AsyncSession, slug: str, *, require_enabled: bool = True) -> DayZMap:
+    query = select(DayZMap).where(DayZMap.slug == slug.strip().lower())
+    if require_enabled:
+        query = query.where(DayZMap.enabled.is_(True))
+    result = await db.execute(query)
+    game_map = result.scalar_one_or_none()
+    if not game_map:
+        raise HTTPException(status_code=404, detail="Map not found")
+    return game_map
+
+
+async def get_or_create_room(db: AsyncSession, map_id: int, pin: str) -> Room:
+    result = await db.execute(select(Room).where(Room.map_id == map_id, Room.pin == pin))
     room = result.scalar_one_or_none()
     if room:
         return room
-    room = Room(pin=pin)
+    room = Room(map_id=map_id, pin=pin)
     db.add(room)
     await db.flush()
     return room

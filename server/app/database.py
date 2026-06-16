@@ -18,6 +18,11 @@ async def get_db():
 
 async def init_db():
     from app import models  # noqa: F401
+    from app.seed import migrate_schema, seed_defaults
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await migrate_schema(conn)
+
+    async with SessionLocal() as db:
+        await seed_defaults(db)

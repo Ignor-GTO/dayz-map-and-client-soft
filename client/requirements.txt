@@ -1,5 +1,9 @@
 pillow==11.0.0
 keyboard==0.13.5
-pytesseract==0.3.13
 httpx==0.28.1
+mss==10.0.0
 pyinstaller==6.11.1
+winrt-Windows.Media.Ocr==2.3.0
+winrt-Windows.Graphics.Imaging==2.3.0
+winrt-Windows.Storage.Streams==2.3.0
+winrt-Windows.Globalization==2.3.0

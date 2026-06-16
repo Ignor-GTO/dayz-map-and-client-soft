@@ -30,8 +30,10 @@ MAP_BOUNDS = {
     "max_y": float(os.getenv("MAP_MAX_Y", str(int(MAP_SIZE)))),
 }
 
-SERVER_PUBLIC_URL = os.getenv("SERVER_PUBLIC_URL", "https://dayz-map.gto-team.uz")
+DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "9029902901")
 CLIENT_DOWNLOAD_URL = os.getenv(
     "CLIENT_DOWNLOAD_URL",
     "https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe",
 )
+
+SERVER_PUBLIC_URL = os.getenv("SERVER_PUBLIC_URL", "https://dayz-map.gto-team.uz")

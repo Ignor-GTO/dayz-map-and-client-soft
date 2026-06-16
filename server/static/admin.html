@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Админка — DayZ Map</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <div id="admin-app">
+    <section id="admin-login" class="panel">
+      <h1>Админка DayZ Map</h1>
+      <form id="admin-login-form">
+        <label>
+          Пароль
+          <input type="password" id="admin-password" required autocomplete="current-password">
+        </label>
+        <button type="submit">Войти</button>
+      </form>
+      <p id="admin-login-error" class="error hidden"></p>
+      <a class="admin-link" href="/">← На карту</a>
+    </section>
+
+    <section id="admin-panel" class="hidden">
+      <header class="admin-header">
+        <h1>Админка</h1>
+        <div class="admin-header-actions">
+          <a href="/">Карта</a>
+          <button id="admin-logout" class="secondary">Выйти</button>
+        </div>
+      </header>
+
+      <nav class="admin-tabs">
+        <button type="button" class="tab active" data-tab="maps">Карты</button>
+        <button type="button" class="tab" data-tab="pois">Метки POI</button>
+        <button type="button" class="tab" data-tab="password">Пароль</button>
+      </nav>
+
+      <div id="tab-maps" class="tab-panel">
+        <h2>Карты DayZ</h2>
+        <div id="maps-list" class="card-list"></div>
+        <form id="map-form" class="admin-form">
+          <h3>Добавить карту</h3>
+          <div class="form-grid">
+            <label>Slug <input name="slug" required placeholder="chernarus"></label>
+            <label>Название <input name="name" required placeholder="Чернarus"></label>
+            <label>Размер <input name="map_size" type="number" value="15360"></label>
+            <label>Max zoom <input name="max_native_zoom" type="number" value="7"></label>
+            <label>Extra zoom <input name="extra_zoom" type="number" value="3"></label>
+            <label>Порядок <input name="sort_order" type="number" value="0"></label>
+          </div>
+          <label>URL спутник <input name="tiles_satellite" required placeholder="https://.../{z}/{x}/{y}.jpg"></label>
+          <label>URL топо <input name="tiles_topographic" required placeholder="https://.../{z}/{x}/{y}.jpg"></label>
+          <label class="checkbox"><input name="enabled" type="checkbox" checked> Включена</label>
+          <button type="submit">Добавить карту</button>
+        </form>
+      </div>
+
+      <div id="tab-pois" class="tab-panel hidden">
+        <h2>Метки на карте</h2>
+        <label>
+          Карта
+          <select id="poi-map-select"></select>
+        </label>
+        <div id="pois-list" class="card-list"></div>
+        <form id="poi-form" class="admin-form">
+          <h3>Добавить метку</h3>
+          <div class="form-grid">
+            <label>Название <input name="title" required></label>
+            <label>X <input name="x" type="number" step="any" required></label>
+            <label>Y <input name="y" type="number" step="any" required></label>
+          </div>
+          <label>Описание <textarea name="description" rows="3"></textarea></label>
+          <button type="submit">Добавить метку</button>
+        </form>
+      </div>
+
+      <div id="tab-password" class="tab-panel hidden">
+        <h2>Сменить пароль</h2>
+        <form id="password-form" class="admin-form">
+          <label>Текущий пароль <input name="current_password" type="password" required></label>
+          <label>Новый пароль <input name="new_password" type="password" required minlength="6"></label>
+          <button type="submit">Сохранить</button>
+        </form>
+        <p id="password-msg" class="success hidden"></p>
+      </div>
+    </section>
+  </div>
+  <script src="/js/admin.js"></script>
+</body>
+</html>

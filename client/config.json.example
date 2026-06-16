@@ -1,6 +1,6 @@
 {
   "server_url": "https://dayz-map.gto-team.uz",
   "client_key": "",
-  "ocr_region": [10, 900, 300, 1050],
-  "tesseract_cmd": "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+  "monitor_index": 1,
+  "ocr_region": [10, 900, 300, 1050]
 }

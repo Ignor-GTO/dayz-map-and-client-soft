@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -10,13 +10,56 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Room(Base):
-    __tablename__ = "rooms"
+class DayZMap(Base):
+    __tablename__ = "dayz_maps"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    pin: Mapped[str] = mapped_column(String(16), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    map_size: Mapped[float] = mapped_column(Float, default=20480)
+    tiles_satellite: Mapped[str] = mapped_column(Text)
+    tiles_topographic: Mapped[str] = mapped_column(Text)
+    max_native_zoom: Mapped[int] = mapped_column(Integer, default=7)
+    extra_zoom: Mapped[int] = mapped_column(Integer, default=3)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
+    rooms: Mapped[list["Room"]] = relationship(back_populates="map")
+    pois: Mapped[list["MapPoi"]] = relationship(back_populates="map", cascade="all, delete-orphan")
+
+
+class MapPoi(Base):
+    __tablename__ = "map_pois"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    title: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str] = mapped_column(Text, default="")
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    map: Mapped["DayZMap"] = relationship(back_populates="pois")
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text)
+
+
+class Room(Base):
+    __tablename__ = "rooms"
+    __table_args__ = (UniqueConstraint("map_id", "pin", name="uq_map_pin"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    pin: Mapped[str] = mapped_column(String(16), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    map: Mapped["DayZMap"] = relationship(back_populates="rooms")
     users: Mapped[list["User"]] = relationship(back_populates="room", cascade="all, delete-orphan")
 
 

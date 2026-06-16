@@ -7,26 +7,68 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import (
     authenticate_client,
+    channel_key,
     clear_session,
     generate_client_key,
     get_current_user,
+    get_map_by_slug,
     get_or_create_room,
     hash_client_key,
     set_session,
 )
+from app.config import CLIENT_DOWNLOAD_URL, MAP_ATTRIBUTION, SERVER_PUBLIC_URL
 from app.database import get_db
-from app.models import Marker, Position, User
+from app.models import DayZMap, MapPoi, Marker, Position, User
 from app.schemas import (
     CoordsPayload,
     LoginRequest,
     LoginResponse,
+    MapConfigResponse,
+    MapListItem,
     MarkerResponse,
+    PoiResponse,
     PositionResponse,
     RoomStateResponse,
 )
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
+
+
+def map_to_config(game_map: DayZMap) -> MapConfigResponse:
+    size = game_map.map_size
+    return MapConfigResponse(
+        slug=game_map.slug,
+        name=game_map.name,
+        bounds={
+            "min_x": 0,
+            "max_x": size,
+            "min_y": 0,
+            "max_y": size,
+        },
+        map_size=size,
+        max_native_zoom=game_map.max_native_zoom,
+        extra_zoom=game_map.extra_zoom,
+        tiles_satellite=game_map.tiles_satellite,
+        tiles_topographic=game_map.tiles_topographic,
+        attribution=MAP_ATTRIBUTION,
+        server_url=SERVER_PUBLIC_URL,
+        client_download_url=CLIENT_DOWNLOAD_URL,
+    )
+
+
+@router.get("/maps", response_model=list[MapListItem])
+async def list_maps(db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(
+        select(DayZMap).where(DayZMap.enabled.is_(True)).order_by(DayZMap.sort_order, DayZMap.name)
+    )
+    return [MapListItem(slug=m.slug, name=m.name) for m in result.scalars().all()]
+
+
+@router.get("/maps/{slug}/config", response_model=MapConfigResponse)
+async def map_config(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    game_map = await get_map_by_slug(db, slug)
+    return map_to_config(game_map)
 
 
 @router.post("/auth/login", response_model=LoginResponse)
@@ -37,8 +79,8 @@ async def login(
 ):
     pin = payload.pin.strip()
     nickname = payload.nickname.strip()
-
-    room = await get_or_create_room(db, pin)
+    game_map = await get_map_by_slug(db, payload.map_slug.strip().lower())
+    room = await get_or_create_room(db, game_map.id, pin)
 
     result = await db.execute(
         select(User).where(User.room_id == room.id, User.nickname == nickname)
@@ -65,6 +107,8 @@ async def login(
     return LoginResponse(
         nickname=nickname,
         pin=pin,
+        map_slug=game_map.slug,
+        map_name=game_map.name,
         client_key=client_key or "",
         message=message,
     )
@@ -78,11 +122,15 @@ async def reset_client_key(
     client_key = generate_client_key()
     user.client_key_hash = hash_client_key(client_key)
     await db.commit()
+    await db.refresh(user)
+    game_map = user.room.map
     return LoginResponse(
         nickname=user.nickname,
         pin=user.room.pin,
+        map_slug=game_map.slug,
+        map_name=game_map.name,
         client_key=client_key,
-        message="Новый ключ клиента создан. Обновите config.json или перезапустите клиент.",
+        message="Новый ключ клиента создан.",
     )
 
 
@@ -97,6 +145,8 @@ async def me(user: Annotated[User, Depends(get_current_user)]):
     return {
         "nickname": user.nickname,
         "pin": user.room.pin,
+        "map_slug": user.room.map.slug,
+        "map_name": user.room.map.name,
         "user_id": user.id,
     }
 
@@ -106,7 +156,7 @@ async def room_state(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    return await _build_room_state(db, user.room_id)
+    return await _build_room_state(db, user)
 
 
 @router.post("/client/position")
@@ -126,6 +176,7 @@ async def update_position(
     await db.commit()
     await db.refresh(position)
 
+    ch = channel_key(user.room.map_id, user.room_id)
     event = {
         "type": "position",
         "data": {
@@ -136,7 +187,7 @@ async def update_position(
             "updated_at": position.updated_at.isoformat(),
         },
     }
-    await manager.broadcast(user.room_id, event)
+    await manager.broadcast(ch, event)
     return {"ok": True}
 
 
@@ -151,6 +202,7 @@ async def add_marker(
     await db.commit()
     await db.refresh(marker)
 
+    ch = channel_key(user.room.map_id, user.room_id)
     event = {
         "type": "marker_added",
         "data": {
@@ -162,7 +214,7 @@ async def add_marker(
             "created_at": marker.created_at.isoformat(),
         },
     }
-    await manager.broadcast(user.room_id, event)
+    await manager.broadcast(ch, event)
 
     return MarkerResponse(
         id=marker.id,
@@ -187,24 +239,26 @@ async def delete_marker(
     if marker.user_id != user.id:
         raise HTTPException(status_code=403, detail="Can only delete own markers")
 
-    room_id = user.room_id
+    ch = channel_key(user.room.map_id, user.room_id)
     await db.delete(marker)
     await db.commit()
-
-    await manager.broadcast(room_id, {"type": "marker_deleted", "data": {"id": marker_id}})
+    await manager.broadcast(ch, {"type": "marker_deleted", "data": {"id": marker_id}})
     return {"ok": True}
 
 
-async def _build_room_state(db: AsyncSession, room_id: int) -> RoomStateResponse:
+async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
     users_result = await db.execute(
         select(User)
         .options(
             selectinload(User.position),
             selectinload(User.markers),
         )
-        .where(User.room_id == room_id)
+        .where(User.room_id == user.room_id)
     )
     users = users_result.scalars().all()
+
+    pois_result = await db.execute(select(MapPoi).where(MapPoi.map_id == user.room.map_id))
+    pois = pois_result.scalars().all()
 
     positions: list[PositionResponse] = []
     markers: list[MarkerResponse] = []
@@ -232,4 +286,14 @@ async def _build_room_state(db: AsyncSession, room_id: int) -> RoomStateResponse
                 )
             )
 
-    return RoomStateResponse(positions=positions, markers=markers)
+    game_map = user.room.map
+    return RoomStateResponse(
+        map_slug=game_map.slug,
+        map_name=game_map.name,
+        positions=positions,
+        markers=markers,
+        pois=[
+            PoiResponse(id=p.id, title=p.title, description=p.description, x=p.x, y=p.y)
+            for p in pois
+        ],
+    )

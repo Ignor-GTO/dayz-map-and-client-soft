@@ -3,16 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>DayZ Pripyat Map — GTO Team</title>
+  <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <div id="app">
     <section id="login-view" class="panel">
-      <h1>DayZ Pripyat Map</h1>
-      <p class="subtitle">Карта сервера DayZavr · группы по PIN-коду</p>
+      <h1>DayZ Map</h1>
+      <p class="subtitle">Live-карта DayZ · группы по PIN-коду</p>
       <form id="login-form">
+        <label>
+          Карта
+          <select id="map-slug" required></select>
+        </label>
         <label>
           PIN группы
           <input type="text" id="pin" placeholder="9029" required minlength="4" maxlength="16">
@@ -24,7 +28,8 @@
         <button type="submit">Войти</button>
       </form>
       <p id="login-error" class="error hidden"></p>
-      <a class="download-link client-download" href="https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe" target="_blank" rel="noopener">Скачать клиент (Windows .exe)</a>
+      <a class="download-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать клиент (Windows .exe)</a>
+      <a class="admin-link" href="/admin.html">Админка</a>
     </section>
 
     <section id="map-view" class="hidden">
@@ -36,7 +41,7 @@
         <div class="toolbar-actions">
           <button id="reset-key-btn" class="secondary">Новый ключ</button>
           <button id="copy-key-btn" class="secondary">Ключ клиента</button>
-          <a class="btn-link client-download" href="https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe" target="_blank" rel="noopener">Скачать .exe</a>
+          <a class="btn-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать .exe</a>
           <button id="logout-btn" class="secondary">Выйти</button>
         </div>
       </header>
@@ -62,6 +67,7 @@
         <ul>
           <li><span class="dot live"></span> Live-позиция (клавиша M в игре)</li>
           <li><span class="dot marker"></span> Метка (Win+Shift+S → OCR)</li>
+          <li><span class="dot poi"></span> POI (админка)</li>
         </ul>
         <div id="players-list"></div>
       </aside>

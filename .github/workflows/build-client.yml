@@ -33,7 +33,7 @@ jobs:
         with:
           tag: client-latest
           name: DayZ Map Client (Latest)
-          body: Windows OCR client for DayZ Pripyat map. Install Tesseract OCR separately.
+          body: Windows OCR client with GUI. No Tesseract required.
           artifacts: client/dist/DayZMapClient.exe
           allowUpdates: true
           replacesArtifacts: true
