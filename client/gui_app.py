@@ -95,7 +95,7 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_var = tk.BooleanVar(value=self.cfg.get("mouse_nudge_before_ocr", True))
         ttk.Checkbutton(
             nudge_frm,
-            text="Перед M сдвигать мышь влево (показать координаты iZurvive)",
+            text="Перед M сдвигать мышь вправо (убрать с панели iZurvive)",
             variable=self.mouse_nudge_var,
         ).pack(side="left")
 
@@ -140,7 +140,8 @@ class ClientApp(tk.Tk):
                 "monitor_index": monitor_index,
                 "ocr_region": [v.get() for v in self.region_vars],
                 "mouse_nudge_before_ocr": self.mouse_nudge_var.get(),
-                "mouse_nudge_delay_ms": self.cfg.get("mouse_nudge_delay_ms", 200),
+                "mouse_nudge_side": self.cfg.get("mouse_nudge_side", "right"),
+                "mouse_nudge_delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 350)),
                 "mouse_nudge_restore": self.cfg.get("mouse_nudge_restore", True),
             }
         )
@@ -266,21 +267,47 @@ class ClientApp(tk.Tk):
         except Exception as exc:
             self._show_ocr_error(exc)
 
+    def _mouse_nudge_kwargs(self) -> dict:
+        return {
+            "enabled": self.mouse_nudge_var.get(),
+            "side": self.cfg.get("mouse_nudge_side", "right"),
+            "delay_ms": int(self.cfg.get("mouse_nudge_delay_ms", 350)),
+            "restore": self.cfg.get("mouse_nudge_restore", True),
+            "on_nudged": lambda pos: self.log_line(f"[OCR] Мышь → {pos[0]}, {pos[1]}"),
+        }
+
     def test_ocr(self) -> None:
         self.save_settings()
-        try:
-            from ocr import extract_coordinates_with_text
+        monitor = self._monitor_index()
+        region = self._ocr_region()
+        result: dict = {}
 
-            img = grab_region(self._monitor_index(), self._ocr_region())
-            coords, raw = extract_coordinates_with_text(img)
-            if raw:
-                self.log_line(f"[Тест] OCR текст: {raw!r}")
-            if coords:
-                self.log_line(f"[Тест] OCR: {coords[0]:.0f} / {coords[1]:.0f}")
-            else:
-                self.log_line("[Тест] Координаты не распознаны — проверьте область (кнопка iZurvive)")
-        except Exception as exc:
-            messagebox.showerror("OCR", str(exc))
+        def capture() -> None:
+            try:
+                from ocr import extract_coordinates_with_text
+
+                img = grab_region(monitor, region)
+                coords, raw = extract_coordinates_with_text(img)
+                result["coords"] = coords
+                result["raw"] = raw
+            except Exception as exc:
+                result["error"] = exc
+
+        from mouse_util import with_mouse_nudge
+
+        with_mouse_nudge(monitor, region, capture, **self._mouse_nudge_kwargs())
+
+        if err := result.get("error"):
+            messagebox.showerror("OCR", str(err))
+            return
+        raw = result.get("raw")
+        if raw:
+            self.log_line(f"[Тест] OCR текст: {raw!r}")
+        coords = result.get("coords")
+        if coords:
+            self.log_line(f"[Тест] OCR: {coords[0]:.0f} / {coords[1]:.0f}")
+        else:
+            self.log_line("[Тест] Координаты не распознаны — проверьте область (кнопка iZurvive)")
 
     def toggle_hotkeys(self) -> None:
         if self.hotkeys_active:
@@ -303,7 +330,7 @@ class ClientApp(tk.Tk):
         self.hotkeys_active = True
         self.status_var.set("Работает — hotkeys активны")
         self.start_btn.configure(text="Остановить hotkeys")
-        keyboard.add_hotkey("m", lambda: self.on_m_pressed())
+        keyboard.add_hotkey("m", lambda: self.after(0, self._handle_m_hotkey))
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         self.log_line("[Запуск] Hotkeys активны")
@@ -317,6 +344,9 @@ class ClientApp(tk.Tk):
         self.log_line("[Стоп] Hotkeys отключены")
 
     def on_m_pressed(self) -> None:
+        self.after(0, self._handle_m_hotkey)
+
+    def _handle_m_hotkey(self) -> None:
         if not self.map_client:
             return
 
@@ -339,14 +369,7 @@ class ClientApp(tk.Tk):
             except Exception as exc:
                 self.log_line(f"[M] Ошибка: {exc}")
 
-        with_mouse_nudge(
-            monitor,
-            region,
-            capture_and_send,
-            enabled=self.mouse_nudge_var.get(),
-            delay_ms=int(self.cfg.get("mouse_nudge_delay_ms", 200)),
-            restore=self.cfg.get("mouse_nudge_restore", True),
-        )
+        with_mouse_nudge(monitor, region, capture_and_send, **self._mouse_nudge_kwargs())
 
     def _clipboard_image(self):
         try:
