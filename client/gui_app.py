@@ -94,7 +94,7 @@ class ClientApp(tk.Tk):
         )
         ttk.Label(
             frm,
-            text="Win+Shift+S — выделите «15100 - 879» · Ctrl+Shift+D — метка с экрана",
+            text="Win+Shift+S или Ctrl+Shift+S — снимок координат · Ctrl+Shift+D — метка",
             wraplength=580,
         ).grid(row=6, column=0, columnspan=2, **pad)
 
@@ -365,6 +365,11 @@ class ClientApp(tk.Tk):
             lambda: self.after(0, self._handle_marker_hotkey),
             suppress=False,
         )
+        keyboard.add_hotkey(
+            "ctrl+shift+s",
+            lambda: self.after(0, self._handle_snip_hotkey),
+            suppress=False,
+        )
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         self.log_line("[Запуск] Hotkeys активны")
@@ -434,10 +439,30 @@ class ClientApp(tk.Tk):
         return result.get("coords")
 
     def _handle_map_double_click(self) -> None:
+        if not self.hotkeys_active:
+            return
+        if not self._map_session_active:
+            self.log_line("[Метка] Двойной клик — сначала M (открыть сессию карты)")
+            self._ensure_hud().show_error("Нажмите M")
+            return
         self._send_marker_from_screen(source="Двойной клик")
 
+    def _handle_snip_hotkey(self) -> None:
+        if not self.hotkeys_active:
+            return
+        img = self._clipboard_image()
+        if img is None:
+            self.log_line("[Ctrl+Shift+S] Буфер пуст — сделайте Win+Shift+S и выделите координаты")
+            return
+        self.log_line("[Ctrl+Shift+S] Чтение из буфера…")
+        self._process_snip_marker(img, source="Ctrl+Shift+S")
+
     def _handle_marker_hotkey(self) -> None:
-        if not self.hotkeys_active or not self._map_session_active:
+        if not self.hotkeys_active:
+            return
+        if not self._map_session_active:
+            self.log_line("[Метка] Ctrl+Shift+D — сначала M (открыть сессию карты)")
+            self._ensure_hud().show_error("Нажмите M")
             return
         self._send_marker_from_screen(source="Ctrl+Shift+D")
 
@@ -526,6 +551,10 @@ class ClientApp(tk.Tk):
         if not self.map_client:
             self.log_line(f"[{source}] Клиент не настроен — сохраните ключ")
             return
+        if source != "Скриншот" or self._map_session_active:
+            pass  # hotkey / active session
+        elif not self._map_session_active:
+            self.log_line(f"[{source}] Подсказка: M — сессия карты, метка появится на веб-карте")
 
         def work() -> None:
             try:

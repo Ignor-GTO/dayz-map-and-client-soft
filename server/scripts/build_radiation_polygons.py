@@ -55,22 +55,24 @@ TIERS = [
 ]
 
 MAX_SIDE = 2048
-MIN_AREA = 180
-DILATE_ITERS = 4
-SIMPLIFY_EPS = 2.2
+MIN_AREA = 520
+DILATE_ITERS = 2
+SIMPLIFY_EPS = 3.0
+MIN_SOLIDITY = 0.32
+MAX_RIVER_ASPECT = 14.0
 
 
 def radiation_tier(r: int, g: int, b: int) -> int | None:
     h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
-    if v < 0.40 or s < 0.52:
+    if v < 0.45 or s < 0.58:
         return None
-    if h < 0.055 and r > 145 and r > g + 45:
+    if h < 0.055 and r > 150 and r > g + 50:
         return 3
-    if 0.055 <= h < 0.12 and r > 155 and g < 130:
+    if 0.055 <= h < 0.12 and r > 160 and g < 125:
         return 2
-    if 0.12 <= h < 0.19 and r > 150 and g > 95 and b < 90:
+    if 0.12 <= h < 0.19 and r > 155 and g > 100 and b < 85:
         return 1
-    if 0.19 <= h < 0.38 and g > 115 and g > r + 25 and b < 120:
+    if 0.19 <= h < 0.36 and g > 120 and g > r + 30 and b < 115:
         return 0
     return None
 
@@ -120,8 +122,9 @@ def main() -> None:
         mask = tier_masks[tier_idx]
         if not mask.any():
             continue
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
         mask = cv2.dilate(mask, kernel, iterations=DILATE_ITERS)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=1)
 
         contours, hierarchy = cv2.findContours(mask, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_NONE)
         if hierarchy is None:
@@ -131,6 +134,19 @@ def main() -> None:
         for i, contour in enumerate(contours):
             area = cv2.contourArea(contour)
             if area < MIN_AREA:
+                continue
+            hull = cv2.convexHull(contour)
+            hull_area = cv2.contourArea(hull)
+            if hull_area <= 0:
+                continue
+            solidity = area / hull_area
+            if solidity < MIN_SOLIDITY:
+                continue
+            rect = cv2.minAreaRect(contour)
+            rw, rh = rect[1]
+            short_side = min(rw, rh) or 1.0
+            aspect = max(rw, rh) / short_side
+            if aspect > MAX_RIVER_ASPECT and area < MIN_AREA * 8:
                 continue
             if hierarchy[i][3] != -1:
                 continue

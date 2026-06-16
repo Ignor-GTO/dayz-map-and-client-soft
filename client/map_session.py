@@ -5,7 +5,6 @@ from __future__ import annotations
 import logging
 import sys
 import threading
-import time
 from typing import Callable
 
 logger = logging.getLogger(__name__)
@@ -19,6 +18,7 @@ if sys.platform == "win32":
 
     WH_MOUSE_LL = 14
     WM_LBUTTONDOWN = 0x0201
+    WM_LBUTTONDBLCLK = 0x0203
 
     class _POINT(ctypes.Structure):
         _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -49,8 +49,6 @@ if sys.platform == "win32":
             self._proc: _HOOKPROC | None = None
             self._thread: threading.Thread | None = None
             self._stop = threading.Event()
-            self._last_down = 0.0
-            self._last_pos = (0, 0)
             self._ready = threading.Event()
             self._hook_ok = False
 
@@ -78,17 +76,10 @@ if sys.platform == "win32":
             self._hook = None
             self._hook_ok = False
 
-        def _on_lbutton_down(self, x: int, y: int) -> None:
-            now = time.monotonic()
-            lx, ly = self._last_pos
-            if now - self._last_down < 0.55 and abs(x - lx) < 24 and abs(y - ly) < 24:
-                self._last_down = 0.0
-                cb = self._callback
-                if cb:
-                    cb()
-                return
-            self._last_down = now
-            self._last_pos = (x, y)
+        def _on_double_click(self) -> None:
+            cb = self._callback
+            if cb:
+                cb()
 
         def _run(self) -> None:
             listener = self
@@ -97,9 +88,8 @@ if sys.platform == "win32":
             def hook_proc(n_code: int, w_param: int, l_param: int) -> int:
                 if listener._stop.is_set():
                     return 0
-                if n_code >= 0 and w_param == WM_LBUTTONDOWN:
-                    info = ctypes.cast(l_param, ctypes.POINTER(_MSLLHOOKSTRUCT)).contents
-                    listener._on_lbutton_down(int(info.pt.x), int(info.pt.y))
+                if n_code >= 0 and w_param == WM_LBUTTONDBLCLK:
+                    listener._on_double_click()
                 hook = listener._hook or 0
                 return user32.CallNextHookEx(hook, n_code, w_param, l_param)
 

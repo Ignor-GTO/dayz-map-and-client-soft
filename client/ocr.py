@@ -26,15 +26,17 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
 
 
 def extract_coordinates(image: Image.Image) -> tuple[float, float] | None:
-    from ocr_engine import recognize_text
-
-    text = recognize_text(image)
-    coords = parse_coordinates(text)
+    coords, _ = extract_coordinates_with_text(image)
     return coords
 
 
 def extract_coordinates_with_text(image: Image.Image) -> tuple[tuple[float, float] | None, str]:
-    from ocr_engine import recognize_text
+    from ocr_engine import recognize_text_all
 
-    text = recognize_text(image)
-    return parse_coordinates(text), text
+    texts = recognize_text_all(image)
+    for text in texts:
+        coords = parse_coordinates(text)
+        if coords:
+            return coords, text
+    combined = texts[0] if texts else ""
+    return parse_coordinates(combined), combined

@@ -166,8 +166,33 @@ async def _recognize_windows_async(image: Image.Image) -> str:
 
 
 def recognize_text(image: Image.Image) -> str:
-    prepared = preprocess_coordinate_region(image)
+    from ocr_preprocess import preprocess_variants
 
+    texts: list[str] = []
+    for prepared in preprocess_variants(image):
+        text = _recognize_prepared(prepared)
+        if text.strip():
+            texts.append(text.strip())
+    if texts:
+        return texts[0]
+    return _recognize_prepared(preprocess_variants(image)[0])
+
+
+def recognize_text_all(image: Image.Image) -> list[str]:
+    """Run OCR on every preprocess variant; return non-empty results."""
+    from ocr_preprocess import preprocess_variants
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for prepared in preprocess_variants(image):
+        text = _recognize_prepared(prepared).strip()
+        if text and text not in seen:
+            seen.add(text)
+            out.append(text)
+    return out
+
+
+def _recognize_prepared(prepared: Image.Image) -> str:
     from ocr_tesseract import is_available as tesseract_available
     from ocr_tesseract import recognize_digits
 
