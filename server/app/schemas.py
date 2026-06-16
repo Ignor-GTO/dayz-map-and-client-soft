@@ -106,7 +106,8 @@ class RadiationBounds(BaseModel):
 
 class RadiationOverlay(BaseModel):
     url: str
-    opacity: float = 0.55
+    enabled: bool = False
+    opacity: float = 0.3
     bounds: RadiationBounds
 
 

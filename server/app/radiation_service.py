@@ -32,9 +32,10 @@ def _normalize_payload(raw: dict, map_size: float) -> dict:
     overlay = raw.get("overlay")
     if overlay and isinstance(overlay, dict):
         bounds = overlay.get("bounds") or {}
-        overlay = {
+    overlay = {
             "url": str(overlay.get("url", "")),
-            "opacity": float(overlay.get("opacity", 0.55)),
+            "enabled": bool(overlay.get("enabled", False)),
+            "opacity": float(overlay.get("opacity", 0.3)),
             "bounds": {
                 "x1": float(bounds.get("x1", 0)),
                 "y1": float(bounds.get("y1", 0)),

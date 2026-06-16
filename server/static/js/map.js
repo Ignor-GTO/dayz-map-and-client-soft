@@ -145,6 +145,17 @@ function setTileLayer(type) {
   document.getElementById("btn-layer-topo")?.classList.toggle("active", type === "topographic");
 }
 
+function initMapPanes(map) {
+  if (!map.getPane("radiationPane")) {
+    map.createPane("radiationPane");
+    map.getPane("radiationPane").style.zIndex = 340;
+  }
+  if (!map.getPane("labelsPane")) {
+    map.createPane("labelsPane");
+    map.getPane("labelsPane").style.zIndex = 480;
+  }
+}
+
 function initLeaflet(config) {
   const maxNative = config.max_native_zoom || 7;
   const maxZoom = maxNative + (config.extra_zoom || 3);
@@ -159,6 +170,7 @@ function initLeaflet(config) {
     attributionControl: true,
   });
 
+  initMapPanes(state.map);
   state.locationLayer = L.layerGroup().addTo(state.map);
   state.radiationLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
@@ -333,7 +345,7 @@ function renderLocationLabels(locations) {
       iconSize: [200, 30],
       iconAnchor: [100, 15],
     });
-    const marker = L.marker(latlng, { icon, interactive: false });
+    const marker = L.marker(latlng, { icon, interactive: false, pane: "labelsPane" });
     marker._locMeta = loc;
     marker._locId = idx;
     state.locationEntries.push(marker);
@@ -360,24 +372,30 @@ function updateLocationVisibility() {
 }
 
 function clearRadiationLayers() {
+  state.radiationOverlay = null;
   if (state.radiationLayer) state.radiationLayer.clearLayers();
-  if (state.radiationOverlay && state.map) {
-    state.map.removeLayer(state.radiationOverlay);
-    state.radiationOverlay = null;
-  }
 }
 
 function renderRadiationLayer(data) {
   if (!state.map || !state.radiationLayer) return;
   clearRadiationLayers();
 
+  if (!state.filters.radiation) {
+    applyRadiationVisibility();
+    renderRadiationLegend(data?.legend || []);
+    return;
+  }
+
   const overlay = data?.overlay;
-  if (overlay?.url && state.filters.radiation) {
+  // Полноэкранный JPG поверх тайлов даёт «двоение» и перекрывает подписи — только по явному флагу.
+  if (overlay?.url && overlay?.enabled) {
     const bounds = gameBoundsToLatLng(overlay.bounds || {});
     state.radiationOverlay = L.imageOverlay(overlay.url, bounds, {
-      opacity: overlay.opacity ?? 0.55,
+      opacity: Math.min(overlay.opacity ?? 0.3, 0.35),
       interactive: false,
-    }).addTo(state.map);
+      pane: "radiationPane",
+    });
+    state.radiationLayer.addLayer(state.radiationOverlay);
   }
 
   (data?.zones || []).forEach((zone) => {
@@ -387,8 +405,9 @@ function renderRadiationLayer(data) {
       color: zone.color || "#ff9800",
       weight: zone.weight ?? 2,
       fillColor: zone.color || "#ff9800",
-      fillOpacity: zone.fillOpacity ?? 0.18,
+      fillOpacity: zone.fillOpacity ?? 0.12,
       interactive: false,
+      pane: "radiationPane",
     });
     if (zone.label) {
       circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
@@ -406,12 +425,8 @@ function applyRadiationVisibility() {
     if (!state.map.hasLayer(state.radiationLayer)) {
       state.radiationLayer.addTo(state.map);
     }
-    if (state.radiationOverlay && !state.map.hasLayer(state.radiationOverlay)) {
-      state.radiationOverlay.addTo(state.map);
-    }
   } else {
     state.map.removeLayer(state.radiationLayer);
-    if (state.radiationOverlay) state.map.removeLayer(state.radiationOverlay);
   }
 }
 
