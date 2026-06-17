@@ -717,6 +717,24 @@ document.getElementById("close-key-modal").addEventListener("click", () => {
 document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTileLayer("satellite"));
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
+document.getElementById("legend-toggle")?.addEventListener("click", () => {
+  const legend = document.getElementById("legend");
+  const btn = document.getElementById("legend-toggle");
+  if (legend.classList.contains("collapsed")) {
+    legend.classList.remove("collapsed");
+    btn.textContent = "▶";
+    setTimeout(() => {
+      if (state.map) state.map.invalidateSize({ animate: false });
+    }, 320);
+  } else {
+    legend.classList.add("collapsed");
+    btn.textContent = "◀";
+    setTimeout(() => {
+      if (state.map) state.map.invalidateSize({ animate: false });
+    }, 320);
+  }
+});
+
 window.addEventListener("resize", () => {
   if (state.map) {
     state.map.invalidateSize({ animate: false });
