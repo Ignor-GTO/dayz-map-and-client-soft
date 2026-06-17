@@ -111,8 +111,32 @@ class ClientApp(tk.Tk):
         self.status_var = tk.StringVar(value="Остановлено")
         ttk.Label(frm, textvariable=self.status_var).grid(row=8, column=0, columnspan=2, **pad)
 
-        self.log = scrolledtext.ScrolledText(frm, height=17, width=64, state="disabled")
+        self.log = scrolledtext.ScrolledText(
+            frm,
+            height=17,
+            width=64,
+            state="disabled",
+            selectbackground="#0078d7",
+            selectforeground="white",
+            inactiveselectbackground="#a0a0a0"
+        )
         self.log.grid(row=9, column=0, columnspan=2, pady=8)
+
+        # Allow focusing the widget on click to enable selection and copy shortcuts
+        self.log.bind("<Button-1>", lambda e: self.log.focus_set(), add="+")
+
+        # Explicit copy and select all shortcuts because default class bindings
+        # for these keys are disabled when state="disabled"
+        self.log.bind("<Control-c>", self._copy_log)
+        self.log.bind("<Control-C>", self._copy_log)
+        self.log.bind("<Control-a>", self._select_all_log)
+        self.log.bind("<Control-A>", self._select_all_log)
+
+        # Context menu for log widget
+        self.log_menu = tk.Menu(self.log, tearoff=0)
+        self.log_menu.add_command(label="Копировать", command=self._copy_log)
+        self.log_menu.add_command(label="Выделить всё", command=self._select_all_log)
+        self.log.bind("<Button-3>", self._show_log_menu)
 
     def _refresh_monitors(self) -> None:
         prev_index = self.monitor_combo.current() if hasattr(self, "monitor_combo") else -1
@@ -136,6 +160,27 @@ class ClientApp(tk.Tk):
         self.log.insert("end", text + "\n")
         self.log.see("end")
         self.log.configure(state="disabled")
+
+    def _copy_log(self, event=None) -> str:
+        try:
+            selected_text = self.log.get("sel.first", "sel.last")
+            self.clipboard_clear()
+            self.clipboard_append(selected_text)
+        except tk.TclError:
+            pass
+        return "break"
+
+    def _select_all_log(self, event=None) -> str:
+        self.log.tag_add("sel", "1.0", "end")
+        return "break"
+
+    def _show_log_menu(self, event) -> None:
+        try:
+            self.log.get("sel.first", "sel.last")
+            self.log_menu.entryconfigure("Копировать", state="normal")
+        except tk.TclError:
+            self.log_menu.entryconfigure("Копировать", state="disabled")
+        self.log_menu.post(event.x_root, event.y_root)
 
     def save_settings(self) -> None:
         if not self.key_var.get().strip():
