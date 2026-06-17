@@ -263,3 +263,20 @@ def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int
     if scale > 1:
         out = out.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
     return ImageOps.autocontrast(out, cutoff=1)
+
+
+def has_clipboard_image() -> bool:
+    import sys
+    if sys.platform != "win32":
+        return False
+    import ctypes
+    user32 = ctypes.windll.user32
+    CF_DIB = 8
+    png_fmt = user32.RegisterClipboardFormatW("PNG")
+    
+    if user32.IsClipboardFormatAvailable(CF_DIB):
+        return True
+    if png_fmt and user32.IsClipboardFormatAvailable(png_fmt):
+        return True
+        
+    return False

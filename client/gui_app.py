@@ -1268,19 +1268,21 @@ class ClientApp(tk.Tk):
         self.after(450, run)
 
     def _clipboard_loop(self) -> None:
+        from clipboard_util import has_clipboard_image
         time.sleep(0.5)
         img = self._clipboard_image()
         if img is not None:
             self._clipboard_hash = self._image_hash(img)
         while not self._stop_clipboard.is_set():
-            img = self._clipboard_image()
-            if img is not None and self.map_client:
-                w, h = img.size
-                if w >= 30 and h >= 10:
-                    digest = self._image_hash(img)
-                    if digest != self._clipboard_hash and digest != self._clipboard_watch_digest:
-                        self._clipboard_watch_digest = digest
-                        self._schedule_clipboard_process(source="Win+Shift+S")
+            if self.map_client and has_clipboard_image():
+                img = self._clipboard_image()
+                if img is not None:
+                    w, h = img.size
+                    if w >= 30 and h >= 10:
+                        digest = self._image_hash(img)
+                        if digest != self._clipboard_hash and digest != self._clipboard_watch_digest:
+                            self._clipboard_watch_digest = digest
+                            self._schedule_clipboard_process(source="Win+Shift+S")
             time.sleep(0.2)
 
     def on_close(self) -> None:
