@@ -219,7 +219,7 @@ async def add_marker(
     user: Annotated[User, Depends(authenticate_client)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    marker = Marker(user_id=user.id, x=payload.x, y=payload.y)
+    marker = Marker(user_id=user.id, x=payload.x, y=payload.y, type=payload.type or "marker")
     db.add(marker)
     await db.commit()
     await db.refresh(marker)
@@ -233,6 +233,7 @@ async def add_marker(
             "nickname": user.nickname,
             "x": marker.x,
             "y": marker.y,
+            "type": marker.type,
             "created_at": marker.created_at.isoformat(),
         },
     }
@@ -244,6 +245,7 @@ async def add_marker(
         nickname=user.nickname,
         x=marker.x,
         y=marker.y,
+        type=marker.type,
         created_at=marker.created_at,
     )
 
@@ -304,6 +306,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                     nickname=u.nickname,
                     x=m.x,
                     y=m.y,
+                    type=m.type,
                     created_at=m.created_at,
                 )
             )

@@ -197,17 +197,35 @@ function upsertLive(pos) {
 
   const popup = `<b>${pos.nickname}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}`;
 
+  const iconHtml = `
+    <div style="display:flex;align-items:center;white-space:nowrap;filter:drop-shadow(0 0 3px rgba(0,0,0,0.8));">
+      <div style="background:${color};width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;box-shadow:0 0 4px #000;">
+        👤
+      </div>
+      <div style="margin-left:5px;background:rgba(0,0,0,0.75);color:#fff;font-family:sans-serif;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.25);">
+        ${pos.nickname}
+      </div>
+    </div>
+  `;
+
+  const icon = L.divIcon({
+    className: "live-player-icon",
+    html: iconHtml,
+    iconSize: [200, 24],
+    iconAnchor: [12, 12],
+  });
+
+  if (marker && typeof marker.setIcon !== "function") {
+    state.map.removeLayer(marker);
+    marker = null;
+  }
+
   if (marker) {
     marker.setLatLng(latlng);
+    marker.setIcon(icon);
     marker.setPopupContent(popup);
   } else {
-    marker = L.circleMarker(latlng, {
-      radius: 10,
-      color: "#fff",
-      weight: 2,
-      fillColor: color,
-      fillOpacity: 0.9,
-    }).addTo(state.map);
+    marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popup);
     state.liveMarkers.set(pos.user_id, marker);
   }
@@ -232,18 +250,39 @@ function upsertPin(m) {
     ${isMine ? `<br><button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
   `;
 
+  let iconHtml = "";
+  let size = [14, 14];
+  let anchor = [7, 7];
+
+  if (m.type === "screenshot") {
+    iconHtml = `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000;display:flex;align-items:center;justify-content:center;color:#f1c40f;font-weight:bold;font-size:14px;font-family:sans-serif;line-height:20px;">?</div>`;
+    size = [20, 20];
+    anchor = [10, 10];
+  } else {
+    iconHtml = `
+      <div style="width:20px;height:20px;position:relative;display:flex;align-items:center;justify-content:center;">
+        <div style="position:absolute;width:20px;height:2px;background:${color};border:0.5px solid #fff;box-shadow:0 0 2px #000;"></div>
+        <div style="position:absolute;width:2px;height:20px;background:${color};border:0.5px solid #fff;box-shadow:0 0 2px #000;"></div>
+        <div style="width:8px;height:8px;border-radius:50%;border:2px solid ${color};box-shadow:0 0 2px #000;"></div>
+      </div>
+    `;
+    size = [20, 20];
+    anchor = [10, 10];
+  }
+
+  const icon = L.divIcon({
+    className: m.type === "screenshot" ? "pin-icon-screenshot" : "pin-icon-crosshair",
+    html: iconHtml,
+    iconSize: size,
+    iconAnchor: anchor,
+  });
+
   if (marker) {
     marker.setLatLng(latlng);
+    marker.setIcon(icon);
     marker.setPopupContent(popupHtml);
   } else {
-    marker = L.marker(latlng, {
-      icon: L.divIcon({
-        className: "pin-icon",
-        html: `<div style="background:${color};width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000"></div>`,
-        iconSize: [14, 14],
-        iconAnchor: [7, 7],
-      }),
-    }).addTo(state.map);
+    marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popupHtml);
     marker.on("popupopen", () => {
       const btn = document.querySelector(".marker-delete");

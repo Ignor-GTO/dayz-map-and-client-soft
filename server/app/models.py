@@ -105,6 +105,7 @@ class Marker(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
+    type: Mapped[str] = mapped_column(String(32), default="marker", server_default="marker")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="markers")

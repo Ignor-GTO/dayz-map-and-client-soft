@@ -21,6 +21,7 @@ class LoginResponse(BaseModel):
 class CoordsPayload(BaseModel):
     x: float
     y: float
+    type: str | None = None
 
 
 class MarkerResponse(BaseModel):
@@ -29,6 +30,7 @@ class MarkerResponse(BaseModel):
     nickname: str
     x: float
     y: float
+    type: str = "marker"
     created_at: datetime
 
 

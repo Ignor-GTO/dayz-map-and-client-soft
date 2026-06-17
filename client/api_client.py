@@ -20,11 +20,11 @@ class MapClient:
         except httpx.HTTPError as e:
             return False, f"Ошибка сети: {e}"
 
-    def send_marker(self, x: float, y: float) -> tuple[bool, str]:
+    def send_marker(self, x: float, y: float, marker_type: str = "marker") -> tuple[bool, str]:
         try:
             r = httpx.post(
                 f"{self.base}/api/client/marker",
-                json={"x": x, "y": y},
+                json={"x": x, "y": y, "type": marker_type},
                 headers=self.headers,
                 timeout=10,
             )

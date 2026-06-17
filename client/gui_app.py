@@ -748,7 +748,7 @@ class ClientApp(tk.Tk):
                     x, y = coords
                     self.after(0, lambda: self.log_line(f"[{source}] {x:.0f} / {y:.0f}"))
                     if self.map_client:
-                        ok, err_msg = self.map_client.send_marker(x, y)
+                        ok, err_msg = self.map_client.send_marker(x, y, marker_type="screenshot")
                         if ok:
                             self.after(0, lambda: self.log_line(f"[{source}] Метка отправлена"))
                             self.after(0, lambda: self._ensure_hud().show_ok(x, y, marker=True))
