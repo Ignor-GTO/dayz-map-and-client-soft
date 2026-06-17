@@ -419,11 +419,13 @@ async def admin_save_radiation(
 
     if payload.overlay and payload.overlay.url:
         ob = payload.overlay.bounds
-        if ob.x1 < 0 or ob.x1 > map_size or ob.x2 < 0 or ob.x2 > map_size or \
-           ob.y1 < 0 or ob.y1 > map_size or ob.y2 < 0 or ob.y2 > map_size:
+        min_allowed = -map_size
+        max_allowed = map_size * 2
+        if ob.x1 < min_allowed or ob.x1 > max_allowed or ob.x2 < min_allowed or ob.x2 > max_allowed or \
+           ob.y1 < min_allowed or ob.y1 > max_allowed or ob.y2 < min_allowed or ob.y2 > max_allowed:
             raise HTTPException(
                 status_code=400,
-                detail=f"Границы подложки ({ob.x1}, {ob.y1}), ({ob.x2}, {ob.y2}) выходят за пределы карты [0, {map_size}]"
+                detail=f"Границы подложки слишком сильно выходят за пределы карты (разрешено от {min_allowed} до {max_allowed})"
             )
         if ob.x1 >= ob.x2 or ob.y1 >= ob.y2:
             raise HTTPException(

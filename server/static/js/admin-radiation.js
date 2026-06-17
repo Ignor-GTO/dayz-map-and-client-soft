@@ -411,9 +411,10 @@ function radCreateOverlayHandles() {
   });
   
   m1.on("drag", (e) => {
+    const size = radMapSize(radState.config);
     const pt = radLatLngToGame(e.target.getLatLng());
-    b.x1 = Math.max(0, Math.min(pt.x, b.x2 - 10));
-    b.y1 = Math.max(0, Math.min(pt.y, b.y2 - 10));
+    b.x1 = Math.max(-size, Math.min(pt.x, b.x2 - 10));
+    b.y1 = Math.max(-size, Math.min(pt.y, b.y2 - 10));
     
     radState.overlayLayer?.setBounds(radGameBoundsToLatLng(b));
     mCenter.setLatLng(radGameToLatLng((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2));
@@ -432,8 +433,8 @@ function radCreateOverlayHandles() {
   m2.on("drag", (e) => {
     const size = radMapSize(radState.config);
     const pt = radLatLngToGame(e.target.getLatLng());
-    b.x2 = Math.max(b.x1 + 10, Math.min(pt.x, size));
-    b.y2 = Math.max(b.y1 + 10, Math.min(pt.y, size));
+    b.x2 = Math.max(b.x1 + 10, Math.min(pt.x, size * 2));
+    b.y2 = Math.max(b.y1 + 10, Math.min(pt.y, size * 2));
 
     radState.overlayLayer?.setBounds(radGameBoundsToLatLng(b));
     mCenter.setLatLng(radGameToLatLng((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2));
@@ -468,10 +469,13 @@ function radCreateOverlayHandles() {
     let nx2 = b.x2 + dx;
     let ny2 = b.y2 + dy;
 
-    if (nx1 < 0) { nx1 = 0; nx2 = w; }
-    if (nx2 > size) { nx2 = size; nx1 = size - w; }
-    if (ny1 < 0) { ny1 = 0; ny2 = h; }
-    if (ny2 > size) { ny2 = size; ny1 = size - h; }
+    const minVal = -size;
+    const maxVal = size * 2;
+
+    if (nx1 < minVal) { nx1 = minVal; nx2 = minVal + w; }
+    if (nx2 > maxVal) { nx2 = maxVal; nx1 = maxVal - w; }
+    if (ny1 < minVal) { ny1 = minVal; ny2 = minVal + h; }
+    if (ny2 > maxVal) { ny2 = maxVal; ny1 = maxVal - h; }
 
     b.x1 = nx1;
     b.y1 = ny1;
