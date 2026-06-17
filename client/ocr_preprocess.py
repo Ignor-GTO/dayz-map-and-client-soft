@@ -66,9 +66,23 @@ def preprocess_coordinate_region(image: Image.Image) -> Image.Image:
 
 
 def preprocess_variants(image: Image.Image) -> list[Image.Image]:
-    """Try multiple preprocess paths — lime browser UI, white in-game UI, fallback."""
-    return [
-        preprocess_white_on_dark(image),
-        preprocess_lime_on_dark(image),
-        preprocess_high_contrast(image),
-    ]
+    """Try multiple preprocess paths based on ocr_preprocess_mode setting."""
+    try:
+        from config import load_config
+        cfg = load_config()
+        mode = cfg.get("ocr_preprocess_mode", "auto")
+    except Exception:
+        mode = "auto"
+
+    if mode == "white":
+        return [preprocess_white_on_dark(image)]
+    elif mode == "lime":
+        return [preprocess_lime_on_dark(image)]
+    elif mode == "high_contrast":
+        return [preprocess_high_contrast(image)]
+    else:
+        return [
+            preprocess_white_on_dark(image),
+            preprocess_lime_on_dark(image),
+            preprocess_high_contrast(image),
+        ]
