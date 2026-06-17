@@ -30,6 +30,12 @@ const state = {
 const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
 const MAP_MAX_BOUNDS = TILE_BOUNDS;
 
+function updateMinZoom() {
+  if (!state.map) return;
+  const boundsZoom = state.map.getBoundsZoom(TILE_BOUNDS, false);
+  state.map.setMinZoom(boundsZoom);
+}
+
 const PLAYER_COLORS = [
   "#ff4757", "#2ed573", "#1e90ff", "#ffa502", "#a55eea",
   "#ff6b81", "#70a1ff", "#7bed9f", "#eccc68", "#5352ed",
@@ -81,6 +87,7 @@ function waitForLayout() {
 function refreshMapLayout() {
   if (!state.map) return;
   state.map.invalidateSize({ animate: false });
+  updateMinZoom();
   state.map.fitBounds(TILE_BOUNDS, { animate: false });
   if (state.config) {
     const center = gameToLatLng(mapSize(state.config) / 2, mapSize(state.config) / 2, state.config);
@@ -672,7 +679,10 @@ document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTil
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
 window.addEventListener("resize", () => {
-  if (state.map) state.map.invalidateSize({ animate: false });
+  if (state.map) {
+    state.map.invalidateSize({ animate: false });
+    updateMinZoom();
+  }
 });
 
 function applyClientDownloadUrl(url) {

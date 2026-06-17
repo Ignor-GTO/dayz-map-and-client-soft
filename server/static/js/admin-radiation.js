@@ -383,6 +383,13 @@ function radReadBoundsFromInputs() {
   radState.overlay.opacity = Number(document.getElementById("rad-overlay-opacity").value);
 }
 
+function radUpdateMinZoom() {
+  if (!radState.map) return;
+  const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
+  const boundsZoom = radState.map.getBoundsZoom(TILE_BOUNDS, false);
+  radState.map.setMinZoom(boundsZoom);
+}
+
 function radEnsureMap() {
   if (radState.map) return;
 
@@ -414,7 +421,11 @@ function radEnsureMap() {
     radAddZone(x, y);
   });
 
-  setTimeout(() => radState.map?.invalidateSize(), 200);
+  radUpdateMinZoom();
+  setTimeout(() => {
+    radState.map?.invalidateSize();
+    radUpdateMinZoom();
+  }, 200);
 }
 
 function radDestroyMap() {
@@ -494,7 +505,10 @@ async function radLoadForSlug(slug) {
       radSelectZone(radState.zones[0].id);
     }
     radSetStatus(`Зон: ${radState.zones.length}${radState.overlay?.url ? " · подложка загружена" : ""}`);
-    setTimeout(() => radState.map?.invalidateSize(), 300);
+    setTimeout(() => {
+      radState.map?.invalidateSize();
+      radUpdateMinZoom();
+    }, 300);
   } catch (err) {
     radSetStatus(err.message, true);
   }
@@ -681,6 +695,13 @@ function radBindUi() {
 
   ["rad-zone-x", "rad-zone-y", "rad-zone-radius"].forEach((id) => {
     document.getElementById(id)?.addEventListener("change", radApplySelectedFields);
+  });
+
+  window.addEventListener("resize", () => {
+    if (radState.map) {
+      radState.map.invalidateSize({ animate: false });
+      radUpdateMinZoom();
+    }
   });
 }
 
