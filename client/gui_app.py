@@ -518,9 +518,14 @@ class ClientApp(tk.Tk):
             lambda: self.after(0, self._handle_snip_hotkey),
             suppress=False,
         )
+        keyboard.add_hotkey(
+            "esc",
+            lambda: self.after(0, self._handle_esc_hotkey),
+            suppress=False,
+        )
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
-        self.log_line("[Запуск] Hotkeys: M, Ctrl+Shift+D, Ctrl+Shift+S/C; Win+Shift+S — авто из буфера")
+        self.log_line("[Запуск] Hotkeys: M, Esc (закрыть), Ctrl+Shift+D, Ctrl+Shift+S/C; Win+Shift+S — авто из буфера")
 
     def stop_hotkeys(self) -> None:
         self.hotkeys_active = False
@@ -714,6 +719,12 @@ class ClientApp(tk.Tk):
                 self.after(0, lambda: self._ensure_hud().show_error(str(exc)[:40]))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _handle_esc_hotkey(self) -> None:
+        if not self.hotkeys_active:
+            return
+        if self._map_session_active:
+            self._end_map_session()
 
     def _clipboard_image(self):
         return grab_clipboard_image(retries=8, delay=0.1)
