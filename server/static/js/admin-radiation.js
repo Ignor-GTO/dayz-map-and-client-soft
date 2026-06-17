@@ -22,7 +22,22 @@ const radState = {
   zoneLayers: new Map(),
   loadedSlug: null,
   addZoneMode: false,
+  overlayHandles: [],
 };
+
+function radApplySatelliteVisibility() {
+  const hide = document.getElementById("rad-hide-satellite")?.checked;
+  if (!radState.map || !radState.tileLayer) return;
+  if (hide) {
+    if (radState.map.hasLayer(radState.tileLayer)) {
+      radState.map.removeLayer(radState.tileLayer);
+    }
+  } else {
+    if (!radState.map.hasLayer(radState.tileLayer)) {
+      radState.tileLayer.addTo(radState.map);
+    }
+  }
+}
 
 function radDefaultLegend() {
   return radState.tiers.map((t) => ({ color: t.color, label: t.label }));
@@ -334,11 +349,160 @@ function radApplySelectedFields() {
   radRenderZoneSelect();
 }
 
+function radClearOverlayHandles() {
+  if (radState.overlayHandles) {
+    radState.overlayHandles.forEach((marker) => {
+      radState.map?.removeLayer(marker);
+    });
+  }
+  radState.overlayHandles = [];
+}
+
+function radCreateOverlayHandles() {
+  if (!radState.map || !radState.overlay?.bounds) return;
+
+  const b = radState.overlay.bounds;
+
+  // Corner handle style (blue squares)
+  const cornerIcon = L.divIcon({
+    className: "rad-overlay-corner-handle",
+    html: '<div style="width:12px;height:12px;background:#2196f3;border:2px solid #fff;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:nwse-resize;"></div>',
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  });
+
+  // Center handle style (orange circle with crosshair symbol)
+  const centerIcon = L.divIcon({
+    className: "rad-overlay-center-handle",
+    html: '<div style="width:18px;height:18px;background:#ff9800;border:2px solid #fff;border-radius:50%;box-shadow:0 1px 5px rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:10px;cursor:move;">✥</div>',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+
+  // 1. Bottom-left corner (x1, y1)
+  const m1 = L.marker(radGameToLatLng(b.x1, b.y1), {
+    draggable: true,
+    icon: cornerIcon,
+    zIndexOffset: 3000,
+  }).addTo(radState.map);
+
+  // 2. Top-right corner (x2, y2)
+  const m2 = L.marker(radGameToLatLng(b.x2, b.y2), {
+    draggable: true,
+    icon: cornerIcon,
+    zIndexOffset: 3000,
+  }).addTo(radState.map);
+
+  // 3. Center ((x1+x2)/2, (y1+y2)/2)
+  const cx = (b.x1 + b.x2) / 2;
+  const cy = (b.y1 + b.y2) / 2;
+  const mCenter = L.marker(radGameToLatLng(cx, cy), {
+    draggable: true,
+    icon: centerIcon,
+    zIndexOffset: 3000,
+  }).addTo(radState.map);
+
+  radState.overlayHandles = [m1, m2, mCenter];
+
+  let startCenterCoords = { x: cx, y: cy };
+
+  m1.on("dragstart", () => {
+    mCenter.setOpacity(0.5);
+  });
+  
+  m1.on("drag", (e) => {
+    const pt = radLatLngToGame(e.target.getLatLng());
+    b.x1 = Math.max(0, Math.min(pt.x, b.x2 - 10));
+    b.y1 = Math.max(0, Math.min(pt.y, b.y2 - 10));
+    
+    radState.overlayLayer?.setBounds(radGameBoundsToLatLng(b));
+    mCenter.setLatLng(radGameToLatLng((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2));
+    radFillBoundsInputs();
+  });
+
+  m1.on("dragend", () => {
+    mCenter.setOpacity(1.0);
+    radSyncOverlayLayer();
+  });
+
+  m2.on("dragstart", () => {
+    mCenter.setOpacity(0.5);
+  });
+
+  m2.on("drag", (e) => {
+    const size = radMapSize(radState.config);
+    const pt = radLatLngToGame(e.target.getLatLng());
+    b.x2 = Math.max(b.x1 + 10, Math.min(pt.x, size));
+    b.y2 = Math.max(b.y1 + 10, Math.min(pt.y, size));
+
+    radState.overlayLayer?.setBounds(radGameBoundsToLatLng(b));
+    mCenter.setLatLng(radGameToLatLng((b.x1 + b.x2) / 2, (b.y1 + b.y2) / 2));
+    radFillBoundsInputs();
+  });
+
+  m2.on("dragend", () => {
+    mCenter.setOpacity(1.0);
+    radSyncOverlayLayer();
+  });
+
+  mCenter.on("dragstart", () => {
+    startCenterCoords = {
+      x: (b.x1 + b.x2) / 2,
+      y: (b.y1 + b.y2) / 2
+    };
+    m1.setOpacity(0.5);
+    m2.setOpacity(0.5);
+  });
+
+  mCenter.on("drag", (e) => {
+    const size = radMapSize(radState.config);
+    const pt = radLatLngToGame(e.target.getLatLng());
+    const dx = pt.x - startCenterCoords.x;
+    const dy = pt.y - startCenterCoords.y;
+
+    const w = b.x2 - b.x1;
+    const h = b.y2 - b.y1;
+
+    let nx1 = b.x1 + dx;
+    let ny1 = b.y1 + dy;
+    let nx2 = b.x2 + dx;
+    let ny2 = b.y2 + dy;
+
+    if (nx1 < 0) { nx1 = 0; nx2 = w; }
+    if (nx2 > size) { nx2 = size; nx1 = size - w; }
+    if (ny1 < 0) { ny1 = 0; ny2 = h; }
+    if (ny2 > size) { ny2 = size; ny1 = size - h; }
+
+    b.x1 = nx1;
+    b.y1 = ny1;
+    b.x2 = nx2;
+    b.y2 = ny2;
+
+    startCenterCoords = {
+      x: (b.x1 + b.x2) / 2,
+      y: (b.y1 + b.y2) / 2
+    };
+
+    radState.overlayLayer?.setBounds(radGameBoundsToLatLng(b));
+    m1.setLatLng(radGameToLatLng(b.x1, b.y1));
+    m2.setLatLng(radGameToLatLng(b.x2, b.y2));
+    radFillBoundsInputs();
+  });
+
+  mCenter.on("dragend", () => {
+    m1.setOpacity(1.0);
+    m2.setOpacity(1.0);
+    radSyncOverlayLayer();
+  });
+}
+
 function radSyncOverlayLayer() {
   if (radState.overlayLayer) {
     radState.map?.removeLayer(radState.overlayLayer);
     radState.overlayLayer = null;
   }
+  radClearOverlayHandles();
+
   if (!radState.map || !radState.overlay?.url) return;
 
   const b = radState.overlay.bounds || {};
@@ -358,6 +522,8 @@ function radSyncOverlayLayer() {
   radState.overlayLayer.addTo(radState.map);
   radState.overlayLayer.bringToFront();
   radBringZonesToFront();
+  
+  radCreateOverlayHandles();
 }
 
 function radFillBoundsInputs() {
@@ -415,6 +581,8 @@ function radEnsureMap() {
     bounds: radGameBoundsToLatLng({ x1: 0, y1: 0, x2: size, y2: size }),
   }).addTo(radState.map);
 
+  radApplySatelliteVisibility();
+
   radState.map.on("click", (e) => {
     if (!radState.addZoneMode) return;
     const { x, y } = radLatLngToGame(e.latlng);
@@ -431,6 +599,7 @@ function radEnsureMap() {
 function radDestroyMap() {
   if (!radState.map) return;
   radClearZoneLayers();
+  radClearOverlayHandles();
   if (radState.overlayLayer) radState.map.removeLayer(radState.overlayLayer);
   if (radState.tileLayer) radState.map.removeLayer(radState.tileLayer);
   radState.map.remove();
@@ -671,6 +840,10 @@ function radBindUi() {
       radSyncOverlayLayer();
       radRenderOverlaySelect();
     }
+  });
+
+  document.getElementById("rad-hide-satellite")?.addEventListener("change", () => {
+    radApplySatelliteVisibility();
   });
 
   document.getElementById("rad-apply-bounds")?.addEventListener("click", () => {
