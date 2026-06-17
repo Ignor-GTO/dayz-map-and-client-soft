@@ -778,6 +778,21 @@ class ClientApp(tk.Tk):
             self.toggle_ocr_region()
 
     def _startup_ocr_check(self) -> None:
+        import ctypes
+        try:
+            is_admin = ctypes.windll.shell32.IsUserAnAdmin() != 0
+        except Exception:
+            is_admin = False
+
+        if is_admin:
+            self.log_line("[ОК] Клиент запущен с правами администратора.")
+        else:
+            self.log_line(
+                "[Внимание] Клиент запущен БЕЗ прав администратора!\n"
+                "Эмуляция клавиш (например, открытие карты по Num Lock) может не работать в игре.\n"
+                "Рекомендуется запустить клиент от имени Администратора."
+            )
+
         from ocr_engine import ensure_ocr_backend, uses_windows_ocr
         from ocr_tesseract import is_available as tesseract_available
 
