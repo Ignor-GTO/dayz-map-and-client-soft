@@ -260,14 +260,14 @@ function upsertPin(m) {
     anchor = [10, 10];
   } else {
     iconHtml = `
-      <div style="width:20px;height:20px;position:relative;display:flex;align-items:center;justify-content:center;">
-        <div style="position:absolute;width:20px;height:2px;background:${color};border:0.5px solid #fff;box-shadow:0 0 2px #000;"></div>
-        <div style="position:absolute;width:2px;height:20px;background:${color};border:0.5px solid #fff;box-shadow:0 0 2px #000;"></div>
-        <div style="width:8px;height:8px;border-radius:50%;border:2px solid ${color};box-shadow:0 0 2px #000;"></div>
+      <div style="width:24px;height:24px;position:relative;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 3px rgba(0,0,0,0.95));">
+        <div style="position:absolute;width:24px;height:3px;background:#ff2e44;border:0.75px solid #fff;"></div>
+        <div style="position:absolute;width:3px;height:24px;background:#ff2e44;border:0.75px solid #fff;"></div>
+        <div style="width:10px;height:10px;border-radius:50%;border:2.5px solid #ff2e44;background:#fff;z-index:2;box-shadow:0 0 2px #000;"></div>
       </div>
     `;
-    size = [20, 20];
-    anchor = [10, 10];
+    size = [24, 24];
+    anchor = [12, 12];
   }
 
   const icon = L.divIcon({
