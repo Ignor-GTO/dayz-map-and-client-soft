@@ -387,10 +387,14 @@ function radEnsureMap() {
   if (radState.map) return;
 
   const size = radMapSize(radState.config);
+  const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
+
   radState.map = L.map("radiation-map", {
     crs: L.CRS.Simple,
-    minZoom: -3,
+    minZoom: 0,
     maxZoom: (radState.config.max_native_zoom || 7) + (radState.config.extra_zoom || 3),
+    maxBounds: TILE_BOUNDS,
+    maxBoundsViscosity: 1.0,
     zoomControl: true,
     attributionControl: false,
   });

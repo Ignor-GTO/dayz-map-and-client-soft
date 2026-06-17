@@ -28,7 +28,7 @@ const state = {
 };
 
 const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
-const MAP_MAX_BOUNDS = L.latLngBounds(L.latLng(100, -100), L.latLng(-356, 356));
+const MAP_MAX_BOUNDS = TILE_BOUNDS;
 
 const PLAYER_COLORS = [
   "#ff4757", "#2ed573", "#1e90ff", "#ffa502", "#a55eea",
@@ -165,7 +165,7 @@ function initLeaflet(config) {
     minZoom: 0,
     maxZoom,
     maxBounds: MAP_MAX_BOUNDS,
-    maxBoundsViscosity: 0.8,
+    maxBoundsViscosity: 1.0,
     zoomControl: true,
     attributionControl: true,
   });
