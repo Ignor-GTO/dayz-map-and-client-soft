@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=8">
+  <link rel="stylesheet" href="/css/style.css?v=9">
 </head>
 <body>
   <div id="app">
@@ -61,7 +61,6 @@
       <div class="map-wrapper">
         <div id="map"></div>
         <aside id="legend">
-          <button type="button" id="legend-toggle" class="legend-toggle-btn">▶</button>
           <h3>Карта</h3>
           <div class="layer-switch">
             <button type="button" id="btn-layer-sat" class="layer-btn active">Спутник</button>
@@ -78,12 +77,13 @@
           </ul>
           <div id="players-list"></div>
         </aside>
+        <button type="button" id="legend-toggle" class="legend-toggle-btn">▶</button>
       </div>
     </section>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js"></script>
-  <script src="/js/map.js?v=20"></script>
+  <script src="/js/map.js?v=21"></script>
 </body>
 </html>
