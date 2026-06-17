@@ -500,9 +500,10 @@ class ClientApp(tk.Tk):
             return
         self.hotkeys_active = True
         self._map_session_active = False
-        self.status_var.set("Работает — M открыть карту / позиция")
+        self.status_var.set("Работает — M / Num Lock открыть карту")
         self.start_btn.configure(text="Остановить hotkeys")
         keyboard.add_hotkey("m", lambda: self.after(0, self._handle_m_hotkey))
+        keyboard.add_hotkey("num lock", lambda: self.after(0, self._handle_m_hotkey))
         keyboard.add_hotkey(
             "ctrl+shift+d",
             lambda: self.after(0, self._handle_marker_hotkey),
@@ -525,7 +526,7 @@ class ClientApp(tk.Tk):
         )
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
-        self.log_line("[Запуск] Hotkeys: M, Esc (закрыть), Ctrl+Shift+D, Ctrl+Shift+S/C; Win+Shift+S — авто из буфера")
+        self.log_line("[Запуск] Hotkeys: M / Num Lock, Esc (закрыть), Ctrl+Shift+D, Ctrl+Shift+S/C; Win+Shift+S — авто из буфера")
 
     def stop_hotkeys(self) -> None:
         self.hotkeys_active = False
