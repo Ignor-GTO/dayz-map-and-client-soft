@@ -6,7 +6,7 @@ class MapClient:
         self.base = server_url.rstrip("/")
         self.headers = {"Authorization": f"Bearer {client_key}"}
 
-    def send_position(self, x: float, y: float) -> bool:
+    def send_position(self, x: float, y: float) -> tuple[bool, str]:
         try:
             r = httpx.post(
                 f"{self.base}/api/client/position",
@@ -14,12 +14,13 @@ class MapClient:
                 headers=self.headers,
                 timeout=10,
             )
-            return r.status_code == 200
+            if r.status_code == 200:
+                return True, ""
+            return False, f"HTTP {r.status_code}"
         except httpx.HTTPError as e:
-            print(f"[Ошибка сети] Позиция: {e}")
-            return False
+            return False, f"Ошибка сети: {e}"
 
-    def send_marker(self, x: float, y: float) -> bool:
+    def send_marker(self, x: float, y: float) -> tuple[bool, str]:
         try:
             r = httpx.post(
                 f"{self.base}/api/client/marker",
@@ -30,9 +31,7 @@ class MapClient:
             if r.status_code == 200:
                 data = r.json()
                 print(f"[Метка] id={data.get('id')} → {x:.0f} / {y:.0f}")
-                return True
-            print(f"[Ошибка] Метка: HTTP {r.status_code}")
-            return False
+                return True, ""
+            return False, f"HTTP {r.status_code}"
         except httpx.HTTPError as e:
-            print(f"[Ошибка сети] Метка: {e}")
-            return False
+            return False, f"Ошибка сети: {e}"

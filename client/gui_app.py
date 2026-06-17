@@ -518,10 +518,15 @@ class ClientApp(tk.Tk):
                 if coords:
                     x, y = coords
                     self.after(0, lambda: self.log_line(f"[Метка] {x:.0f} / {y:.0f}"))
-                    if self.map_client and self.map_client.send_marker(x, y):
-                        self.after(0, lambda: self.log_line("[Метка] Отправлено на сервер"))
-                        self.after(0, lambda: self._ensure_hud().show_ok(x, y, marker=True))
-                        self.after(0, lambda: self._ensure_hud().show_map_session())
+                    if self.map_client:
+                        ok, err_msg = self.map_client.send_marker(x, y)
+                        if ok:
+                            self.after(0, lambda: self.log_line("[Метка] Отправлено на сервер"))
+                            self.after(0, lambda: self._ensure_hud().show_ok(x, y, marker=True))
+                        else:
+                            self.after(0, lambda t=err_msg: self.log_line(f"[Метка] Ошибка отправки: {t}"))
+                            self.after(0, lambda: self._ensure_hud().show_error("Ошибка отправки"))
+                    self.after(0, lambda: self._ensure_hud().show_map_session())
                 else:
                     self.after(0, lambda: self.log_line("[Метка] Координаты не распознаны"))
                     self.after(0, lambda: self._ensure_hud().show_error("Координаты не видны"))
@@ -553,10 +558,15 @@ class ClientApp(tk.Tk):
                     x, y = coords
                     self._session_player_coords = (x, y)
                     self.after(0, lambda: self.log_line(f"[M] {x:.0f} / {y:.0f}"))
-                    if self.map_client and self.map_client.send_position(x, y):
-                        self.after(0, lambda: self.log_line("[M] Позиция отправлена"))
-                        self.after(0, lambda: self._ensure_hud().show_ok(x, y))
-                        self.after(0, lambda: self._ensure_hud().show_map_session())
+                    if self.map_client:
+                        ok, err_msg = self.map_client.send_position(x, y)
+                        if ok:
+                            self.after(0, lambda: self.log_line("[M] Позиция отправлена"))
+                            self.after(0, lambda: self._ensure_hud().show_ok(x, y))
+                        else:
+                            self.after(0, lambda t=err_msg: self.log_line(f"[M] Ошибка отправки: {t}"))
+                            self.after(0, lambda: self._ensure_hud().show_error("Ошибка отправки"))
+                    self.after(0, lambda: self._ensure_hud().show_map_session())
                 else:
                     self.after(0, lambda: self.log_line("[M] Координаты не распознаны"))
                     self.after(0, lambda: self._ensure_hud().show_error("OCR не распознал"))
@@ -604,12 +614,13 @@ class ClientApp(tk.Tk):
                 if coords:
                     x, y = coords
                     self.after(0, lambda: self.log_line(f"[{source}] {x:.0f} / {y:.0f}"))
-                    ok = self.map_client.send_marker(x, y)
-                    if ok:
-                        self.after(0, lambda: self.log_line(f"[{source}] Метка отправлена"))
-                        self.after(0, lambda: self._ensure_hud().show_ok(x, y, marker=True))
-                    else:
-                        self.after(0, lambda: self.log_line(f"[{source}] Ошибка отправки на сервер"))
+                    if self.map_client:
+                        ok, err_msg = self.map_client.send_marker(x, y)
+                        if ok:
+                            self.after(0, lambda: self.log_line(f"[{source}] Метка отправлена"))
+                            self.after(0, lambda: self._ensure_hud().show_ok(x, y, marker=True))
+                        else:
+                            self.after(0, lambda t=err_msg: self.log_line(f"[{source}] Ошибка отправки на сервер: {t}"))
                 else:
                     self.after(
                         0,
