@@ -44,6 +44,7 @@ class ClientApp(tk.Tk):
         self.log_line(f"[Клиент] v{__version__}")
         self.after(400, self._startup_ocr_check)
         self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.bind_all("<Control-Key>", self._handle_global_shortcuts)
 
     def _build_ui(self) -> None:
         pad = {"padx": 10, "pady": 4}
@@ -52,11 +53,13 @@ class ClientApp(tk.Tk):
 
         ttk.Label(frm, text="Сервер").grid(row=0, column=0, sticky="w", **pad)
         self.server_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=self.server_var, width=52).grid(row=0, column=1, **pad)
+        self.server_entry = ttk.Entry(frm, textvariable=self.server_var, width=52)
+        self.server_entry.grid(row=0, column=1, **pad)
 
         ttk.Label(frm, text="Ключ клиента").grid(row=1, column=0, sticky="w", **pad)
         self.key_var = tk.StringVar()
-        ttk.Entry(frm, textvariable=self.key_var, width=52, show="*").grid(row=1, column=1, **pad)
+        self.key_entry = ttk.Entry(frm, textvariable=self.key_var, width=52, show="*")
+        self.key_entry.grid(row=1, column=1, **pad)
 
         ttk.Label(frm, text="Монитор").grid(row=2, column=0, sticky="w", **pad)
         self.monitor_var = tk.StringVar()
@@ -74,6 +77,7 @@ class ClientApp(tk.Tk):
         for i, var in enumerate(self.region_vars):
             entry = ttk.Entry(region_frm, textvariable=var, width=8)
             entry.pack(side="left", padx=2)
+            entry.bind("<Button-3>", self._show_entry_menu)
         self.region_btn = ttk.Button(region_frm, text="Редактор области", command=self.toggle_ocr_region)
         self.region_btn.pack(side="left", padx=6)
         ttk.Button(region_frm, text="iZurvive", command=self._apply_izurvive_preset).pack(side="left", padx=2)
@@ -138,6 +142,27 @@ class ClientApp(tk.Tk):
         self.log_menu.add_command(label="Выделить всё", command=self._select_all_log)
         self.log.bind("<Button-3>", self._show_log_menu)
 
+        # Context menu for entry fields (Server, Client Key, etc.)
+        self.entry_menu = tk.Menu(self, tearoff=0)
+        self.entry_menu.add_command(
+            label="Вырезать",
+            command=lambda: self.focus_get().event_generate("<<Cut>>") if self.focus_get() else None
+        )
+        self.entry_menu.add_command(
+            label="Копировать",
+            command=lambda: self.focus_get().event_generate("<<Copy>>") if self.focus_get() else None
+        )
+        self.entry_menu.add_command(
+            label="Вставить",
+            command=lambda: self.focus_get().event_generate("<<Paste>>") if self.focus_get() else None
+        )
+        self.entry_menu.add_command(
+            label="Выделить всё",
+            command=self._select_all_entry
+        )
+        self.server_entry.bind("<Button-3>", self._show_entry_menu)
+        self.key_entry.bind("<Button-3>", self._show_entry_menu)
+
     def _refresh_monitors(self) -> None:
         prev_index = self.monitor_combo.current() if hasattr(self, "monitor_combo") else -1
         monitors = list_monitors()
@@ -181,6 +206,69 @@ class ClientApp(tk.Tk):
         except tk.TclError:
             self.log_menu.entryconfigure("Копировать", state="disabled")
         self.log_menu.post(event.x_root, event.y_root)
+
+    def _select_all_entry(self) -> None:
+        widget = self.focus_get()
+        if isinstance(widget, (tk.Entry, ttk.Entry)):
+            widget.select_range(0, tk.END)
+            widget.icursor(tk.END)
+
+    def _show_entry_menu(self, event) -> None:
+        widget = event.widget
+        widget.focus_set()
+        try:
+            is_writable = widget.cget("state") == "normal"
+        except (tk.TclError, AttributeError):
+            is_writable = True
+        try:
+            widget.selection_get()
+            has_selection = True
+        except tk.TclError:
+            has_selection = False
+        self.entry_menu.entryconfigure("Вырезать", state="normal" if (has_selection and is_writable) else "disabled")
+        self.entry_menu.entryconfigure("Копировать", state="normal" if has_selection else "disabled")
+        try:
+            clipboard_text = self.clipboard_get()
+            has_clipboard = bool(clipboard_text)
+        except tk.TclError:
+            has_clipboard = False
+        self.entry_menu.entryconfigure("Вставить", state="normal" if (has_clipboard and is_writable) else "disabled")
+        self.entry_menu.post(event.x_root, event.y_root)
+
+    def _handle_global_shortcuts(self, event) -> str | None:
+        ctrl = (event.state & 0x0004) != 0
+        if not ctrl:
+            return None
+        widget = event.widget
+        if not isinstance(widget, (tk.Entry, ttk.Entry, tk.Text, scrolledtext.ScrolledText)):
+            return None
+        if event.keycode == 86:  # Ctrl+V
+            try:
+                state = widget.cget("state")
+            except (tk.TclError, AttributeError):
+                state = "normal"
+            if state == "normal":
+                widget.event_generate("<<Paste>>")
+            return "break"
+        elif event.keycode == 67:  # Ctrl+C
+            widget.event_generate("<<Copy>>")
+            return "break"
+        elif event.keycode == 88:  # Ctrl+X
+            try:
+                state = widget.cget("state")
+            except (tk.TclError, AttributeError):
+                state = "normal"
+            if state == "normal":
+                widget.event_generate("<<Cut>>")
+            return "break"
+        elif event.keycode == 65:  # Ctrl+A
+            if isinstance(widget, (tk.Entry, ttk.Entry)):
+                widget.select_range(0, tk.END)
+                widget.icursor(tk.END)
+            else:
+                widget.tag_add("sel", "1.0", "end")
+            return "break"
+        return None
 
     def save_settings(self) -> None:
         if not self.key_var.get().strip():
