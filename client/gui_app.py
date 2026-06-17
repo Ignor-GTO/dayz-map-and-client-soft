@@ -530,6 +530,18 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_delay_var.set(str(self.cfg.get("mouse_nudge_delay_ms", 400)))
         self.mouse_nudge_offset_var.set(str(self.cfg.get("mouse_nudge_edge_offset", 8)))
         self.mouse_nudge_restore_var.set(self.cfg.get("mouse_nudge_restore", True))
+        self._update_help_labels()
+
+    def _update_help_labels(self) -> None:
+        toggle_keys = ", ".join(self.cfg.get("hotkey_toggle_map", ["m", "num lock"])).upper()
+        send_keys = ", ".join(self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])).upper()
+        snip_keys = ", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])).upper()
+        close_keys = ", ".join(self.cfg.get("hotkey_close_map", ["esc"])).upper()
+        
+        self.help_lbl_1.configure(text=f"• Открыть карту / Обновить позицию: {toggle_keys}")
+        self.help_lbl_2.configure(text=f"• Отправить метку на карту: {send_keys}")
+        self.help_lbl_3.configure(text=f"• Снимок координат с экрана: {snip_keys}")
+        self.help_lbl_4.configure(text=f"• Закрыть карту: {close_keys}")
 
     def log_line(self, text: str) -> None:
         self.log.configure(state="normal")
@@ -686,6 +698,7 @@ class ClientApp(tk.Tk):
         )
         save_config(self.cfg)
         self.map_client = MapClient(self.cfg["server_url"], self.cfg["client_key"])
+        self._update_help_labels()
         self.log_line("[OK] Настройки сохранены")
         
         if self.hotkeys_active:
