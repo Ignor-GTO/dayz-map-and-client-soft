@@ -234,20 +234,20 @@ def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int
     if w <= 0 or h <= 0:
         return img
 
-    # User snipped exactly the coord strip — OCR the whole selection.
-    if w <= 960 and h <= 220:
-        scale = max(3, min(6, 220 // max(h, 1)))
-        out = img.convert("RGB")
-        if scale > 1:
-            out = out.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
-        return ImageOps.autocontrast(out, cutoff=1)
-
     mon = resolve_monitor(monitor_index)
-    if not mon:
-        return ImageOps.autocontrast(img.convert("RGB"), cutoff=1)
+    
+    # Determine if it's a full-screen capture
+    is_fullscreen = False
+    if mon:
+        if w >= mon.width * 0.9 and h >= mon.height * 0.9:
+            is_fullscreen = True
+    else:
+        # Fallback threshold
+        if w >= 1200 and h >= 700:
+            is_fullscreen = True
 
-    # Full-screen snip: take bottom-left strip (where iZurvive coords usually are).
-    if w > 960 or h > 220:
+    if is_fullscreen:
+        # Full-screen capture: crop the bottom-left HUD coordinates strip
         rh = min(90, max(40, h // 14))
         rw = min(480, max(180, w // 5))
         crop = img.crop((0, max(0, h - rh - 6), rw, h))
@@ -257,18 +257,9 @@ def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int
             crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
         return ImageOps.autocontrast(crop.convert("RGB"), cutoff=1)
 
-    left, top, right, bottom = ocr_region
-    rw = max(1, right - left)
-    rh = max(1, bottom - top)
-    sx = max(0, int(left))
-    sy = max(0, int(top))
-    ex = min(w, sx + rw + 24)
-    ey = min(h, sy + rh + 12)
-    if ex - sx < 60 or ey - sy < 16:
-        return ImageOps.autocontrast(img.convert("RGB"), cutoff=1)
-    crop = img.crop((sx, sy, ex, ey))
-    cw, ch = crop.size
-    scale = max(3, min(6, 220 // max(ch, 1)))
+    # Custom snip: process the entire image as-is
+    scale = max(3, min(6, 220 // max(h, 1)))
+    out = img.convert("RGB")
     if scale > 1:
-        crop = crop.resize((cw * scale, ch * scale), Image.Resampling.LANCZOS)
-    return ImageOps.autocontrast(crop.convert("RGB"), cutoff=1)
+        out = out.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
+    return ImageOps.autocontrast(out, cutoff=1)

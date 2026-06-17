@@ -22,33 +22,61 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
         .replace("S", "5")
         .replace("s", "5")
     )
-    best: tuple[float, float] | None = None
-    best_score = -1
+    
+    matches = list(_DIGITS.finditer(cleaned))
+    if len(matches) < 2:
+        return None
 
-    for match in _COORD_SEP.finditer(cleaned):
-        xs, ys = match.group(1), match.group(2)
-        x, y = float(xs), float(ys)
+    best_pair = None
+    best_score = -9999
+
+    for i in range(len(matches) - 1):
+        m1, m2 = matches[i], matches[i+1]
+        xs, ys = m1.group(0), m2.group(0)
+        
+        try:
+            x, y = float(xs), float(ys)
+        except ValueError:
+            continue
+            
         if not _valid_coord(x, y):
             continue
-        score = len(xs) * 10 + len(ys) * 10
-        # DayZ player strip: X and Y are usually 4–5 digits; short Y after long X = truncation.
-        if len(xs) >= 4:
-            if len(ys) < 4:
-                score -= 25 * (4 - len(ys))
-            if y < 500:
-                score -= 20
+            
+        sep_text = cleaned[m1.end():m2.start()]
+        
+        score = 0
+        
+        # Evaluate length of coordinates
+        len_x, len_y = len(xs), len(ys)
+        
+        # 3-5 digits is ideal for DayZ coordinates
+        if 3 <= len_x <= 5 and 3 <= len_y <= 5:
+            score += 100
+        elif len_x >= 4 and len_y >= 4:
+            score += 80
+            
+        # Penalty for too short numbers (likely quest counters like 0/1 or dates)
+        if len_x == 1 or len_y == 1:
+            score -= 150
+        elif len_x == 2 or len_y == 2:
+            score -= 80
+            
+        # Penalty for alphabetical or brace characters in separator
+        if any(c.isalpha() or c in "()[]" for c in sep_text):
+            score -= 50
+            
+        # Bonus for standard separators
+        if any(c in "/-\\–—" for c in sep_text):
+            score += 30
+        elif sep_text.strip() == "":
+            score += 10
+            
         if score > best_score:
             best_score = score
-            best = (x, y)
+            best_pair = (x, y)
 
-    if best is not None:
-        return best
-
-    numbers = _DIGITS.findall(cleaned)
-    if len(numbers) >= 2:
-        x, y = float(numbers[-2]), float(numbers[-1])
-        if _valid_coord(x, y):
-            return x, y
+    if best_score >= -50:
+        return best_pair
     return None
 
 

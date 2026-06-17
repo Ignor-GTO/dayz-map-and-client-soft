@@ -513,9 +513,14 @@ class ClientApp(tk.Tk):
             lambda: self.after(0, self._handle_snip_hotkey),
             suppress=False,
         )
+        keyboard.add_hotkey(
+            "ctrl+shift+c",
+            lambda: self.after(0, self._handle_snip_hotkey),
+            suppress=False,
+        )
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
-        self.log_line("[Запуск] Hotkeys: M, Ctrl+Shift+D, Ctrl+Shift+S; Win+Shift+S — авто из буфера")
+        self.log_line("[Запуск] Hotkeys: M, Ctrl+Shift+D, Ctrl+Shift+S/C; Win+Shift+S — авто из буфера")
 
     def stop_hotkeys(self) -> None:
         self.hotkeys_active = False
@@ -619,13 +624,13 @@ class ClientApp(tk.Tk):
                 self.after(
                     0,
                     lambda: self.log_line(
-                        "[Ctrl+Shift+S] Буфер пуст — Win+Shift+S, выделите полоску координат, "
-                        "затем Ctrl+Shift+S (или дождитесь авто-чтения)"
+                        "[Ctrl+Shift+S/C] Буфер пуст — Win+Shift+S, выделите полоску координат, "
+                        "затем Ctrl+Shift+S/C (или дождитесь авто-чтения)"
                     ),
                 )
                 return
-            self.after(0, lambda: self.log_line("[Ctrl+Shift+S] Чтение из буфера…"))
-            self._process_snip_marker(img, source="Ctrl+Shift+S")
+            self.after(0, lambda: self.log_line("[Ctrl+Shift+S/C] Чтение из буфера…"))
+            self._process_snip_marker(img, source="Ctrl+Shift+S/C")
 
         threading.Thread(target=work, daemon=True).start()
 
