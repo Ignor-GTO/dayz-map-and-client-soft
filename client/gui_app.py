@@ -1116,7 +1116,7 @@ class ClientApp(tk.Tk):
             if pressed_key.strip().lower() != "m":
                 try:
                     keyboard.press("m")
-                    self.after(50, lambda: keyboard.release("m"))
+                    self.after(100, lambda: keyboard.release("m"))
                 except Exception as e:
                     self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
             return
@@ -1125,7 +1125,7 @@ class ClientApp(tk.Tk):
         if pressed_key.strip().lower() != "m":
             try:
                 keyboard.press("m")
-                self.after(50, lambda: keyboard.release("m"))
+                self.after(100, lambda: keyboard.release("m"))
             except Exception as e:
                 self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
 
