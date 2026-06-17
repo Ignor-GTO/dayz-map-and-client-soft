@@ -15,3 +15,4 @@ server/static/data/pripyat-radiation-ref.jpg
 server/static/data/pripyat-radiation-mask.png
 .DS_Store
 Thumbs.db
+graphify-out/

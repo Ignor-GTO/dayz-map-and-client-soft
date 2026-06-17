@@ -402,6 +402,35 @@ async def admin_save_radiation(
     _: Annotated[None, Depends(require_admin)],
 ):
     game_map = await _get_map(db, payload.map_slug)
+    
+    # Валидация: область не должна быть больше открытой карты
+    map_size = game_map.map_size
+    for i, z in enumerate(payload.zones):
+        if z.x < 0 or z.x > map_size or z.y < 0 or z.y > map_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Центр зоны #{i+1} ({z.x}, {z.y}) выходит за границы карты [0, {map_size}]"
+            )
+        if z.radius <= 0 or z.radius > map_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Радиус зоны #{i+1} ({z.radius}) должен быть положительным и не превышать размер карты {map_size}"
+            )
+
+    if payload.overlay and payload.overlay.url:
+        ob = payload.overlay.bounds
+        if ob.x1 < 0 or ob.x1 > map_size or ob.x2 < 0 or ob.x2 > map_size or \
+           ob.y1 < 0 or ob.y1 > map_size or ob.y2 < 0 or ob.y2 > map_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Границы подложки ({ob.x1}, {ob.y1}), ({ob.x2}, {ob.y2}) выходят за пределы карты [0, {map_size}]"
+            )
+        if ob.x1 >= ob.x2 or ob.y1 >= ob.y2:
+            raise HTTPException(
+                status_code=400,
+                detail="Некорректные границы подложки: x1 должен быть меньше x2, y1 меньше y2"
+            )
+
     raw: dict = {
         "zones": [z.model_dump() for z in payload.zones],
         "legend": [item.model_dump() for item in payload.legend],
