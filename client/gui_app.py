@@ -920,7 +920,11 @@ class ClientApp(tk.Tk):
         
         for hk in toggle_keys:
             if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_m_hotkey), suppress=False)
+                keyboard.add_hotkey(
+                    hk.strip().lower(), 
+                    lambda key=hk: self.after(0, lambda: self._handle_m_hotkey(key)), 
+                    suppress=False
+                )
                 
         for hk in self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"]):
             if hk.strip():
@@ -1103,15 +1107,28 @@ class ClientApp(tk.Tk):
     def on_m_pressed(self) -> None:
         self.after(0, self._handle_m_hotkey)
 
-    def _handle_m_hotkey(self) -> None:
+    def _handle_m_hotkey(self, pressed_key: str = "m") -> None:
         if not self.map_client:
             return
 
         if self._map_session_active:
             self._end_map_session()
+            if pressed_key.strip().lower() != "m":
+                try:
+                    keyboard.press("m")
+                    self.after(50, lambda: keyboard.release("m"))
+                except Exception as e:
+                    self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
             return
 
         self._start_map_session()
+        if pressed_key.strip().lower() != "m":
+            try:
+                keyboard.press("m")
+                self.after(50, lambda: keyboard.release("m"))
+            except Exception as e:
+                self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
+
         self._ensure_hud().show_busy("Позиция игрока…")
 
         def work() -> None:
