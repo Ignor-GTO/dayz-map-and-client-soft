@@ -4,6 +4,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import messagebox, scrolledtext, ttk
+from typing import Callable
 
 import keyboard
 
@@ -1012,7 +1013,7 @@ class ClientApp(tk.Tk):
         else:
             self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} открыть карту / позиция")
 
-    def _capture_coords(self, *, nudge: bool) -> tuple[float, float] | None:
+    def _capture_coords(self, *, nudge: bool, check_cancel: Callable[[], bool] | None = None) -> tuple[float, float] | None:
         monitor = self._monitor_index()
         region = self._ocr_region()
         result: dict = {}
@@ -1029,14 +1030,20 @@ class ClientApp(tk.Tk):
         if nudge:
             from mouse_util import with_mouse_nudge
 
-            with_mouse_nudge(monitor, region, capture, **self._mouse_nudge_kwargs())
+            with_mouse_nudge(
+                monitor, 
+                region, 
+                capture, 
+                check_cancel=check_cancel,
+                **self._mouse_nudge_kwargs()
+            )
         else:
             capture()
 
         if err := result.get("error"):
             raise err
         raw = result.get("raw")
-        if raw:
+        if raw and not (check_cancel and check_cancel()):
             self.after(0, lambda t=raw: self.log_line(f"[OCR] {t!r}"))
         coords = result.get("coords")
         if coords and self._session_player_coords:
@@ -1161,25 +1168,36 @@ class ClientApp(tk.Tk):
 
         def work() -> None:
             try:
-                coords = self._capture_coords(nudge=True)
+                def is_cancelled() -> bool:
+                    return not self._map_session_active
+
+                coords = self._capture_coords(nudge=True, check_cancel=is_cancelled)
+                if is_cancelled():
+                    return
+
                 if coords:
                     x, y = coords
                     self._session_player_coords = (x, y)
                     self.after(0, lambda: self.log_line(f"[M] {x:.0f} / {y:.0f}"))
                     if self.map_client:
                         ok, err_msg = self.map_client.send_position(x, y)
+                        if is_cancelled():
+                            return
                         if ok:
                             self.after(0, lambda: self.log_line("[M] Позиция отправлена"))
                             self.after(0, lambda: self._ensure_hud().show_ok(x, y))
                         else:
                             self.after(0, lambda t=err_msg: self.log_line(f"[M] Ошибка отправки: {t}"))
                             self.after(0, lambda: self._ensure_hud().show_error("Ошибка отправки"))
-                    self.after(0, lambda: self._ensure_hud().show_map_session())
+                    if not is_cancelled():
+                        self.after(0, lambda: self._ensure_hud().show_map_session())
                 else:
                     self.after(0, lambda: self.log_line("[M] Координаты не распознаны"))
                     self.after(0, lambda: self._ensure_hud().show_error("OCR не распознал"))
                     self.after(0, lambda: self._ensure_hud().show_map_session())
             except Exception as exc:
+                if is_cancelled():
+                    return
                 self.after(0, lambda: self.log_line(f"[M] Ошибка: {exc}"))
                 self.after(0, lambda: self._ensure_hud().show_error(str(exc)[:40]))
 

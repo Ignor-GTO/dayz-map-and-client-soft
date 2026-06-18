@@ -204,6 +204,7 @@ def with_mouse_nudge(
     edge_offset: int = 8,
     on_nudged: Callable[[tuple[int, int], tuple[int, int], tuple[int, int]], None] | None = None,
     on_skipped: Callable[[str], None] | None = None,
+    check_cancel: Callable[[], bool] | None = None,
 ) -> None:
     """Run OCR after moving the mouse off the map onto the left panel."""
     if not enabled:
@@ -220,15 +221,34 @@ def with_mouse_nudge(
 
     saved = get_cursor_pos()
     try:
+        if check_cancel and check_cancel():
+            return
+
         target, actual = nudge_mouse_for_coordinates(
             monitor_index, ocr_region, side=side, edge_offset=edge_offset
         )
         if on_nudged:
             on_nudged(target, saved, actual)
+
+        if check_cancel and check_cancel():
+            return
+
         if delay_ms > 0:
-            time.sleep(delay_ms / 1000.0)
+            # Sleep in 40ms chunks to respond to cancellation quickly
+            chunk = 0.04
+            slept = 0.0
+            total = delay_ms / 1000.0
+            while slept < total:
+                if check_cancel and check_cancel():
+                    return
+                time.sleep(min(chunk, total - slept))
+                slept += chunk
+
+        if check_cancel and check_cancel():
+            return
+
         action()
     finally:
         if restore:
-            time.sleep(0.08)
+            time.sleep(0.05)
             move_cursor_to(saved[0], saved[1])
