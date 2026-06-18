@@ -44,6 +44,7 @@
           <button id="reset-key-btn" class="secondary">Новый ключ</button>
           <button id="copy-key-btn" class="secondary">Ключ клиента</button>
           <a class="btn-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать .exe</a>
+          <button id="btn-nav" class="secondary nav-btn" title="Навигатор">🧭 Навигатор</button>
           <button id="logout-btn" class="secondary">Выйти</button>
         </div>
       </header>
@@ -59,6 +60,22 @@
       </div>
 
       <div class="map-wrapper">
+        <!-- Navigator panel (shown when navigator is active) -->
+        <div id="nav-panel" class="nav-panel hidden">
+          <div class="nav-panel-inner">
+            <div class="nav-panel-header">
+              <span>🧭 Навигатор</span>
+              <button id="nav-close-btn" class="nav-close">✕</button>
+            </div>
+            <p id="nav-status" class="nav-status">Кликните точку старта на карте</p>
+            <button id="nav-clear-btn" class="secondary small">↩ Сбросить маршрут</button>
+            <div class="nav-legend">
+              <span>🟢 Клик = Старт</span>
+              <span>🔴 Клик = Финиш</span>
+            </div>
+          </div>
+        </div>
+
         <div id="map"></div>
         <aside id="legend">
           <h3>Карта</h3>
@@ -68,12 +85,19 @@
           </div>
           <h3>Фильтр</h3>
           <div id="filter-list" class="filter-list"></div>
+          <label class="filter-row">
+            <input type="checkbox" id="filter-roads" checked>
+            <span class="filter-label">🛣 Дороги</span>
+          </label>
           <div id="radiation-legend" class="hidden"></div>
           <h3>Легенда</h3>
           <ul>
             <li><span class="dot live"></span> Live-позиция (клавиша M в игре)</li>
             <li><span class="dot marker"></span> Метка (Win+Shift+S → OCR)</li>
             <li><span class="dot poi"></span> Метки сервера</li>
+            <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Трасса</li>
+            <li><span style="display:inline-block;width:20px;height:3px;background:#c0c0c0;border-radius:2px;vertical-align:middle"></span> Посёлковая</li>
+            <li><span style="display:inline-block;width:20px;height:3px;background:#4fc3f7;border-radius:2px;vertical-align:middle"></span> Городская</li>
           </ul>
           <div id="players-list"></div>
         </aside>

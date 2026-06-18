@@ -61,6 +61,22 @@ def _migrate_sqlite(conn) -> None:
     if marker_cols and "type" not in marker_cols:
         conn.execute(text("ALTER TABLE markers ADD COLUMN type VARCHAR(32) DEFAULT 'marker'"))
 
+    # road_segments table (created by SQLAlchemy create_all but add for existing DBs)
+    road_tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}
+    if "road_segments" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE road_segments ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  map_id INTEGER NOT NULL REFERENCES dayz_maps(id),"
+            "  road_type VARCHAR(32) NOT NULL DEFAULT 'road',"
+            "  points TEXT NOT NULL,"
+            "  created_at DATETIME"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_road_segments_map_id ON road_segments (map_id)"))
+        logger.info("Created road_segments table")
+
+
 
 def default_map_kwargs() -> dict:
     return {

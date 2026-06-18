@@ -12,6 +12,15 @@ const state = {
   locationEntries: [],
   radiationLayer: null,
   radiationOverlay: null,
+  // Roads & Navigator
+  roadLayer: null,          // L.layerGroup for road polylines
+  navActive: false,         // navigator mode on/off
+  navStep: "from",          // "from" | "to"
+  navFrom: null,            // {x, y} game coords
+  navTo: null,              // {x, y} game coords
+  navFromMarker: null,
+  navToMarker: null,
+  navRouteLayer: null,      // L.polyline of computed route
   filters: {
     labels: true,
     cities: true,
@@ -23,9 +32,11 @@ const state = {
     markers: true,
     poi: true,
     radiation: true,
+    roads: true,
   },
   ws: null,
 };
+
 
 const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
 const MAP_MAX_BOUNDS = TILE_BOUNDS;
@@ -180,13 +191,22 @@ function initLeaflet(config) {
   initMapPanes(state.map);
   state.locationLayer = L.layerGroup().addTo(state.map);
   state.radiationLayer = L.layerGroup().addTo(state.map);
+  state.roadLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
+
+  // Navigator: intercept map clicks when nav mode is active
+  state.map.on("click", (e) => {
+    if (!state.navActive) return;
+    const gameCoords = latLngToGame(e.latlng);
+    navSetPoint(gameCoords.x, gameCoords.y);
+  });
 
   setTileLayer("satellite");
   state.map.fitBounds(TILE_BOUNDS);
 
   const center = gameToLatLng(mapSize(config) / 2, mapSize(config) / 2, config);
   state.map.setView(center, 3);
+
 }
 
 function upsertLive(pos) {
@@ -624,8 +644,9 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
-  await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation()]);
+  await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation(), loadRoads()]);
   connectWebSocket();
+  initNavigatorButton();
 }
 
 async function loadMapOptions() {
@@ -742,6 +763,14 @@ window.addEventListener("resize", () => {
   }
 });
 
+// Roads filter toggle
+document.getElementById("filter-roads")?.addEventListener("change", (e) => {
+  state.filters.roads = e.target.checked;
+  applyRoadsVisibility();
+});
+
+
+
 function applyClientDownloadUrl(url) {
   document.querySelectorAll(".client-download").forEach((el) => {
     el.href = url;
@@ -774,3 +803,240 @@ async function initClientDownloadLinks() {
     showLogin();
   }
 })();
+
+// ============================================================
+//  ROADS — load & display
+// ============================================================
+
+const ROAD_COLORS_MAP = {
+  highway: "#f5c900",
+  road: "#c0c0c0",
+  street: "#4fc3f7",
+};
+
+const ROAD_WEIGHTS_MAP = {
+  highway: 4,
+  road: 2.5,
+  street: 2,
+};
+
+async function loadRoads() {
+  if (!state.me || !state.roadLayer) return;
+  try {
+    const segments = await api(`/api/maps/${state.me.map_slug}/roads`);
+    renderRoads(segments);
+  } catch {
+    /* roads are optional; silently skip */
+  }
+}
+
+function renderRoads(segments) {
+  if (!state.roadLayer) return;
+  state.roadLayer.clearLayers();
+  if (!segments || !segments.length) return;
+
+  segments.forEach((seg) => {
+    const latLngs = seg.points.map(([x, y]) => gameToLatLng(x, y));
+    const color = ROAD_COLORS_MAP[seg.road_type] || "#fff";
+    const weight = ROAD_WEIGHTS_MAP[seg.road_type] || 3;
+
+    L.polyline(latLngs, {
+      color,
+      weight,
+      opacity: 0.8,
+      lineJoin: "round",
+      lineCap: "round",
+      interactive: false,
+    }).addTo(state.roadLayer);
+  });
+
+  // Apply visibility filter
+  applyRoadsVisibility();
+}
+
+function applyRoadsVisibility() {
+  if (!state.map || !state.roadLayer) return;
+  if (state.filters.roads) {
+    if (!state.map.hasLayer(state.roadLayer)) state.roadLayer.addTo(state.map);
+  } else {
+    state.map.removeLayer(state.roadLayer);
+  }
+}
+
+// ============================================================
+//  NAVIGATOR
+// ============================================================
+
+/** Convert Leaflet LatLng → game {x, y} (inverse of gameToLatLng) */
+function latLngToGame(latlng) {
+  if (!state.config) return { x: 0, y: 0 };
+  const size = mapSize(state.config);
+  const ratio = size / 256;
+  // gameToLatLng: lat = y/ratio - 256, lng = x/ratio
+  // so: x = lng * ratio, y = (lat + 256) * ratio
+  return {
+    x: latlng.lng * ratio,
+    y: (latlng.lat + 256) * ratio,
+  };
+}
+
+function navMakeMarker(x, y, label, color) {
+  const latlng = gameToLatLng(x, y);
+  return L.marker(latlng, {
+    icon: L.divIcon({
+      html: `<div style="
+        background:${color};
+        color:#000;
+        font-weight:700;
+        font-size:12px;
+        padding:2px 7px;
+        border-radius:20px;
+        border:2px solid #fff;
+        box-shadow:0 2px 6px rgba(0,0,0,.6);
+        white-space:nowrap;
+      ">${label}</div>`,
+      className: "",
+      iconAnchor: [0, 0],
+    }),
+    zIndexOffset: 3000,
+  }).addTo(state.map);
+}
+
+function navClearRoute() {
+  if (state.navRouteLayer) {
+    state.map.removeLayer(state.navRouteLayer);
+    state.navRouteLayer = null;
+  }
+}
+
+function navClearMarkers() {
+  if (state.navFromMarker) { state.map.removeLayer(state.navFromMarker); state.navFromMarker = null; }
+  if (state.navToMarker)   { state.map.removeLayer(state.navToMarker);   state.navToMarker = null; }
+}
+
+function navReset() {
+  state.navFrom = null;
+  state.navTo = null;
+  state.navStep = "from";
+  navClearMarkers();
+  navClearRoute();
+  updateNavUI();
+}
+
+function navSetPoint(x, y) {
+  if (state.navStep === "from") {
+    state.navFrom = { x, y };
+    if (state.navFromMarker) state.map.removeLayer(state.navFromMarker);
+    state.navFromMarker = navMakeMarker(x, y, "🟢 Старт", "#00e676");
+    state.navStep = "to";
+    updateNavUI("Теперь кликните точку финиша");
+  } else {
+    state.navTo = { x, y };
+    if (state.navToMarker) state.map.removeLayer(state.navToMarker);
+    state.navToMarker = navMakeMarker(x, y, "🔴 Финиш", "#ff1744");
+    state.navStep = "from"; // allow re-routing by clicking again from
+    updateNavUI("Прокладываю маршрут…");
+    computeRoute();
+  }
+}
+
+async function computeRoute() {
+  if (!state.navFrom || !state.navTo || !state.me) return;
+  navClearRoute();
+
+  try {
+    const result = await api(`/api/maps/${state.me.map_slug}/navigate`, {
+      method: "POST",
+      body: JSON.stringify({
+        from_x: state.navFrom.x,
+        from_y: state.navFrom.y,
+        to_x: state.navTo.x,
+        to_y: state.navTo.y,
+      }),
+    });
+
+    if (!result.ok) {
+      updateNavUI(`⚠ ${result.error || "Маршрут не найден"}`);
+      return;
+    }
+
+    const latLngs = result.path.map(([x, y]) => gameToLatLng(x, y));
+    state.navRouteLayer = L.polyline(latLngs, {
+      color: "#00e5ff",
+      weight: 5,
+      opacity: 0.9,
+      dashArray: "14 6",
+      lineJoin: "round",
+    }).addTo(state.map);
+
+    // Fit bounds to route
+    state.map.fitBounds(state.navRouteLayer.getBounds(), { padding: [40, 40] });
+
+    const km = (result.total_distance / 1000).toFixed(2);
+    updateNavUI(`✅ Маршрут: ~${km} км`);
+  } catch (e) {
+    updateNavUI(`⚠ Ошибка: ${e.message}`);
+  }
+}
+
+function updateNavUI(statusText) {
+  const btn = document.getElementById("btn-nav");
+  const panel = document.getElementById("nav-panel");
+  const status = document.getElementById("nav-status");
+
+  if (!panel) return;
+
+  if (state.navActive) {
+    if (btn) btn.classList.add("active");
+    panel.classList.remove("hidden");
+    if (status && statusText) status.textContent = statusText;
+    else if (status && !statusText) {
+      status.textContent = state.navStep === "from"
+        ? "Кликните точку старта на карте"
+        : "Кликните точку финиша на карте";
+    }
+  } else {
+    if (btn) btn.classList.remove("active");
+    panel.classList.add("hidden");
+  }
+}
+
+function toggleNavigator() {
+  state.navActive = !state.navActive;
+  if (state.navActive) {
+    state.map.getContainer().style.cursor = "crosshair";
+    updateNavUI();
+  } else {
+    state.map.getContainer().style.cursor = "";
+    navReset();
+    updateNavUI();
+  }
+}
+
+function initNavigatorButton() {
+  const btn = document.getElementById("btn-nav");
+  if (btn) {
+    btn.addEventListener("click", toggleNavigator);
+  }
+
+  const clearBtn = document.getElementById("nav-clear-btn");
+  if (clearBtn) {
+    clearBtn.addEventListener("click", () => {
+      navReset();
+      if (state.navActive) {
+        state.map.getContainer().style.cursor = "crosshair";
+        updateNavUI("Кликните точку старта на карте");
+      }
+    });
+  }
+
+  const closeBtn = document.getElementById("nav-close-btn");
+  if (closeBtn) {
+    closeBtn.addEventListener("click", () => {
+      state.navActive = false;
+      state.map.getContainer().style.cursor = "";
+      navReset();
+    });
+  }
+}
+

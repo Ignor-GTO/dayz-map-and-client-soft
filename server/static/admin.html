@@ -37,6 +37,7 @@
         <button type="button" class="tab active" data-tab="maps">Карты</button>
         <button type="button" class="tab" data-tab="pois">Метки сервера</button>
         <button type="button" class="tab" data-tab="radiation">Радиация</button>
+        <button type="button" class="tab" data-tab="roads">🛣 Дороги</button>
         <button type="button" class="tab" data-tab="pins">PIN группы</button>
         <button type="button" class="tab" data-tab="password">Пароль</button>
       </nav>
@@ -249,11 +250,60 @@
         </form>
         <p id="password-msg" class="success hidden"></p>
       </div>
+
+      <!-- =================== ROADS EDITOR =================== -->
+      <div id="tab-roads" class="tab-panel hidden admin-roads-panel">
+        <div class="roads-editor-layout">
+          <!-- Left sidebar -->
+          <aside class="roads-sidebar">
+            <h2>🛣 Редактор дорог</h2>
+            <p class="roads-hint">Нарисуйте дорожную сеть поверх карты. Кликайте для добавления точек, двойной клик — завершить сегмент.</p>
+
+            <div class="roads-type-selector">
+              <label>Тип дороги:</label>
+              <div class="road-type-btns">
+                <button id="rt-highway" class="road-type-btn active" data-type="highway">
+                  <span class="rt-dot" style="background:#f5c900"></span> Трасса
+                </button>
+                <button id="rt-road" class="road-type-btn" data-type="road">
+                  <span class="rt-dot" style="background:#aaa"></span> Посёлковая
+                </button>
+                <button id="rt-street" class="road-type-btn" data-type="street">
+                  <span class="rt-dot" style="background:#4fc3f7"></span> Городская
+                </button>
+              </div>
+            </div>
+
+            <div class="roads-tools">
+              <button id="roads-draw-btn" class="roads-tool-btn active">✏️ Рисовать</button>
+              <button id="roads-undo-btn" class="roads-tool-btn">↩ Отменить точку</button>
+              <button id="roads-cancel-btn" class="roads-tool-btn danger">✖ Отмена</button>
+            </div>
+
+            <div class="roads-stats">
+              <span id="roads-seg-count">0 сегментов</span>
+              <span id="roads-draw-status" class="draw-idle">Готов</span>
+            </div>
+
+            <div class="roads-list-header">
+              <h3>Сегменты</h3>
+              <button id="roads-reload-btn" class="secondary small">↻ Обновить</button>
+            </div>
+            <div id="roads-segment-list" class="roads-segment-list"></div>
+
+            <p id="roads-error" class="error hidden"></p>
+          </aside>
+
+          <!-- Map canvas -->
+          <div id="roads-map" class="roads-map-container"></div>
+        </div>
+      </div>
     </section>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=2"></script>
   <script src="/js/admin.js?v=4"></script>
   <script src="/js/admin-radiation.js?v=6"></script>
+  <script src="/js/admin-roads.js?v=1"></script>
 </body>
 </html>

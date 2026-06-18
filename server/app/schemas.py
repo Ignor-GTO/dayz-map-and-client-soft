@@ -232,3 +232,41 @@ class RadiationSaveRequest(BaseModel):
     zones: list[RadiationZone]
     legend: list[RadiationLegendItem] = []
     overlay: RadiationOverlayInput | None = None
+
+
+# ---------------------------------------------------------------------------
+# Roads
+# ---------------------------------------------------------------------------
+
+class RoadSegmentResponse(BaseModel):
+    id: int
+    map_id: int
+    road_type: str
+    points: list[list[float]]
+    created_at: str | None = None
+
+
+class RoadSegmentCreate(BaseModel):
+    road_type: str = "road"
+    points: list[list[float]]
+
+
+class RoadSegmentUpdate(BaseModel):
+    road_type: str | None = None
+    points: list[list[float]] | None = None
+
+
+class NavigateRequest(BaseModel):
+    from_x: float
+    from_y: float
+    to_x: float
+    to_y: float
+
+
+class NavigateResponse(BaseModel):
+    ok: bool
+    path: list[list[float]] = []
+    total_distance: float = 0.0
+    snap: dict | None = None
+    error: str | None = None
+

@@ -21,6 +21,7 @@ from app.locations_service import get_map_locations
 from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.models import MapPoi, Marker, Position, Room, User
+from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.schemas import (
     CoordsPayload,
     LoginRequest,
@@ -30,8 +31,11 @@ from app.schemas import (
     MapLocationsResponse,
     MapRadiationResponse,
     MarkerResponse,
+    NavigateRequest,
+    NavigateResponse,
     PoiResponse,
     PositionResponse,
+    RoadSegmentResponse,
     RoomStateResponse,
 )
 from app.seed import DEFAULT_MAP_SLUG
@@ -39,6 +43,7 @@ from app.settings_service import is_public_pin_creation
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
+
 
 
 @router.get("/maps", response_model=list[MapListItem])
@@ -330,3 +335,30 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
             for p in pois
         ],
     )
+
+
+# ---------------------------------------------------------------------------
+# Roads — public endpoints (read-only + navigate)
+# ---------------------------------------------------------------------------
+
+@router.get("/maps/{slug}/roads", response_model=list[RoadSegmentResponse])
+async def get_map_roads(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Return all road segments for the given map."""
+    game_map = await get_map_by_slug(db, slug)
+    return await list_segments(db, game_map.id)
+
+
+@router.post("/maps/{slug}/navigate", response_model=NavigateResponse)
+async def navigate(
+    slug: str,
+    payload: NavigateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Find a route between two map coordinates using A* on the road graph."""
+    game_map = await get_map_by_slug(db, slug)
+    result = await find_route(
+        db, game_map,
+        payload.from_x, payload.from_y,
+        payload.to_x, payload.to_y,
+    )
+    return NavigateResponse(**result)

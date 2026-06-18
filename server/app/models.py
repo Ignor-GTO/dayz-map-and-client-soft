@@ -30,6 +30,22 @@ class DayZMap(Base):
 
     rooms: Mapped[list["Room"]] = relationship(back_populates="map")
     pois: Mapped[list["MapPoi"]] = relationship(back_populates="map", cascade="all, delete-orphan")
+    road_segments: Mapped[list["RoadSegment"]] = relationship(back_populates="map", cascade="all, delete-orphan")
+
+
+class RoadSegment(Base):
+    """A single polyline segment of a road on the map."""
+    __tablename__ = "road_segments"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    # highway = yellow main road, road = gray village road, street = blue city road
+    road_type: Mapped[str] = mapped_column(String(32), default="road")
+    # JSON-encoded list of [x, y] pairs: [[x1,y1],[x2,y2],...]
+    points: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    map: Mapped["DayZMap"] = relationship(back_populates="road_segments")
 
 
 class MapPoi(Base):

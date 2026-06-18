@@ -19,6 +19,7 @@ from app.radiation_service import (
     save_radiation_config,
 )
 from app.radiation_upload import delete_overlay_file, save_radiation_overlay
+from app.roads_service import create_segment, delete_segment, list_segments, update_segment
 from app.schemas import (
     AdminLoginRequest,
     AdminPasswordRequest,
@@ -29,11 +30,15 @@ from app.schemas import (
     PoiCreateRequest,
     PoiUpdateRequest,
     RadiationSaveRequest,
+    RoadSegmentCreate,
+    RoadSegmentResponse,
+    RoadSegmentUpdate,
 )
 from app.seed import ADMIN_PASSWORD_KEY, hash_admin_password, verify_admin_password
 from app.settings_service import is_public_pin_creation, set_public_pin_creation
 
 router = APIRouter(prefix="/api/admin")
+
 
 
 async def _get_map(db: AsyncSession, slug: str) -> DayZMap:
@@ -514,3 +519,60 @@ async def admin_delete_radiation_overlay(
         },
     )
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Road segment admin CRUD
+# ---------------------------------------------------------------------------
+
+@router.get("/maps/{map_slug}/roads", response_model=list[RoadSegmentResponse])
+async def admin_list_roads(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    return await list_segments(db, game_map.id)
+
+
+@router.post("/maps/{map_slug}/roads", response_model=RoadSegmentResponse)
+async def admin_create_road(
+    map_slug: str,
+    payload: RoadSegmentCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    if len(payload.points) < 2:
+        raise HTTPException(status_code=400, detail="Сегмент дороги должен содержать минимум 2 точки.")
+    game_map = await _get_map(db, map_slug)
+    return await create_segment(db, game_map.id, payload.road_type, payload.points)
+
+
+@router.put("/maps/{map_slug}/roads/{road_id}", response_model=RoadSegmentResponse)
+async def admin_update_road(
+    map_slug: str,
+    road_id: int,
+    payload: RoadSegmentUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    result = await update_segment(db, road_id, game_map.id, payload.road_type, payload.points)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Road segment not found")
+    return result
+
+
+@router.delete("/maps/{map_slug}/roads/{road_id}")
+async def admin_delete_road(
+    map_slug: str,
+    road_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    ok = await delete_segment(db, road_id, game_map.id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Road segment not found")
+    return {"ok": True}
+

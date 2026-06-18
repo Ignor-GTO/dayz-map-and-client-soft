@@ -91,17 +91,29 @@ class ClientApp(tk.Tk):
         self.success_color = "#10b981"  # Emerald green (OK)
         self.danger_color = "#ef4444"   # Rose red (Error)
 
-        self.configure(bg=self.bg_color)
-        
-        style = ttk.Style()
-        style.theme_use("clam")
-        
-        # Configure TFrame
+          # Configure TFrame
         style.configure("TFrame", background=self.bg_color)
-        style.configure("Card.TFrame", background=self.card_bg, borderwidth=1, relief="solid")
+        style.configure("Card.TFrame", 
+                        background=self.card_bg, 
+                        bordercolor=self.border_color,
+                        lightcolor=self.border_color,
+                        darkcolor=self.border_color,
+                        borderwidth=1, 
+                        relief="solid")
+        style.configure("CardSub.TFrame", 
+                        background=self.card_bg, 
+                        borderwidth=0, 
+                        relief="flat")
         
         # Configure TLabelframe
-        style.configure("TLabelframe", background=self.card_bg, bordercolor=self.border_color, padding=12)
+        style.configure("TLabelframe", 
+                        background=self.card_bg, 
+                        bordercolor=self.border_color, 
+                        lightcolor=self.border_color,
+                        darkcolor=self.border_color,
+                        borderwidth=1,
+                        relief="solid",
+                        padding=12)
         style.configure("TLabelframe.Label", background=self.card_bg, foreground=self.accent_color, font=("Segoe UI", 10, "bold"))
         
         # Configure TLabel
@@ -116,31 +128,70 @@ class ClientApp(tk.Tk):
         style.configure("TButton", 
                         background=self.accent_color, 
                         foreground="#ffffff", 
-                        bordercolor=self.border_color, 
+                        bordercolor=self.accent_color, 
+                        lightcolor=self.accent_color,
+                        darkcolor=self.accent_color,
                         font=("Segoe UI", 9, "bold"), 
                         padding=[10, 5])
         style.map("TButton",
                   background=[("active", self.accent_hover), ("disabled", "#1e293b")],
+                  bordercolor=[("active", self.accent_hover), ("disabled", "#1e293b")],
                   foreground=[("disabled", "#64748b")])
                   
         style.configure("Accent.TButton", 
                         background=self.success_color, 
-                        foreground="#ffffff")
+                        foreground="#ffffff",
+                        bordercolor=self.success_color,
+                        lightcolor=self.success_color,
+                        darkcolor=self.success_color)
         style.map("Accent.TButton",
-                  background=[("active", "#059669")])
+                  background=[("active", "#059669")],
+                  bordercolor=[("active", "#059669")])
                   
         style.configure("Action.TButton", 
-                        background=self.card_bg, 
+                        background=self.border_color, 
                         foreground=self.fg_color,
-                        bordercolor=self.border_color)
+                        bordercolor=self.border_color,
+                        lightcolor=self.border_color,
+                        darkcolor=self.border_color)
         style.map("Action.TButton",
-                  background=[("active", self.border_color)])
+                  background=[("active", "#475569")],
+                  bordercolor=[("active", "#475569")])
+
+        # Configure Nav Buttons for Header tabs
+        style.configure("Nav.TButton", 
+                        background=self.bg_color, 
+                        foreground=self.text_muted, 
+                        bordercolor=self.bg_color, 
+                        lightcolor=self.bg_color,
+                        darkcolor=self.bg_color,
+                        font=("Segoe UI", 10, "bold"), 
+                        padding=[12, 6])
+        style.map("Nav.TButton",
+                  background=[("active", self.card_bg)],
+                  bordercolor=[("active", self.card_bg)],
+                  foreground=[("active", self.fg_color)])
+                  
+        style.configure("NavActive.TButton", 
+                        background=self.card_bg, 
+                        foreground=self.accent_color, 
+                        bordercolor=self.card_bg, 
+                        lightcolor=self.card_bg,
+                        darkcolor=self.card_bg,
+                        font=("Segoe UI", 10, "bold"), 
+                        padding=[12, 6])
+        style.map("NavActive.TButton",
+                  background=[("active", self.card_bg)],
+                  bordercolor=[("active", self.card_bg)],
+                  foreground=[("active", self.accent_color)])
                   
         # Configure TEntry
         style.configure("TEntry", 
                         fieldbackground=self.card_bg, 
                         foreground=self.fg_color, 
                         bordercolor=self.border_color, 
+                        lightcolor=self.card_bg,
+                        darkcolor=self.card_bg,
                         insertcolor=self.fg_color,
                         padding=5)
         style.map("TEntry",
@@ -151,6 +202,8 @@ class ClientApp(tk.Tk):
                         fieldbackground=self.card_bg, 
                         foreground=self.fg_color, 
                         bordercolor=self.border_color,
+                        lightcolor=self.card_bg,
+                        darkcolor=self.card_bg,
                         arrowcolor=self.fg_color,
                         padding=5)
         style.map("TCombobox",
@@ -163,7 +216,9 @@ class ClientApp(tk.Tk):
                         background=self.bg_color, 
                         foreground=self.fg_color, 
                         indicatorbackground=self.card_bg, 
-                        indicatorforeground=self.accent_color)
+                        indicatorforeground=self.accent_color,
+                        lightcolor=self.bg_color,
+                        darkcolor=self.bg_color)
         style.map("TCheckbutton",
                   background=[("active", self.bg_color)])
                   
@@ -171,16 +226,22 @@ class ClientApp(tk.Tk):
                         background=self.card_bg, 
                         foreground=self.fg_color, 
                         indicatorbackground=self.bg_color, 
-                        indicatorforeground=self.accent_color)
+                        indicatorforeground=self.accent_color,
+                        lightcolor=self.card_bg,
+                        darkcolor=self.card_bg)
         style.map("Card.TCheckbutton",
                   background=[("active", self.card_bg)])
-
+ 
         style.configure("Vertical.TScrollbar", 
-                        background=self.card_bg, 
+                        background=self.border_color, 
                         troughcolor=self.bg_color, 
-                        bordercolor=self.border_color,
-                        arrowcolor=self.fg_color)
-
+                        bordercolor=self.bg_color,
+                        lightcolor=self.bg_color,
+                        darkcolor=self.bg_color,
+                        arrowcolor=self.fg_color,
+                        arrowsize=10,
+                        gripcount=0)
+ 
         style.configure("Header.TFrame", background=self.bg_color)
         style.configure("HeaderTitle.TLabel", background=self.bg_color, foreground=self.accent_color, font=("Segoe UI", 12, "bold"))
 
@@ -194,10 +255,10 @@ class ClientApp(tk.Tk):
         nav_frm = ttk.Frame(header_frm, style="Header.TFrame")
         nav_frm.pack(side="right")
         
-        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="Accent.TButton", width=12)
+        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="NavActive.TButton", width=12)
         self.nav_btn_main.pack(side="left", padx=2)
         
-        self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Action.TButton", width=12)
+        self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Nav.TButton", width=12)
         self.nav_btn_settings.pack(side="left", padx=2)
 
         # Pages Container
@@ -216,14 +277,14 @@ class ClientApp(tk.Tk):
         ctrl_card.pack(fill="x", pady=(0, 10))
 
         # Status row
-        status_subfrm = ttk.Frame(ctrl_card, style="Card.TFrame")
+        status_subfrm = ttk.Frame(ctrl_card, style="CardSub.TFrame")
         status_subfrm.pack(fill="x", pady=(0, 5))
         ttk.Label(status_subfrm, text="Статус службы:", font=("Segoe UI", 10, "bold"), style="Card.TLabel").pack(side="left")
         self.status_label = ttk.Label(status_subfrm, textvariable=self.status_var, style="Status.TLabel")
         self.status_label.pack(side="left", padx=5)
 
         # Start button row
-        btn_subfrm = ttk.Frame(ctrl_card, style="Card.TFrame")
+        btn_subfrm = ttk.Frame(ctrl_card, style="CardSub.TFrame")
         btn_subfrm.pack(fill="x")
         self.start_btn = ttk.Button(btn_subfrm, text="Запустить hotkeys", command=self.toggle_hotkeys, width=22)
         self.start_btn.pack(side="left", padx=(0, 10))
@@ -265,12 +326,13 @@ class ClientApp(tk.Tk):
         )
         self.help_lbl_5.pack(anchor="w")
 
-        # ScrolledText Log
+        # Modern Flat Log with Custom Scrollbar
         log_frm = ttk.Frame(main_frm)
         log_frm.pack(fill="both", expand=True)
         ttk.Label(log_frm, text="Лог событий:", font=("Segoe UI", 10, "bold")).pack(anchor="w", pady=(0, 5))
         
-        self.log = scrolledtext.ScrolledText(
+        log_scroll = ttk.Scrollbar(log_frm, orient="vertical", style="Vertical.TScrollbar")
+        self.log = tk.Text(
             log_frm,
             height=16,
             width=64,
@@ -284,9 +346,13 @@ class ClientApp(tk.Tk):
             state="disabled",
             selectbackground="#3b82f6",
             selectforeground="white",
-            inactiveselectbackground="#475569"
+            inactiveselectbackground="#475569",
+            yscrollcommand=log_scroll.set,
+            bd=0
         )
-        self.log.pack(fill="both", expand=True)
+        log_scroll.configure(command=self.log.yview)
+        self.log.pack(side="left", fill="both", expand=True)
+        log_scroll.pack(side="right", fill="y")
 
         # Allow focusing the widget on click to enable selection and copy shortcuts
         self.log.bind("<Button-1>", lambda e: self.log.focus_set(), add="+")
@@ -397,7 +463,7 @@ class ClientApp(tk.Tk):
         )
         
         ttk.Label(capture_lf, text="Область OCR (L,T,R,B):", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
-        region_frm = ttk.Frame(capture_lf, style="Card.TFrame")
+        region_frm = ttk.Frame(capture_lf, style="CardSub.TFrame")
         region_frm.grid(row=1, column=1, columnspan=2, sticky="w", pady=4)
         
         self.region_vars = [tk.IntVar(value=v) for v in self.cfg.get("ocr_region", IZURVIVE_OCR_REGION)]
@@ -504,7 +570,7 @@ class ClientApp(tk.Tk):
         diag_lf = ttk.LabelFrame(scrollable_frame, text=" Диагностика и проверка OCR ", padding=10)
         diag_lf.pack(fill="x", padx=10, pady=5)
         
-        diag_btn_frm = ttk.Frame(diag_lf, style="Card.TFrame")
+        diag_btn_frm = ttk.Frame(diag_lf, style="CardSub.TFrame")
         diag_btn_frm.pack(fill="x", pady=4)
         
         ttk.Button(diag_btn_frm, text="Тест OCR (M)", command=self.test_ocr, style="Action.TButton").pack(side="left", padx=2, expand=True, fill="x")
@@ -537,13 +603,13 @@ class ClientApp(tk.Tk):
         if page_index == 0:
             self.settings_page.pack_forget()
             self.main_page.pack(fill="both", expand=True)
-            self.nav_btn_main.configure(style="Accent.TButton")
-            self.nav_btn_settings.configure(style="Action.TButton")
+            self.nav_btn_main.configure(style="NavActive.TButton")
+            self.nav_btn_settings.configure(style="Nav.TButton")
         elif page_index == 1:
             self.main_page.pack_forget()
             self.settings_page.pack(fill="both", expand=True)
-            self.nav_btn_main.configure(style="Action.TButton")
-            self.nav_btn_settings.configure(style="Accent.TButton")
+            self.nav_btn_main.configure(style="Nav.TButton")
+            self.nav_btn_settings.configure(style="NavActive.TButton")
 
     def _create_tray_icon(self) -> None:
         self.tray_image = create_tray_image()

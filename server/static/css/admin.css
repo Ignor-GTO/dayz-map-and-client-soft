@@ -363,3 +363,210 @@ select option {
   border: 2px solid #fff;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
 }
+
+/* ============================================================
+   Roads Editor
+   ============================================================ */
+
+.admin-roads-panel {
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.roads-editor-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  height: calc(100vh - 112px);
+  min-height: 480px;
+}
+
+@media (max-width: 900px) {
+  .roads-editor-layout { grid-template-columns: 1fr; height: auto; }
+}
+
+/* Sidebar */
+.roads-sidebar {
+  background: var(--panel);
+  border-right: 1px solid #2a3848;
+  padding: 1rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.roads-sidebar h2 { margin: 0; font-size: 1.1rem; }
+
+.roads-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+/* Type selector */
+.roads-type-selector label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.4rem;
+}
+
+.road-type-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.road-type-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: #1a2430;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  text-align: left;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.road-type-btn.active {
+  border-color: var(--accent);
+  background: #0f1e2e;
+}
+
+.rt-dot {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.3);
+}
+
+/* Tools */
+.roads-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.roads-tool-btn {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: #1a2430;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.roads-tool-btn:hover { background: #2a3848; }
+.roads-tool-btn.active { background: var(--accent); border-color: var(--accent); }
+.roads-tool-btn.danger { border-color: #c0392b; }
+.roads-tool-btn.danger:hover { background: #c0392b; }
+
+/* Stats */
+.roads-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8rem;
+  color: var(--muted);
+  padding: 0.35rem 0;
+  border-top: 1px solid #2a3848;
+  border-bottom: 1px solid #2a3848;
+}
+
+.draw-idle { color: var(--muted); }
+.draw-drawing { color: #f5c900; }
+
+/* List header */
+.roads-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.roads-list-header h3 { margin: 0; font-size: 0.9rem; }
+
+button.secondary.small {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.78rem;
+}
+
+/* Segment list */
+.roads-segment-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.roads-empty {
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.road-seg-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  background: #0f1826;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  transition: border-color 0.15s;
+}
+
+.road-seg-item.selected { border-color: var(--accent); }
+
+.seg-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid rgba(255,255,255,0.2);
+}
+
+.seg-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.seg-type { font-size: 0.82rem; font-weight: 600; }
+.seg-pts { font-size: 0.75rem; color: var(--muted); }
+
+.seg-focus-btn,
+.seg-delete-btn {
+  padding: 0.2rem 0.4rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.9rem;
+  border-radius: 5px;
+  transition: background 0.15s;
+}
+
+.seg-focus-btn:hover { background: #2a3848; }
+.seg-delete-btn:hover { background: #c0392b44; }
+
+/* Map */
+.roads-map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+  background: #0d1218;
+}
+
