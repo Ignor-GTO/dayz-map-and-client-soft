@@ -1,0 +1,1377 @@
+[
+    {
+        "nameEN": "Chernobyl Military Base",
+        "nameRU": null,
+        "lat": -76.48682604631402,
+        "lng": 56.346855468750014,
+        "spellings": [
+            "Chernobyl Military Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Chernobyl",
+        "nameRU": null,
+        "lat": -81.40511105793634,
+        "lng": 82.60136718750003,
+        "spellings": [
+            "Chernobyl"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Chernobyl Nuclear Power Plant",
+        "nameRU": null,
+        "lat": 65.98227002979336,
+        "lng": -51.5098828125,
+        "spellings": [
+            "Chernobyl Nuclear Power Plant"
+        ],
+        "type": "NameCityCapital",
+        "minZoom": 1
+    },
+    {
+        "nameEN": "Urban Area #5",
+        "nameRU": null,
+        "lat": 78.57421628036408,
+        "lng": -110.92376953125,
+        "spellings": [
+            "Urban Area #5"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Duga Radar Station",
+        "nameRU": null,
+        "lat": -59.82069951433169,
+        "lng": -101.26792968750001,
+        "spellings": [
+            "Duga Radar Station"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Pripyat Amusement Park",
+        "nameRU": null,
+        "lat": 76.95807273327397,
+        "lng": -109.2684375,
+        "spellings": [
+            "Pripyat Amusement Park"
+        ],
+        "type": "FlatAreaCity",
+        "minZoom": 10
+    },
+    {
+        "nameEN": "Pripyat",
+        "nameRU": null,
+        "lat": 76.41806031050129,
+        "lng": -112.23263671875002,
+        "spellings": [
+            "Pripyat"
+        ],
+        "type": "NameCityCapital",
+        "minZoom": 1
+    },
+    {
+        "nameEN": "Cooling Towers",
+        "nameRU": null,
+        "lat": 50.08697981459206,
+        "lng": -16.78148437499999,
+        "spellings": [
+            "Cooling Towers"
+        ],
+        "type": "FlatAreaCitySmall",
+        "minZoom": 10
+    },
+    {
+        "nameEN": "Red Forest Military Base",
+        "nameRU": null,
+        "lat": 33.47969138341213,
+        "lng": -49.11486328125,
+        "spellings": [
+            "Red Forest Military Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Druganov Airfield",
+        "nameRU": null,
+        "lat": 25.033688453652104,
+        "lng": 114.19417968750001,
+        "spellings": [
+            "Druganov Airfield"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Druganov Military Base",
+        "nameRU": null,
+        "lat": 19.376159765091685,
+        "lng": 86.72800781250002,
+        "spellings": [
+            "Druganov Military Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Gringo's Camping Resort",
+        "nameRU": null,
+        "lat": 1.884211070274032,
+        "lng": 78.81521484374998,
+        "spellings": [
+            "Gringo's Camping Resort"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Vesna",
+        "nameRU": null,
+        "lat": 81.41285724297671,
+        "lng": 58.94191406250001,
+        "spellings": [
+            "Vesna"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Limansk",
+        "nameRU": null,
+        "lat": -82.99089365247467,
+        "lng": -51.38349609375,
+        "spellings": [
+            "Limansk"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Yanov Train Station",
+        "nameRU": null,
+        "lat": 68.92921310530456,
+        "lng": -106.26099609375002,
+        "spellings": [
+            "Yanov Train Station"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Experimental Mink Farm",
+        "nameRU": null,
+        "lat": 47.18696490080972,
+        "lng": -9.296191406249994,
+        "spellings": [
+            "Experimental Mink Farm"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Spent Nuclear Fuel Storage #2",
+        "nameRU": null,
+        "lat": 45.470486375995186,
+        "lng": -32.6014453125,
+        "spellings": [
+            "Spent Nuclear Fuel Storage #2"
+        ],
+        "type": "FlatAreaCitySmall",
+        "minZoom": 10
+    },
+    {
+        "nameEN": "Chernobyl NPP SubStation",
+        "nameRU": null,
+        "lat": 57.83221264859188,
+        "lng": -56.39501953125001,
+        "spellings": [
+            "Chernobyl NPP SubStation"
+        ],
+        "type": "FlatAreaCitySmall",
+        "minZoom": 10
+    },
+    {
+        "nameEN": "Urban Area #1",
+        "nameRU": null,
+        "lat": 75.30754703952029,
+        "lng": -97.01402343750003,
+        "spellings": [
+            "Urban Area #1"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Palace of Culture",
+        "nameRU": null,
+        "lat": 76.3083605602001,
+        "lng": -108.63351562500002,
+        "spellings": [
+            "Palace of Culture"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Kolyshniy Hotel",
+        "nameRU": null,
+        "lat": 76.45174478638305,
+        "lng": -106.35996093749999,
+        "spellings": [
+            "Kolyshniy Hotel"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Pripyat City Hall",
+        "nameRU": null,
+        "lat": 76.59793393604137,
+        "lng": -105.02859375000001,
+        "spellings": [
+            "Pripyat City Hall"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Avanhard Stadium",
+        "nameRU": null,
+        "lat": 78.02032078489286,
+        "lng": -110.00285156250001,
+        "spellings": [
+            "Avanhard Stadium"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Chernobyl Radio Station",
+        "nameRU": null,
+        "lat": -81.84800789404521,
+        "lng": 71.07169921875001,
+        "spellings": [
+            "Chernobyl Radio Station"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Red Forest",
+        "nameRU": null,
+        "lat": 59.68903907658816,
+        "lng": -108.37669921875,
+        "spellings": [
+            "Red Forest"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Anomalous Zone",
+        "nameRU": null,
+        "lat": -76.76005801126767,
+        "lng": -51.08537109375,
+        "spellings": [
+            "Anomalous Zone"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Southern 100 Rads Bar",
+        "nameRU": null,
+        "lat": -78.86475387056784,
+        "lng": 87.50970703124999,
+        "spellings": [
+            "Southern 100 Rads Bar"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Pripyat Military Base",
+        "nameRU": null,
+        "lat": 72.55449849663894,
+        "lng": -136.62386718750003,
+        "spellings": [
+            "Pripyat Military Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Jupiter",
+        "nameRU": null,
+        "lat": 74.37851279631835,
+        "lng": -126.03515625000001,
+        "spellings": [
+            "Jupiter"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "The Brain Scorcher",
+        "nameRU": null,
+        "lat": 75.09563272853103,
+        "lng": -86.484375,
+        "spellings": [
+            "The Brain Scorcher"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Rostok",
+        "nameRU": null,
+        "lat": -35.09157893794373,
+        "lng": -55.00230468750001,
+        "spellings": [
+            "Rostok"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Northern 100 Rads Bar",
+        "nameRU": null,
+        "lat": -34.24817187142647,
+        "lng": -52.07115234375001,
+        "spellings": [
+            "Northern 100 Rads Bar"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Lab X18",
+        "nameRU": null,
+        "lat": 80.12287665691238,
+        "lng": 154.98351562500002,
+        "spellings": [
+            "Lab X18"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Sozinovo",
+        "nameRU": null,
+        "lat": -51.459811991072876,
+        "lng": -47.28708984374999,
+        "spellings": [
+            "Sozinovo"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Sidorovich's Village",
+        "nameRU": null,
+        "lat": -77.80696137340901,
+        "lng": -26.13269531249999,
+        "spellings": [
+            "Sidorovich's Village"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Kryva Hora",
+        "nameRU": null,
+        "lat": 57.78679483851392,
+        "lng": 65.74974609375,
+        "spellings": [
+            "Kryva Hora"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Great Swamps",
+        "nameRU": null,
+        "lat": -80.60729996243674,
+        "lng": 127.79894531250001,
+        "spellings": [
+            "Great Swamps"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Vesna Industrial",
+        "nameRU": null,
+        "lat": 81.2165175840264,
+        "lng": 39.21732421875003,
+        "spellings": [
+            "Vesna Industrial"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Leliv",
+        "nameRU": null,
+        "lat": -61.136617362451844,
+        "lng": 37.08210937499997,
+        "spellings": [
+            "Leliv"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Kladovyshche",
+        "nameRU": null,
+        "lat": 15.590531170256387,
+        "lng": 74.60138671875,
+        "spellings": [
+            "Kladovyshche"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Chernobyl' 2",
+        "nameRU": null,
+        "lat": -58.374991842467686,
+        "lng": -92.744296875,
+        "spellings": [
+            "Chernobyl' 2"
+        ],
+        "type": "FlatAreaCitySmall",
+        "minZoom": 10
+    },
+    {
+        "nameEN": "Sandy Plateau",
+        "nameRU": null,
+        "lat": 78.92606615356522,
+        "lng": -94.4898046875,
+        "spellings": [
+            "Sandy Plateau"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Checkpoint Leliv",
+        "nameRU": null,
+        "lat": -69.3091300305672,
+        "lng": 44.39109375000001,
+        "spellings": [
+            "Checkpoint Leliv"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Hlynytsya River",
+        "nameRU": null,
+        "lat": -67.91199047991701,
+        "lng": 67.9053515625,
+        "spellings": [
+            "Hlynytsya River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Starukha River",
+        "nameRU": null,
+        "lat": -69.46273426541997,
+        "lng": 97.87746093749998,
+        "spellings": [
+            "Starukha River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Hostrytsya River",
+        "nameRU": null,
+        "lat": -77.87981027113895,
+        "lng": 145.95486328124997,
+        "spellings": [
+            "Hostrytsya River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Pripyat River",
+        "nameRU": null,
+        "lat": -83.53338058096597,
+        "lng": 132.45117187500003,
+        "spellings": [
+            "Pripyat River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Pripyat River",
+        "nameRU": null,
+        "lat": -73.94465223216825,
+        "lng": 90.04078125,
+        "spellings": [
+            "Pripyat River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Pripyat River",
+        "nameRU": null,
+        "lat": -26.701020740658738,
+        "lng": 65.00179687499998,
+        "spellings": [
+            "Pripyat River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Lab X4",
+        "nameRU": null,
+        "lat": -83.01397892265504,
+        "lng": -175.52847656250003,
+        "spellings": [
+            "Lab X4"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Svynoferma",
+        "nameRU": null,
+        "lat": -69.09416977533228,
+        "lng": -129.78263671875,
+        "spellings": [
+            "Svynoferma"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Pripyat River",
+        "nameRU": null,
+        "lat": 53.72105250373302,
+        "lng": 35.0743359375,
+        "spellings": [
+            "Pripyat River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Pripyat River",
+        "nameRU": null,
+        "lat": 81.50067549316209,
+        "lng": -86.56681640624998,
+        "spellings": [
+            "Pripyat River"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Scythian",
+        "nameRU": null,
+        "lat": 59.376734456653644,
+        "lng": -33.64664062500002,
+        "spellings": [
+            "Scythian"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Cooling Ponds",
+        "nameRU": null,
+        "lat": 62.9193145221501,
+        "lng": -53.082949218749995,
+        "spellings": [
+            "Cooling Ponds"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Chernobyl NPP Unit 2",
+        "nameRU": null,
+        "lat": 64.55742811495892,
+        "lng": -51.06146484375,
+        "spellings": [
+            "Chernobyl NPP Unit 2"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Prometheus",
+        "nameRU": null,
+        "lat": 63.339670033052045,
+        "lng": -42.33093750000001,
+        "spellings": [
+            "Prometheus"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Chernobyl NPP Unit 3",
+        "nameRU": null,
+        "lat": 64.74189227528478,
+        "lng": -55.99546875000001,
+        "spellings": [
+            "Chernobyl NPP Unit 3"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Central Nuclear",
+        "nameRU": null,
+        "lat": 65.51660525434905,
+        "lng": -58.105019531249994,
+        "spellings": [
+            "Central Nuclear"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Power Unit No. 4",
+        "nameRU": null,
+        "lat": 64.55833430049647,
+        "lng": -58.79654296875,
+        "spellings": [
+            "Power Unit No. 4"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Elephant's Foot",
+        "nameRU": null,
+        "lat": 64.96359327485497,
+        "lng": -57.18005859375,
+        "spellings": [
+            "Elephant's Foot"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Stazione della centrale nucleare di Chernobyl",
+        "nameRU": null,
+        "lat": 69.70055081367612,
+        "lng": -47.811093750000005,
+        "spellings": [
+            "Stazione della centrale nucleare di Chernobyl"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Zymovyshche Lake",
+        "nameRU": null,
+        "lat": 81.57674295707173,
+        "lng": 64.30552734375001,
+        "spellings": [
+            "Zymovyshche Lake"
+        ],
+        "type": "NameMarine",
+        "minZoom": 5
+    },
+    {
+        "nameEN": "Dytyatky",
+        "nameRU": null,
+        "lat": -1.7325874504136987,
+        "lng": -47.34457031250001,
+        "spellings": [
+            "Dytyatky"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Radiation Beach",
+        "nameRU": null,
+        "lat": -79.93558034606068,
+        "lng": 104.78285156250001,
+        "spellings": [
+            "Radiation Beach"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Volkhov AA Complex",
+        "nameRU": null,
+        "lat": -28.072755808141707,
+        "lng": -40.6402734375,
+        "spellings": [
+            "Volkhov AA Complex"
+        ],
+        "type": "Hill",
+        "minZoom": 6
+    },
+    {
+        "nameEN": "Jagala Army Base",
+        "nameRU": null,
+        "lat": 61.47547162269823,
+        "lng": 121.34302734375002,
+        "spellings": [
+            "Jagala Army Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Stari Sokoly",
+        "nameRU": null,
+        "lat": -76.46512156071206,
+        "lng": -153.52505859375,
+        "spellings": [
+            "Stari Sokoly"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Red Forest South",
+        "nameRU": null,
+        "lat": 33.96202367405166,
+        "lng": -70.51833984375,
+        "spellings": [
+            "Red Forest South"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Hubyn",
+        "nameRU": null,
+        "lat": -66.16072369886298,
+        "lng": -20.31257812499999,
+        "spellings": [
+            "Hubyn"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Buryakivka Vehicle Graveyard",
+        "nameRU": null,
+        "lat": 43.44806964839311,
+        "lng": -44.31919921875001,
+        "spellings": [
+            "Buryakivka Vehicle Graveyard"
+        ],
+        "type": "Hill",
+        "minZoom": 6
+    },
+    {
+        "nameEN": "Kovshylivka",
+        "nameRU": null,
+        "lat": -44.818474154970126,
+        "lng": -116.06625,
+        "spellings": [
+            "Kovshylivka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Luhovyky",
+        "nameRU": null,
+        "lat": 60.15795332539171,
+        "lng": -141.20630859375,
+        "spellings": [
+            "Luhovyky"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Kolyshniy Obchyslyuvaynyy Tsentr",
+        "nameRU": null,
+        "lat": -62.37048539922504,
+        "lng": -106.29158203125002,
+        "spellings": [
+            "Kolyshniy Obchyslyuvaynyy Tsentr"
+        ],
+        "type": "Hill",
+        "minZoom": 6
+    },
+    {
+        "nameEN": "Zamoshnya",
+        "nameRU": null,
+        "lat": -79.51384536592585,
+        "lng": -7.481074218750006,
+        "spellings": [
+            "Zamoshnya"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Novi Sokoly",
+        "nameRU": null,
+        "lat": -81.5734464139074,
+        "lng": -166.62076171875003,
+        "spellings": [
+            "Novi Sokoly"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Shevchenkove",
+        "nameRU": null,
+        "lat": -75.08473272571862,
+        "lng": -11.451621093749996,
+        "spellings": [
+            "Shevchenkove"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Selyshche Zalissya",
+        "nameRU": null,
+        "lat": -78.53399683966809,
+        "lng": -93.86912109375,
+        "spellings": [
+            "Selyshche Zalissya"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Refugee Camp",
+        "nameRU": null,
+        "lat": -53.24344406549052,
+        "lng": 139.37203125000005,
+        "spellings": [
+            "Refugee Camp"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Krasne",
+        "nameRU": null,
+        "lat": -24.19983512944241,
+        "lng": -113.89394531250001,
+        "spellings": [
+            "Krasne"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Pylyava",
+        "nameRU": null,
+        "lat": -48.76204068288018,
+        "lng": 9.582363281250002,
+        "spellings": [
+            "Pylyava"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Laput'ky Army Base",
+        "nameRU": null,
+        "lat": -73.98107325978268,
+        "lng": 136.65392578125,
+        "spellings": [
+            "Laput'ky Army Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Laput'ky",
+        "nameRU": null,
+        "lat": -72.157905902391,
+        "lng": 117.35068359375,
+        "spellings": [
+            "Laput'ky"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Stara Markivka",
+        "nameRU": null,
+        "lat": 80.4926653842547,
+        "lng": 26.067304687500005,
+        "spellings": [
+            "Stara Markivka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Oriyana",
+        "nameRU": null,
+        "lat": 73.79438320966045,
+        "lng": -16.016132812499986,
+        "spellings": [
+            "Oriyana"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Bunker 536",
+        "nameRU": null,
+        "lat": -28.46614159779784,
+        "lng": -82.52455078125001,
+        "spellings": [
+            "Bunker 536"
+        ],
+        "type": "RockArea",
+        "minZoom": 7
+    },
+    {
+        "nameEN": "Vasylkiv Air Base",
+        "nameRU": null,
+        "lat": 49.239120832451206,
+        "lng": -142.58355468750003,
+        "spellings": [
+            "Vasylkiv Air Base"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Cheremoshna",
+        "nameRU": null,
+        "lat": 80.98410151394263,
+        "lng": -152.84671875,
+        "spellings": [
+            "Cheremoshna"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Ruined Village",
+        "nameRU": null,
+        "lat": -76.18436583067948,
+        "lng": -65.058046875,
+        "spellings": [
+            "Ruined Village"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Romanivka",
+        "nameRU": null,
+        "lat": -73.52411261713708,
+        "lng": 103.28800781250003,
+        "spellings": [
+            "Romanivka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Hdzyen",
+        "nameRU": null,
+        "lat": -24.422343847985022,
+        "lng": 71.28703125000001,
+        "spellings": [
+            "Hdzyen"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Kirovo",
+        "nameRU": null,
+        "lat": 22.041165863628486,
+        "lng": 50.91785156249998,
+        "spellings": [
+            "Kirovo"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Berezki",
+        "nameRU": null,
+        "lat": 41.14583447119666,
+        "lng": 43.30212890624999,
+        "spellings": [
+            "Berezki"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Golubovka",
+        "nameRU": null,
+        "lat": 75.56439976649307,
+        "lng": 27.297949218750006,
+        "spellings": [
+            "Golubovka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Krasnoe",
+        "nameRU": null,
+        "lat": 83.81202795908283,
+        "lng": -153.44876953125,
+        "spellings": [
+            "Krasnoe"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Fedorivka",
+        "nameRU": null,
+        "lat": 83.61163886108457,
+        "lng": -133.3437890625,
+        "spellings": [
+            "Fedorivka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Radynka",
+        "nameRU": null,
+        "lat": 83.4549892858619,
+        "lng": -118.57974609375,
+        "spellings": [
+            "Radynka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Sukholuchchya",
+        "nameRU": null,
+        "lat": 80.14438252051025,
+        "lng": -83.79140625000001,
+        "spellings": [
+            "Sukholuchchya"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Dubova",
+        "nameRU": null,
+        "lat": 68.48398760222864,
+        "lng": 22.959492187499997,
+        "spellings": [
+            "Dubova"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Sokoly Industrial",
+        "nameRU": null,
+        "lat": -79.61639194615036,
+        "lng": -129.41929687500001,
+        "spellings": [
+            "Sokoly Industrial"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Horodeshchyna",
+        "nameRU": null,
+        "lat": -39.800973773454466,
+        "lng": -38.47763671875,
+        "spellings": [
+            "Horodeshchyna"
+        ],
+        "type": "Hill",
+        "minZoom": 6
+    },
+    {
+        "nameEN": "Maksymovychi",
+        "nameRU": null,
+        "lat": 24.078244238301743,
+        "lng": -94.29749999999999,
+        "spellings": [
+            "Maksymovychi"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Leliv Industrial",
+        "nameRU": null,
+        "lat": -65.83956712553636,
+        "lng": 26.721035156250004,
+        "spellings": [
+            "Leliv Industrial"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Leliv Farms",
+        "nameRU": null,
+        "lat": -66.74725880272068,
+        "lng": 48.64640625000001,
+        "spellings": [
+            "Leliv Farms"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Chernobyl Industrial",
+        "nameRU": null,
+        "lat": -75.92618424782935,
+        "lng": 63.65232421875003,
+        "spellings": [
+            "Chernobyl Industrial"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Roundabout",
+        "nameRU": null,
+        "lat": -79.55774301000558,
+        "lng": 16.790976562500003,
+        "spellings": [
+            "Roundabout"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Potoky",
+        "nameRU": null,
+        "lat": -79.19442742928608,
+        "lng": 30.969316406249984,
+        "spellings": [
+            "Potoky"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Zirka Industrial Complex",
+        "nameRU": null,
+        "lat": -58.73528199982688,
+        "lng": 17.84373046875001,
+        "spellings": [
+            "Zirka Industrial Complex"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Dovlyady",
+        "nameRU": null,
+        "lat": 54.615344719375436,
+        "lng": 18.627890625000006,
+        "spellings": [
+            "Dovlyady"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Savichi",
+        "nameRU": null,
+        "lat": -11.546683156400274,
+        "lng": 42.72556640625002,
+        "spellings": [
+            "Savichi"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Belaya Soroka",
+        "nameRU": null,
+        "lat": -43.104961496989866,
+        "lng": 62.18015625000002,
+        "spellings": [
+            "Belaya Soroka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Karpylivka",
+        "nameRU": null,
+        "lat": 11.800597382606707,
+        "lng": -55.73056640625,
+        "spellings": [
+            "Karpylivka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Bohdany",
+        "nameRU": null,
+        "lat": -13.152150850588688,
+        "lng": -27.68132812499999,
+        "spellings": [
+            "Bohdany"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Cheremoshna Industrial",
+        "nameRU": null,
+        "lat": 83.12354152751476,
+        "lng": -151.07994140625001,
+        "spellings": [
+            "Cheremoshna Industrial"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Zoryn",
+        "nameRU": null,
+        "lat": -17.507280361451706,
+        "lng": 54.70892578124999,
+        "spellings": [
+            "Zoryn"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Chernobyl Canteen No. 19",
+        "nameRU": null,
+        "lat": 61.88242117381329,
+        "lng": -34.64806640625,
+        "spellings": [
+            "Chernobyl Canteen No. 19"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "ISF-1 (Interim Spent Fuel storage)",
+        "nameRU": null,
+        "lat": 67.3206199836707,
+        "lng": -60.09873046874999,
+        "spellings": [
+            "ISF-1 (Interim Spent Fuel storage)"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Portovi Krany",
+        "nameRU": null,
+        "lat": 77.54304392344994,
+        "lng": -67.071796875,
+        "spellings": [
+            "Portovi Krany"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Kafe Olympyya",
+        "nameRU": null,
+        "lat": 76.98137673986639,
+        "lng": -97.95076171875002,
+        "spellings": [
+            "Kafe Olympyya"
+        ],
+        "type": "NameLocal",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "Centrale Elettrica di Yaniv (Pripya't)",
+        "nameRU": null,
+        "lat": 68.63453610437016,
+        "lng": -126.81298828125001,
+        "spellings": [
+            "Centrale Elettrica di Yaniv (Pripya't)"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Kopachi",
+        "nameRU": null,
+        "lat": 20.603334774669708,
+        "lng": -31.82730468750001,
+        "spellings": [
+            "Kopachi"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Buda Vovchkivs'ka",
+        "nameRU": null,
+        "lat": 14.169642087325862,
+        "lng": -12.259160156250005,
+        "spellings": [
+            "Buda Vovchkivs'ka"
+        ],
+        "type": "NameVillage",
+        "minZoom": 3
+    },
+    {
+        "nameEN": "Lab X12",
+        "nameRU": null,
+        "lat": 51.066586517778646,
+        "lng": 123.70517578125,
+        "spellings": [
+            "Lab X12"
+        ],
+        "type": "NameCity",
+        "minZoom": 2
+    },
+    {
+        "nameEN": "Kryva Hora Military Camp",
+        "nameRU": null,
+        "lat": 65.46410127072537,
+        "lng": 69.42199218750001,
+        "spellings": [
+            "Kryva Hora Military Camp"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    },
+    {
+        "nameEN": "X12 Underground Materials Depot",
+        "nameRU": null,
+        "lat": 40.00163134819928,
+        "lng": 131.52744140625,
+        "spellings": [
+            "X12 Underground Materials Depot"
+        ],
+        "type": "StrongpointArea",
+        "minZoom": 4
+    }
+]

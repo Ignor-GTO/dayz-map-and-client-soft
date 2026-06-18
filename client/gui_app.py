@@ -7,6 +7,8 @@ from tkinter import messagebox, scrolledtext, ttk
 from typing import Callable
 
 import keyboard
+import pystray
+from PIL import Image, ImageDraw
 
 from api_client import MapClient
 from capture import grab_region, list_monitors
@@ -17,6 +19,18 @@ from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
 from ocr_preprocess import IZURVIVE_OCR_REGION
 from version import __version__
+
+
+def create_tray_image() -> Image.Image:
+    image = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
+    dc = ImageDraw.Draw(image)
+    dc.ellipse([8, 8, 56, 56], outline=(59, 130, 246, 255), width=4)
+    dc.ellipse([28, 28, 36, 36], fill=(16, 185, 129, 255))
+    dc.line([32, 4, 32, 18], fill=(59, 130, 246, 255), width=4)
+    dc.line([32, 46, 32, 60], fill=(59, 130, 246, 255), width=4)
+    dc.line([4, 32, 18, 32], fill=(59, 130, 246, 255), width=4)
+    dc.line([46, 32, 60, 32], fill=(59, 130, 246, 255), width=4)
+    return image
 
 
 class ClientApp(tk.Tk):
@@ -39,6 +53,7 @@ class ClientApp(tk.Tk):
         self._clipboard_watch_digest: str | None = None
         self._region_editor: OcrRegionEditor | None = None
         self._hud: GameHudOverlay | None = None
+        self.current_page = 0
 
         self.preprocess_modes_map = {
             "Автоматический выбор (Все цвета)": "auto",
@@ -60,7 +75,7 @@ class ClientApp(tk.Tk):
         self._load_fields()
         self.log_line(f"[Клиент] v{__version__}")
         self.after(400, self._startup_ocr_check)
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.protocol("WM_DELETE_WINDOW", self._minimize_to_tray)
         self.bind_all("<Control-Key>", self._handle_global_shortcuts)
 
     def _build_ui(self) -> None:
@@ -81,32 +96,21 @@ class ClientApp(tk.Tk):
         style = ttk.Style()
         style.theme_use("clam")
         
-        # Configure TNotebook
-        style.configure("TNotebook", background=self.bg_color, borderwidth=0)
-        style.configure("TNotebook.Tab", 
-                        background=self.card_bg, 
-                        foreground=self.fg_color, 
-                        padding=[14, 8], 
-                        font=("Segoe UI", 10, "bold"),
-                        borderwidth=0)
-        style.map("TNotebook.Tab",
-                  background=[("selected", self.accent_color), ("active", self.accent_hover)],
-                  foreground=[("selected", "#ffffff")])
-                  
         # Configure TFrame
         style.configure("TFrame", background=self.bg_color)
         style.configure("Card.TFrame", background=self.card_bg, borderwidth=1, relief="solid")
         
         # Configure TLabelframe
-        style.configure("TLabelframe", background=self.bg_color, bordercolor=self.border_color, padding=10)
-        style.configure("TLabelframe.Label", background=self.bg_color, foreground=self.accent_color, font=("Segoe UI", 10, "bold"))
+        style.configure("TLabelframe", background=self.card_bg, bordercolor=self.border_color, padding=12)
+        style.configure("TLabelframe.Label", background=self.card_bg, foreground=self.accent_color, font=("Segoe UI", 10, "bold"))
         
         # Configure TLabel
         style.configure("TLabel", background=self.bg_color, foreground=self.fg_color, font=("Segoe UI", 10))
         style.configure("Card.TLabel", background=self.card_bg, foreground=self.fg_color, font=("Segoe UI", 10))
-        style.configure("Header.TLabel", background=self.bg_color, foreground="#ffffff", font=("Segoe UI", 13, "bold"))
+        style.configure("Header.TLabel", background=self.bg_color, foreground=self.fg_color, font=("Segoe UI", 13, "bold"))
         style.configure("Muted.TLabel", background=self.bg_color, foreground=self.text_muted, font=("Segoe UI", 9))
-        style.configure("Status.TLabel", background=self.bg_color, foreground=self.accent_color, font=("Segoe UI", 10, "bold"))
+        style.configure("CardMuted.TLabel", background=self.card_bg, foreground=self.text_muted, font=("Segoe UI", 9))
+        style.configure("Status.TLabel", background=self.card_bg, foreground=self.accent_color, font=("Segoe UI", 10, "bold"))
         
         # Configure TButton
         style.configure("TButton", 
@@ -162,6 +166,14 @@ class ClientApp(tk.Tk):
                         indicatorforeground=self.accent_color)
         style.map("TCheckbutton",
                   background=[("active", self.bg_color)])
+                  
+        style.configure("Card.TCheckbutton", 
+                        background=self.card_bg, 
+                        foreground=self.fg_color, 
+                        indicatorbackground=self.bg_color, 
+                        indicatorforeground=self.accent_color)
+        style.map("Card.TCheckbutton",
+                  background=[("active", self.card_bg)])
 
         style.configure("Vertical.TScrollbar", 
                         background=self.card_bg, 
@@ -169,39 +181,55 @@ class ClientApp(tk.Tk):
                         bordercolor=self.border_color,
                         arrowcolor=self.fg_color)
 
-        # Notebook setup
-        notebook = ttk.Notebook(self)
-        notebook.pack(fill="both", expand=True, padx=5, pady=5)
+        style.configure("Header.TFrame", background=self.bg_color)
+        style.configure("HeaderTitle.TLabel", background=self.bg_color, foreground=self.accent_color, font=("Segoe UI", 12, "bold"))
 
-        tab_main = ttk.Frame(notebook)
-        tab_settings = ttk.Frame(notebook)
+        # Header panel
+        header_frm = ttk.Frame(self, style="Header.TFrame", padding=10)
+        header_frm.pack(fill="x", side="top")
+        
+        title_lbl = ttk.Label(header_frm, text="🧭 DAYZ GPS ASSISTANT", style="HeaderTitle.TLabel")
+        title_lbl.pack(side="left", pady=2)
+        
+        nav_frm = ttk.Frame(header_frm, style="Header.TFrame")
+        nav_frm.pack(side="right")
+        
+        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="Accent.TButton", width=12)
+        self.nav_btn_main.pack(side="left", padx=2)
+        
+        self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Action.TButton", width=12)
+        self.nav_btn_settings.pack(side="left", padx=2)
 
-        notebook.add(tab_main, text=" Главная ")
-        notebook.add(tab_settings, text=" Настройки ")
+        # Pages Container
+        self.pages_container = ttk.Frame(self)
+        self.pages_container.pack(fill="both", expand=True, padx=5, pady=5)
+        
+        self.main_page = ttk.Frame(self.pages_container)
+        self.settings_page = ttk.Frame(self.pages_container)
 
-        # ---------------- GLAVNAYA TAB ----------------
-        main_frm = ttk.Frame(tab_main, padding=10)
+        # ---------------- MAIN PAGE ----------------
+        main_frm = ttk.Frame(self.main_page, padding=10)
         main_frm.pack(fill="both", expand=True)
 
         # Status & Hotkeys Control Card
-        ctrl_card = ttk.Frame(main_frm, padding=10, style="Card.TFrame")
+        ctrl_card = ttk.Frame(main_frm, padding=12, style="Card.TFrame")
         ctrl_card.pack(fill="x", pady=(0, 10))
 
         # Status row
-        status_subfrm = ttk.Frame(ctrl_card)
+        status_subfrm = ttk.Frame(ctrl_card, style="Card.TFrame")
         status_subfrm.pack(fill="x", pady=(0, 5))
         ttk.Label(status_subfrm, text="Статус службы:", font=("Segoe UI", 10, "bold"), style="Card.TLabel").pack(side="left")
         self.status_label = ttk.Label(status_subfrm, textvariable=self.status_var, style="Status.TLabel")
         self.status_label.pack(side="left", padx=5)
 
         # Start button row
-        btn_subfrm = ttk.Frame(ctrl_card)
+        btn_subfrm = ttk.Frame(ctrl_card, style="Card.TFrame")
         btn_subfrm.pack(fill="x")
         self.start_btn = ttk.Button(btn_subfrm, text="Запустить hotkeys", command=self.toggle_hotkeys, width=22)
         self.start_btn.pack(side="left", padx=(0, 10))
 
         # Instructions / Help
-        help_card = ttk.Frame(main_frm, padding=10, style="Card.TFrame")
+        help_card = ttk.Frame(main_frm, padding=12, style="Card.TFrame")
         help_card.pack(fill="x", pady=(0, 10))
         
         ttk.Label(help_card, text="Быстрые действия:", font=("Segoe UI", 10, "bold"), style="Card.TLabel").pack(anchor="w", pady=(0, 5))
@@ -276,17 +304,17 @@ class ClientApp(tk.Tk):
         self.log_menu.add_command(label="Выделить всё", command=self._select_all_log)
         self.log.bind("<Button-3>", self._show_log_menu)
 
-        # ---------------- SETTINGS TAB ----------------
-        # Fixed Save Button frame at the bottom of settings tab
-        settings_btn_frame = ttk.Frame(tab_settings, padding=10)
+        # ---------------- SETTINGS PAGE ----------------
+        # Fixed Save Button frame at the bottom of settings page
+        settings_btn_frame = ttk.Frame(self.settings_page, padding=10)
         settings_btn_frame.pack(side="bottom", fill="x")
         
         save_btn = ttk.Button(settings_btn_frame, text="Сохранить настройки", command=self.save_settings, style="Accent.TButton")
         save_btn.pack(side="right", padx=5)
 
         # Scrollable Canvas container
-        canvas = tk.Canvas(tab_settings, borderwidth=0, highlightthickness=0, bg=self.bg_color)
-        scrollbar = ttk.Scrollbar(tab_settings, orient="vertical", command=canvas.yview, style="Vertical.TScrollbar")
+        canvas = tk.Canvas(self.settings_page, borderwidth=0, highlightthickness=0, bg=self.bg_color)
+        scrollbar = ttk.Scrollbar(self.settings_page, orient="vertical", command=canvas.yview, style="Vertical.TScrollbar")
         scrollable_frame = ttk.Frame(canvas, style="TFrame")
 
         scrollable_frame.bind(
@@ -309,11 +337,10 @@ class ClientApp(tk.Tk):
         canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Scroll on settings tab with mouse wheel
+        # Scroll on settings page with mouse wheel
         def _on_mousewheel(event):
             try:
-                current_tab = notebook.index(notebook.select())
-                if current_tab == 1: # settings tab
+                if self.current_page == 1: # settings page
                     canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
             except Exception:
                 pass
@@ -343,12 +370,12 @@ class ClientApp(tk.Tk):
         conn_lf = ttk.LabelFrame(scrollable_frame, text=" Подключение к серверу ", padding=10)
         conn_lf.pack(fill="x", padx=10, pady=5)
         
-        ttk.Label(conn_lf, text="URL сервера:").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(conn_lf, text="URL сервера:", style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=4)
         self.server_var = tk.StringVar()
         self.server_entry = ttk.Entry(conn_lf, textvariable=self.server_var, width=40)
         self.server_entry.grid(row=0, column=1, sticky="we", padx=5, pady=4)
         
-        ttk.Label(conn_lf, text="Ключ клиента:").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Label(conn_lf, text="Ключ клиента:", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
         self.key_var = tk.StringVar()
         self.key_entry = ttk.Entry(conn_lf, textvariable=self.key_var, width=40, show="*")
         self.key_entry.grid(row=1, column=1, sticky="we", padx=5, pady=4)
@@ -359,7 +386,7 @@ class ClientApp(tk.Tk):
         capture_lf = ttk.LabelFrame(scrollable_frame, text=" Экран и захват ", padding=10)
         capture_lf.pack(fill="x", padx=10, pady=5)
         
-        ttk.Label(capture_lf, text="Монитор:").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(capture_lf, text="Монитор:", style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=4)
         self.monitor_var = tk.StringVar()
         self.monitor_combo = ttk.Combobox(capture_lf, textvariable=self.monitor_var, state="readonly", width=30)
         self.monitor_combo.grid(row=0, column=1, sticky="we", padx=5, pady=4)
@@ -369,8 +396,8 @@ class ClientApp(tk.Tk):
             row=0, column=2, sticky="w", padx=5, pady=4
         )
         
-        ttk.Label(capture_lf, text="Область OCR (L,T,R,B):").grid(row=1, column=0, sticky="w", pady=4)
-        region_frm = ttk.Frame(capture_lf)
+        ttk.Label(capture_lf, text="Область OCR (L,T,R,B):", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
+        region_frm = ttk.Frame(capture_lf, style="Card.TFrame")
         region_frm.grid(row=1, column=1, columnspan=2, sticky="w", pady=4)
         
         self.region_vars = [tk.IntVar(value=v) for v in self.cfg.get("ocr_region", IZURVIVE_OCR_REGION)]
@@ -383,7 +410,7 @@ class ClientApp(tk.Tk):
         self.region_btn.pack(side="left", padx=6)
         ttk.Button(region_frm, text="iZurvive", command=self._apply_izurvive_preset, style="Action.TButton").pack(side="left", padx=2)
         
-        ttk.Label(capture_lf, text="Цвет текста (OCR режим):").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(capture_lf, text="Цвет текста (OCR режим):", style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=4)
         self.ocr_preprocess_mode_var = tk.StringVar()
         self.ocr_preprocess_mode_combo = ttk.Combobox(
             capture_lf,
@@ -400,22 +427,22 @@ class ClientApp(tk.Tk):
         hotkey_lf = ttk.LabelFrame(scrollable_frame, text=" Горячие клавиши ", padding=10)
         hotkey_lf.pack(fill="x", padx=10, pady=5)
         
-        ttk.Label(hotkey_lf, text="Открыть карту / позиция:").grid(row=0, column=0, sticky="w", pady=4)
+        ttk.Label(hotkey_lf, text="Открыть карту / позиция:", style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=4)
         self.hotkey_toggle_map_var = tk.StringVar()
         self.hotkey_toggle_map_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_toggle_map_var, width=35)
         self.hotkey_toggle_map_entry.grid(row=0, column=1, sticky="we", padx=5, pady=4)
         
-        ttk.Label(hotkey_lf, text="Отправить метку:").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Label(hotkey_lf, text="Отправить метку:", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
         self.hotkey_send_marker_var = tk.StringVar()
         self.hotkey_send_marker_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_send_marker_var, width=35)
         self.hotkey_send_marker_entry.grid(row=1, column=1, sticky="we", padx=5, pady=4)
         
-        ttk.Label(hotkey_lf, text="Снимок координат:").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(hotkey_lf, text="Снимок координат:", style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=4)
         self.hotkey_snip_coords_var = tk.StringVar()
         self.hotkey_snip_coords_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_snip_coords_var, width=35)
         self.hotkey_snip_coords_entry.grid(row=2, column=1, sticky="we", padx=5, pady=4)
         
-        ttk.Label(hotkey_lf, text="Закрыть карту:").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(hotkey_lf, text="Закрыть карту:", style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=4)
         self.hotkey_close_map_var = tk.StringVar()
         self.hotkey_close_map_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_close_map_var, width=35)
         self.hotkey_close_map_entry.grid(row=3, column=1, sticky="we", padx=5, pady=4)
@@ -423,7 +450,7 @@ class ClientApp(tk.Tk):
         ttk.Label(
             hotkey_lf, 
             text="Можно указать несколько клавиш через запятую (например: m, num lock)", 
-            style="Muted.TLabel"
+            style="CardMuted.TLabel"
         ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(2, 4))
         
         hotkey_lf.columnconfigure(1, weight=1)
@@ -436,11 +463,12 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_chk = ttk.Checkbutton(
             nudge_lf,
             text="Сдвигать мышь перед OCR (необходимо для iZurvive)",
-            variable=self.mouse_nudge_var
+            variable=self.mouse_nudge_var,
+            style="Card.TCheckbutton"
         )
         self.mouse_nudge_chk.grid(row=0, column=0, columnspan=2, sticky="w", pady=4)
         
-        ttk.Label(nudge_lf, text="Направление сдвига:").grid(row=1, column=0, sticky="w", pady=4)
+        ttk.Label(nudge_lf, text="Направление сдвига:", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
         self.mouse_nudge_side_var = tk.StringVar()
         self.mouse_nudge_side_combo = ttk.Combobox(
             nudge_lf,
@@ -451,12 +479,12 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_side_combo.grid(row=1, column=1, sticky="we", padx=5, pady=4)
         self.mouse_nudge_side_combo["values"] = list(self.mouse_nudge_sides_map.keys())
         
-        ttk.Label(nudge_lf, text="Задержка сдвига (мс):").grid(row=2, column=0, sticky="w", pady=4)
+        ttk.Label(nudge_lf, text="Задержка сдвига (мс):", style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=4)
         self.mouse_nudge_delay_var = tk.StringVar()
         self.mouse_nudge_delay_entry = ttk.Entry(nudge_lf, textvariable=self.mouse_nudge_delay_var, width=35)
         self.mouse_nudge_delay_entry.grid(row=2, column=1, sticky="we", padx=5, pady=4)
         
-        ttk.Label(nudge_lf, text="Отступ от края экрана (пкс):").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(nudge_lf, text="Отступ от края экрана (пкс):", style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=4)
         self.mouse_nudge_offset_var = tk.StringVar()
         self.mouse_nudge_offset_entry = ttk.Entry(nudge_lf, textvariable=self.mouse_nudge_offset_var, width=35)
         self.mouse_nudge_offset_entry.grid(row=3, column=1, sticky="we", padx=5, pady=4)
@@ -465,7 +493,8 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_restore_chk = ttk.Checkbutton(
             nudge_lf,
             text="Возвращать курсор мыши в исходное положение",
-            variable=self.mouse_nudge_restore_var
+            variable=self.mouse_nudge_restore_var,
+            style="Card.TCheckbutton"
         )
         self.mouse_nudge_restore_chk.grid(row=4, column=0, columnspan=2, sticky="w", pady=4)
         
@@ -475,7 +504,7 @@ class ClientApp(tk.Tk):
         diag_lf = ttk.LabelFrame(scrollable_frame, text=" Диагностика и проверка OCR ", padding=10)
         diag_lf.pack(fill="x", padx=10, pady=5)
         
-        diag_btn_frm = ttk.Frame(diag_lf)
+        diag_btn_frm = ttk.Frame(diag_lf, style="Card.TFrame")
         diag_btn_frm.pack(fill="x", pady=4)
         
         ttk.Button(diag_btn_frm, text="Тест OCR (M)", command=self.test_ocr, style="Action.TButton").pack(side="left", padx=2, expand=True, fill="x")
@@ -495,7 +524,55 @@ class ClientApp(tk.Tk):
         ]:
             entry.bind("<Button-3>", self._show_entry_menu)
 
+        # Show default page
+        self._show_page(0)
+
+        # Create tray icon
+        self._create_tray_icon()
+
         self._refresh_monitors()
+
+    def _show_page(self, page_index: int) -> None:
+        self.current_page = page_index
+        if page_index == 0:
+            self.settings_page.pack_forget()
+            self.main_page.pack(fill="both", expand=True)
+            self.nav_btn_main.configure(style="Accent.TButton")
+            self.nav_btn_settings.configure(style="Action.TButton")
+        elif page_index == 1:
+            self.main_page.pack_forget()
+            self.settings_page.pack(fill="both", expand=True)
+            self.nav_btn_main.configure(style="Action.TButton")
+            self.nav_btn_settings.configure(style="Accent.TButton")
+
+    def _create_tray_icon(self) -> None:
+        self.tray_image = create_tray_image()
+        self.tray_menu = pystray.Menu(
+            pystray.MenuItem("Открыть", self._restore_from_tray, default=True),
+            pystray.MenuItem("Выход", self._quit_app)
+        )
+        self.tray_icon = pystray.Icon(
+            "dayz_gps_assistant",
+            self.tray_image,
+            title="DayZ GPS Assistant",
+            menu=self.tray_menu
+        )
+        threading.Thread(target=self.tray_icon.run, daemon=True).start()
+
+    def _minimize_to_tray(self) -> None:
+        self.withdraw()
+        self.log_line("[Трей] Приложение свернуто в трей.")
+
+    def _restore_from_tray(self, icon=None, item=None) -> None:
+        self.after(0, self._restore_gui)
+
+    def _restore_gui(self) -> None:
+        self.deiconify()
+        self.focus_force()
+        self.lift()
+
+    def _quit_app(self, icon=None, item=None) -> None:
+        self.after(0, self.on_close)
 
     def _refresh_monitors(self) -> None:
         prev_index = self.monitor_combo.current() if hasattr(self, "monitor_combo") else -1
@@ -1310,6 +1387,8 @@ class ClientApp(tk.Tk):
             self._hud.destroy()
         if self.hotkeys_active:
             self.stop_hotkeys()
+        if hasattr(self, "tray_icon") and self.tray_icon:
+            self.tray_icon.stop()
         self.destroy()
 
 
