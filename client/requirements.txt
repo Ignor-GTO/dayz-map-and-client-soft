@@ -14,3 +14,4 @@ numpy==2.2.1
 onnxruntime==1.20.1
 rapidocr==3.4.0
 pytesseract==0.3.13
+pystray==0.19.5
