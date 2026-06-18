@@ -90,6 +90,33 @@ async def delete_segment(db: AsyncSession, segment_id: int, map_id: int) -> bool
     return True
 
 
+async def clear_segments(db: AsyncSession, map_id: int) -> int:
+    from sqlalchemy import delete
+    result = await db.execute(delete(RoadSegment).where(RoadSegment.map_id == map_id))
+    await db.commit()
+    return result.rowcount
+
+
+async def create_segments_bulk(
+    db: AsyncSession, map_id: int, segments: list[dict]
+) -> list[dict]:
+    db_segs = []
+    for s in segments:
+        road_type = s.get("road_type", "road")
+        if road_type not in ROAD_TYPE_SPEED:
+            road_type = "road"
+        seg = RoadSegment(
+            map_id=map_id,
+            road_type=road_type,
+            points=json.dumps(s.get("points")),
+        )
+        db.add(seg)
+        db_segs.append(seg)
+    await db.commit()
+    return [_segment_to_dict(s) for s in db_segs]
+
+
+
 def _segment_to_dict(seg: RoadSegment) -> dict:
     return {
         "id": seg.id,

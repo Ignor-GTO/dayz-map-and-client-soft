@@ -19,7 +19,7 @@ from app.radiation_service import (
     save_radiation_config,
 )
 from app.radiation_upload import delete_overlay_file, save_radiation_overlay
-from app.roads_service import create_segment, delete_segment, list_segments, update_segment
+from app.roads_service import create_segment, delete_segment, list_segments, update_segment, clear_segments, create_segments_bulk
 from app.schemas import (
     AdminLoginRequest,
     AdminPasswordRequest,
@@ -575,4 +575,28 @@ async def admin_delete_road(
     if not ok:
         raise HTTPException(status_code=404, detail="Road segment not found")
     return {"ok": True}
+
+
+@router.delete("/maps/{map_slug}/roads")
+async def admin_clear_roads(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    count = await clear_segments(db, game_map.id)
+    return {"ok": True, "deleted": count}
+
+
+@router.post("/maps/{map_slug}/roads/bulk", response_model=list[RoadSegmentResponse])
+async def admin_create_roads_bulk(
+    map_slug: str,
+    payload: list[RoadSegmentCreate],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    segments_data = [{"road_type": p.road_type, "points": p.points} for p in payload]
+    return await create_segments_bulk(db, game_map.id, segments_data)
+
 

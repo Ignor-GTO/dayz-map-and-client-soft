@@ -15,4 +15,5 @@ server/static/data/pripyat-radiation-ref.jpg
 server/static/data/pripyat-radiation-mask.png
 .DS_Store
 Thumbs.db
-graphify-out/
+tile_cache/
+road_segments.json
