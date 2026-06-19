@@ -1303,6 +1303,7 @@ class ClientApp(tk.Tk):
                     self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
             return
 
+        self._map_session_trigger_key = pressed_key.strip().lower()
         self._start_map_session()
         if pressed_key.strip().lower() != "m":
             try:
@@ -1336,7 +1337,7 @@ class ClientApp(tk.Tk):
                         else:
                             self.after(0, lambda t=err_msg: self.log_line(f"[M] Ошибка отправки: {t}"))
                             self.after(0, lambda: self._ensure_hud().show_error("Ошибка отправки"))
-                    if not is_cancelled():
+                    if not is_cancelled() and getattr(self, "_map_session_trigger_key", "m") != "m":
                         self.after(300, self._close_map_automatically)
                 else:
                     self.after(0, lambda: self.log_line("[M] Координаты не распознаны"))
