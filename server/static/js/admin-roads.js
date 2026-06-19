@@ -410,7 +410,7 @@
     updateEditPolyline();
     renderEditMarkers();
 
-    setStatus(`Редактирование #${seg.id}. Перетаскивайте точки. Двойной клик на точке — удалить её.`, "drawing");
+    setStatus(`Редактирование #${seg.id}. Двойной клик на точке — удалить, правый клик — разрезать.`, "drawing");
   }
 
   function cancelEditSegment() {
@@ -519,6 +519,20 @@
         renderEditMarkers();
       });
 
+      m.on("contextmenu", (e) => {
+        if (e.originalEvent) {
+          e.originalEvent.preventDefault();
+        }
+        L.DomEvent.stopPropagation(e);
+        if (idx === 0 || idx === editingPoints.length - 1) {
+          showError("Нельзя разрезать дорогу на концах!");
+          return;
+        }
+        if (confirm(`Разделить дорогу в этой точке на два отдельных сегмента?`)) {
+          splitSegmentAt(idx);
+        }
+      });
+
       editMarkers.push(m);
     });
 
@@ -589,7 +603,7 @@
       endBtn.classList.add("active");
       setStatus("Кликайте на карте, чтобы добавить точки в КОНЕЦ дороги", "drawing");
     } else {
-      setStatus(`Редактирование #${editingSegmentId}. Перетаскивайте точки. Двойной клик на точке — удалить её.`, "drawing");
+      setStatus(`Редактирование #${editingSegmentId}. Двойной клик на точке — удалить, правый клик — разрезать.`, "drawing");
     }
   }
 
@@ -625,6 +639,49 @@
       setStatus(`✅ Сегмент #${segmentId} успешно обновлен`, "idle");
     } catch (e) {
       showError("Ошибка обновления сегмента: " + e.message);
+    }
+  }
+
+  async function splitSegmentAt(idx) {
+    const roadType = allSegments.find(s => s.id === editingSegmentId)?.road_type || selectedRoadType;
+    const points1 = editingPoints.slice(0, idx + 1).map(ll => fromLatLng(ll));
+    const points2 = editingPoints.slice(idx).map(ll => fromLatLng(ll));
+    const segmentId = editingSegmentId;
+
+    try {
+      const seg1 = await adminApi(`/api/admin/maps/${currentMapSlug}/roads/${segmentId}`, {
+        method: "PUT",
+        body: JSON.stringify({ points: points1 }),
+      });
+
+      const seg2 = await adminApi(`/api/admin/maps/${currentMapSlug}/roads`, {
+        method: "POST",
+        body: JSON.stringify({ road_type: roadType, points: points2 }),
+      });
+
+      const idxLocal = allSegments.findIndex(s => s.id === segmentId);
+      if (idxLocal !== -1) {
+        allSegments[idxLocal] = seg1;
+      }
+      allSegments.push(seg2);
+
+      const origLayer = segmentLayers.get(segmentId);
+      if (origLayer) {
+        roadsMap.removeLayer(origLayer);
+      }
+
+      cancelEditSegment();
+      
+      renderSegment(seg1);
+      renderSegment(seg2);
+      updateSegmentList();
+
+      document.getElementById("roads-seg-count").textContent =
+        `${allSegments.length} сегментов`;
+
+      setStatus(`✅ Дорога разделена на сегменты #${seg1.id} и #${seg2.id}`, "idle");
+    } catch (e) {
+      showError("Ошибка разделения дороги: " + e.message);
     }
   }
 
