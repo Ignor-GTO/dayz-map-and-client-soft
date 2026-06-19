@@ -809,7 +809,7 @@ async function initClientDownloadLinks() {
 // ============================================================
 
 const ROAD_COLORS_MAP = {
-  highway: "#f5c900",
+  highway: "#c084fc",
   road: "#c0c0c0",
   street: "#4fc3f7",
 };

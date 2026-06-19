@@ -11,7 +11,7 @@
   "use strict";
 
   const ROAD_COLORS = {
-    highway: "#f5c900",
+    highway: "#c084fc",
     road: "#b0b0b0",
     street: "#4fc3f7",
   };
