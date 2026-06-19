@@ -107,16 +107,13 @@ def detect_roads(atlas: np.ndarray) -> np.ndarray:
     mask = cv2.subtract(mask, cv2.dilate(water_mask,
                         cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))))
 
-    # Морфология: сначала закрываем разрывы (крупное ядро), потом чистим шум
-    k7 = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    # Морфология: закрываем небольшие разрывы и убираем шум
     k5 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     k3 = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-    # Закрываем: соединяем пиксели через небольшие разрывы
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k7, iterations=4)
-    # Открываем: убираем тонкий шум
-    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k3, iterations=2)
-    # Ещё раз закрываем чтобы соединить пробелы после открытия
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k5, iterations=2)
+    # Закрываем небольшие пробелы (например, от текста или значков на дорогах)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, k5, iterations=1)
+    # Убираем одиночный мелкий шум
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  k3, iterations=1)
 
     # Удаляем маленькие компоненты (шум)
     n_comp, labels, stats, _ = cv2.connectedComponentsWithStats(mask)
@@ -447,7 +444,7 @@ def main():
         segments.append({"road_type": "highway", "points": game_pts})
 
     # Сшиваем сегменты
-    segments = stitch_segments(segments, stitch_dist=80.0, min_len=5.0)
+    segments = stitch_segments(segments, stitch_dist=30.0, min_len=5.0)
     print(f"Итого сегментов: {len(segments)} (пропущено коротких: {skipped})")
 
     # 6. Сохраняем
