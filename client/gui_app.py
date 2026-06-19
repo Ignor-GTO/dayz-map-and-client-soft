@@ -1133,12 +1133,13 @@ class ClientApp(tk.Tk):
         self.start_btn.configure(text="Запустить hotkeys")
         self.log_line("[Стоп] Hotkeys отключены")
 
-    def _end_map_session(self, *, silent: bool = False) -> None:
+    def _end_map_session(self, *, silent: bool = False, keep_hud: bool = False) -> None:
         if not self._map_session_active:
             return
         self._map_session_active = False
         self._session_player_coords = None
-        self._ensure_hud().hide()
+        if not keep_hud:
+            self._ensure_hud().hide()
         if not silent:
             self.log_line("[M] Карта закрыта — OCR отключён")
         self._update_session_status()
@@ -1336,11 +1337,12 @@ class ClientApp(tk.Tk):
                             self.after(0, lambda t=err_msg: self.log_line(f"[M] Ошибка отправки: {t}"))
                             self.after(0, lambda: self._ensure_hud().show_error("Ошибка отправки"))
                     if not is_cancelled():
-                        self.after(0, lambda: self._ensure_hud().show_map_session())
+                        self.after(300, self._close_map_automatically)
                 else:
                     self.after(0, lambda: self.log_line("[M] Координаты не распознаны"))
                     self.after(0, lambda: self._ensure_hud().show_error("OCR не распознал"))
-                    self.after(0, lambda: self._ensure_hud().show_map_session())
+                    if not is_cancelled():
+                        self.after(0, lambda: self._ensure_hud().show_map_session())
             except Exception as exc:
                 if is_cancelled():
                     return
@@ -1348,6 +1350,16 @@ class ClientApp(tk.Tk):
                 self.after(0, lambda: self._ensure_hud().show_error(str(exc)[:40]))
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _close_map_automatically(self) -> None:
+        if not self._map_session_active:
+            return
+        self._end_map_session(keep_hud=True)
+        try:
+            keyboard.press("m")
+            self.after(100, lambda: keyboard.release("m"))
+        except Exception as e:
+            self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M' для авто-закрытия: {e}")
 
     def _handle_esc_hotkey(self) -> None:
         if not self.hotkeys_active:
