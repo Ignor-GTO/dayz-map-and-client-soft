@@ -129,30 +129,20 @@ def resolve_monitor(monitor_index: int) -> MonitorInfo | None:
     return monitors[monitor_index - 1]
 
 
-_sct = None
-
-
-def _get_sct():
-    global _sct
-    if _sct is None:
-        _sct = mss.mss()
-    return _sct
-
-
 def grab_monitor(monitor_index: int) -> Image.Image:
     mon = resolve_monitor(monitor_index)
     if not mon:
         raise RuntimeError("No monitors found")
-    sct = _get_sct()
-    shot = sct.grab(
-        {
-            "left": mon.left,
-            "top": mon.top,
-            "width": mon.width,
-            "height": mon.height,
-        }
-    )
-    return Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+    with mss.mss() as sct:
+        shot = sct.grab(
+            {
+                "left": mon.left,
+                "top": mon.top,
+                "width": mon.width,
+                "height": mon.height,
+            }
+        )
+        return Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
 
 
 def grab_region(monitor_index: int, region: tuple[int, int, int, int]) -> Image.Image:
@@ -160,12 +150,12 @@ def grab_region(monitor_index: int, region: tuple[int, int, int, int]) -> Image.
     if not mon:
         raise RuntimeError("No monitors found")
     left, top, right, bottom = region
-    sct = _get_sct()
-    bbox = {
-        "left": mon.left + left,
-        "top": mon.top + top,
-        "width": max(1, right - left),
-        "height": max(1, bottom - top),
-    }
-    shot = sct.grab(bbox)
-    return Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
+    with mss.mss() as sct:
+        bbox = {
+            "left": mon.left + left,
+            "top": mon.top + top,
+            "width": max(1, right - left),
+            "height": max(1, bottom - top),
+        }
+        shot = sct.grab(bbox)
+        return Image.frombytes("RGB", shot.size, shot.bgra, "raw", "BGRX")
