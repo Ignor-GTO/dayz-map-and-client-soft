@@ -274,10 +274,20 @@
               </div>
             </div>
 
-            <div class="roads-tools">
+            <div id="roads-draw-tools" class="roads-tools">
               <button id="roads-draw-btn" class="roads-tool-btn active">✏️ Рисовать</button>
               <button id="roads-undo-btn" class="roads-tool-btn">↩ Отменить точку</button>
               <button id="roads-cancel-btn" class="roads-tool-btn danger">✖ Отмена</button>
+            </div>
+
+            <div id="roads-edit-tools" class="roads-tools hidden" style="margin-top: 10px; border-top: 1px solid #2a3848; padding-top: 10px; display: flex; flex-direction: column; gap: 0.4rem;">
+              <h4 style="margin: 0 0 4px 0; color: #ff9100; font-size: 0.85rem;">Редактирование #<span id="edit-seg-id"></span></h4>
+              <div style="display: flex; gap: 4px; width: 100%;">
+                <button id="roads-edit-extend-start" class="roads-tool-btn" style="flex: 1; padding: 0.4rem;">➕ В начало</button>
+                <button id="roads-edit-extend-end" class="roads-tool-btn" style="flex: 1; padding: 0.4rem;">➕ В конец</button>
+              </div>
+              <button id="roads-edit-save" class="roads-tool-btn success" style="background-color: #1e8449; color: white;">💾 Сохранить</button>
+              <button id="roads-edit-cancel" class="roads-tool-btn danger">✖ Отмена</button>
             </div>
 
             <div class="roads-stats">

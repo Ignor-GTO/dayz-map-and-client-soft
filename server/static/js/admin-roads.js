@@ -47,12 +47,22 @@
   let allSegments = [];       // loaded from server
   let segmentLayers = new Map(); // id -> Leaflet polyline
 
+  // Edit State
+  let editingSegmentId = null;
+  let editingPoints = [];      // [L.LatLng, ...]
+  let editPolyline = null;    // Leaflet polyline representing edited segment
+  let editMarkers = [];       // Vertex markers
+  let editMidpoints = [];     // Midpoint markers
+  let extendMode = null;       // null, "start", or "end"
+
+
   // -------------------------------------------------------------------------
   // Initialization
   // -------------------------------------------------------------------------
 
   window.RoadsEditor = {
     ensureLoaded,
+    selectSegment,
   };
 
   function ensureLoaded() {
@@ -107,6 +117,7 @@
 
   async function loadSegments() {
     if (!currentMapSlug) return;
+    if (editingSegmentId) cancelEditSegment();
     try {
       allSegments = await adminApi(`/api/admin/maps/${currentMapSlug}/roads`);
       renderAllSegments();
@@ -152,7 +163,7 @@
     poly.on("click", (e) => {
       if (!isDrawing) {
         L.DomEvent.stopPropagation(e);
-        highlightSegment(seg.id);
+        window.RoadsEditor.selectSegment(seg.id);
       }
     });
 
@@ -173,14 +184,14 @@
         const label = ROAD_LABELS[seg.road_type] || seg.road_type;
         const pts = seg.points.length;
         return `
-          <div class="road-seg-item" data-id="${seg.id}" id="seg-item-${seg.id}">
+          <div class="road-seg-item" data-id="${seg.id}" id="seg-item-${seg.id}" onclick="window.RoadsEditor.selectSegment(${seg.id}, event)" style="cursor: pointer;">
             <span class="seg-color-dot" style="background:${color}"></span>
             <div class="seg-info">
               <span class="seg-type">${label}</span>
               <span class="seg-pts">${pts} точек</span>
             </div>
-            <button class="seg-focus-btn" onclick="RoadsEditor.focusSegment(${seg.id})" title="Найти на карте">🎯</button>
-            <button class="seg-delete-btn" onclick="RoadsEditor.deleteSegment(${seg.id})" title="Удалить">🗑</button>
+            <button class="seg-focus-btn" onclick="event.stopPropagation(); window.RoadsEditor.focusSegment(${seg.id})" title="Найти на карте">🎯</button>
+            <button class="seg-delete-btn" onclick="event.stopPropagation(); window.RoadsEditor.deleteSegment(${seg.id})" title="Удалить">🗑</button>
           </div>`;
       })
       .join("");
@@ -220,6 +231,9 @@
       await adminApi(`/api/admin/maps/${currentMapSlug}/roads/${id}`, {
         method: "DELETE",
       });
+      if (editingSegmentId === id) {
+        cancelEditSegment();
+      }
       allSegments = allSegments.filter((s) => s.id !== id);
       const layer = segmentLayers.get(id);
       if (layer) roadsMap.removeLayer(layer);
@@ -237,6 +251,7 @@
   // -------------------------------------------------------------------------
 
   function startDraw() {
+    if (editingSegmentId) cancelEditSegment();
     isDrawing = true;
     drawPoints = [];
     clearDrawPreview();
@@ -273,38 +288,52 @@
   }
 
   function onMapClick(e) {
-    if (!isDrawing) return;
-    const latlng = e.latlng;
-    drawPoints.push(latlng);
+    if (isDrawing) {
+      const latlng = e.latlng;
+      drawPoints.push(latlng);
 
-    // Add vertex marker
-    const vm = L.circleMarker(latlng, {
-      radius: 5,
-      color: ROAD_COLORS[selectedRoadType],
-      fillColor: "#fff",
-      fillOpacity: 1,
-      weight: 2,
-    }).addTo(roadsMap);
-    drawMarkers.push(vm);
+      // Add vertex marker
+      const vm = L.circleMarker(latlng, {
+        radius: 5,
+        color: ROAD_COLORS[selectedRoadType],
+        fillColor: "#fff",
+        fillOpacity: 1,
+        weight: 2,
+      }).addTo(roadsMap);
+      drawMarkers.push(vm);
 
-    updateDrawPolyline();
-    setStatus(`${drawPoints.length} точек — двойной клик для сохранения`, "drawing");
+      updateDrawPolyline();
+      setStatus(`${drawPoints.length} точек — двойной клик для сохранения`, "drawing");
+    } else if (editingSegmentId && extendMode) {
+      const latlng = e.latlng;
+      if (extendMode === "start") {
+        editingPoints.unshift(latlng);
+      } else if (extendMode === "end") {
+        editingPoints.push(latlng);
+      }
+      updateEditPolyline();
+      renderEditMarkers();
+      setStatus(`Редактирование: ${editingPoints.length} точек`, "drawing");
+    }
   }
 
   function onMapDblClick(e) {
-    if (!isDrawing) return;
-    // Leaflet fires click before dblclick — so we have at least 2 points
-    // Remove the last duplicate click from dblclick
-    if (drawPoints.length > 1) {
-      drawPoints.pop();
-      const extra = drawMarkers.pop();
-      if (extra) roadsMap.removeLayer(extra);
+    if (isDrawing) {
+      // Leaflet fires click before dblclick — so we have at least 2 points
+      // Remove the last duplicate click from dblclick
+      if (drawPoints.length > 1) {
+        drawPoints.pop();
+        const extra = drawMarkers.pop();
+        if (extra) roadsMap.removeLayer(extra);
+      }
+      if (drawPoints.length < 2) {
+        cancelDraw();
+        return;
+      }
+      saveSegment();
+    } else if (editingSegmentId) {
+      L.DomEvent.stopPropagation(e);
     }
-    if (drawPoints.length < 2) {
-      cancelDraw();
-      return;
-    }
-    saveSegment();
   }
 
   function updateDrawPolyline() {
@@ -339,6 +368,247 @@
 
     // restart drawing mode
     startDraw();
+  }
+
+  // -------------------------------------------------------------------------
+  // Editing mode
+  // -------------------------------------------------------------------------
+
+  function selectSegment(id) {
+    const seg = allSegments.find((s) => s.id === id);
+    if (seg) {
+      highlightSegment(id);
+      startEditSegment(seg);
+    }
+  }
+
+  function startEditSegment(seg) {
+    if (isDrawing) cancelDraw();
+    if (editingSegmentId) cancelEditSegment();
+
+    editingSegmentId = seg.id;
+    editingPoints = seg.points.map(([x, y]) => toLatLng(x, y));
+    extendMode = null;
+
+    document.getElementById("roads-draw-tools").classList.add("hidden");
+    document.getElementById("roads-edit-tools").classList.remove("hidden");
+    document.getElementById("edit-seg-id").textContent = seg.id;
+
+    const origLayer = segmentLayers.get(seg.id);
+    if (origLayer) {
+      origLayer.setStyle({ opacity: 0.15 });
+    }
+
+    roadsMap.getContainer().style.cursor = "";
+
+    updateEditPolyline();
+    renderEditMarkers();
+
+    setStatus(`Редактирование #${seg.id}. Перетаскивайте точки. Двойной клик на точке — удалить её.`, "drawing");
+  }
+
+  function cancelEditSegment() {
+    if (!editingSegmentId) return;
+
+    const origLayer = segmentLayers.get(editingSegmentId);
+    if (origLayer) {
+      const seg = allSegments.find(s => s.id === editingSegmentId);
+      const origWeight = ROAD_WEIGHTS[seg?.road_type] || 3;
+      origLayer.setStyle({ opacity: 0.9, weight: origWeight });
+    }
+
+    clearEditPreview();
+
+    editingSegmentId = null;
+    editingPoints = [];
+    extendMode = null;
+
+    document.getElementById("roads-draw-tools").classList.remove("hidden");
+    document.getElementById("roads-edit-tools").classList.add("hidden");
+    document.querySelectorAll(".road-seg-item").forEach((el) => el.classList.remove("selected"));
+
+    document.getElementById("roads-edit-extend-start").classList.remove("active");
+    document.getElementById("roads-edit-extend-end").classList.remove("active");
+
+    setStatus("Готов", "idle");
+  }
+
+  function clearEditPreview() {
+    if (editPolyline) {
+      roadsMap.removeLayer(editPolyline);
+      editPolyline = null;
+    }
+    editMarkers.forEach(m => roadsMap.removeLayer(m));
+    editMarkers = [];
+    editMidpoints.forEach(m => roadsMap.removeLayer(m));
+    editMidpoints = [];
+  }
+
+  function updateEditPolyline() {
+    if (editPolyline) roadsMap.removeLayer(editPolyline);
+    
+    const roadType = allSegments.find(s => s.id === editingSegmentId)?.road_type || selectedRoadType;
+    const color = "#ff9100";
+    const weight = (ROAD_WEIGHTS[roadType] || 3) + 2;
+
+    editPolyline = L.polyline(editingPoints, {
+      color,
+      weight,
+      opacity: 0.9,
+      lineJoin: "round",
+      lineCap: "round",
+    }).addTo(roadsMap);
+  }
+
+  function renderEditMarkers() {
+    editMarkers.forEach(m => roadsMap.removeLayer(m));
+    editMarkers = [];
+    editMidpoints.forEach(m => roadsMap.removeLayer(m));
+    editMidpoints = [];
+
+    const vertexIcon = L.divIcon({
+      className: "edit-vertex-icon",
+      html: `<div style="width: 12px; height: 12px; background: #fff; border: 3px solid #ff3d00; border-radius: 50%; box-sizing: border-box; transform: translate(-3px, -3px); box-shadow: 0 0 4px rgba(0,0,0,0.5);"></div>`,
+      iconSize: [12, 12],
+      iconAnchor: [6, 6]
+    });
+
+    const midpointIcon = L.divIcon({
+      className: "edit-midpoint-icon",
+      html: `<div style="width: 8px; height: 8px; background: #fff; border: 2px solid #ff9100; border-radius: 50%; opacity: 0.8; box-sizing: border-box; transform: translate(-2px, -2px); box-shadow: 0 0 3px rgba(0,0,0,0.5);"></div>`,
+      iconSize: [8, 8],
+      iconAnchor: [4, 4]
+    });
+
+    editingPoints.forEach((latlng, idx) => {
+      const m = L.marker(latlng, {
+        icon: vertexIcon,
+        draggable: true
+      }).addTo(roadsMap);
+
+      m.on("drag", (e) => {
+        editingPoints[idx] = e.target.getLatLng();
+        updateEditPolyline();
+        updateMidpointsDuringDrag();
+      });
+
+      m.on("dragend", () => {
+        renderEditMarkers();
+      });
+
+      m.on("dblclick", (e) => {
+        L.DomEvent.stopPropagation(e);
+        if (editingPoints.length <= 2) {
+          showError("Минимум 2 точки в сегменте!");
+          return;
+        }
+        editingPoints.splice(idx, 1);
+        updateEditPolyline();
+        renderEditMarkers();
+      });
+
+      editMarkers.push(m);
+    });
+
+    for (let i = 0; i < editingPoints.length - 1; i++) {
+      const p1 = editingPoints[i];
+      const p2 = editingPoints[i+1];
+      const mid = L.latLng((p1.lat + p2.lat) / 2, (p1.lng + p2.lng) / 2);
+
+      const m = L.marker(mid, {
+        icon: midpointIcon,
+        draggable: true
+      }).addTo(roadsMap);
+
+      let hasInserted = false;
+      m.on("drag", (e) => {
+        const dragLatLng = e.target.getLatLng();
+        if (!hasInserted) {
+          hasInserted = true;
+          editingPoints.splice(i + 1, 0, dragLatLng);
+          updateEditPolyline();
+        } else {
+          editingPoints[i + 1] = dragLatLng;
+          updateEditPolyline();
+        }
+      });
+
+      m.on("dragend", () => {
+        renderEditMarkers();
+      });
+
+      editMidpoints.push(m);
+    }
+  }
+
+  function updateMidpointsDuringDrag() {
+    for (let i = 0; i < editingPoints.length - 1; i++) {
+      const p1 = editingPoints[i];
+      const p2 = editingPoints[i+1];
+      const mid = L.latLng((p1.lat + p2.lat) / 2, (p1.lng + p2.lng) / 2);
+      if (editMidpoints[i]) {
+        editMidpoints[i].setLatLng(mid);
+      }
+    }
+  }
+
+  function toggleExtendMode(mode) {
+    if (extendMode === mode) {
+      extendMode = null;
+    } else {
+      extendMode = mode;
+    }
+
+    const startBtn = document.getElementById("roads-edit-extend-start");
+    const endBtn = document.getElementById("roads-edit-extend-end");
+
+    startBtn.classList.remove("active");
+    endBtn.classList.remove("active");
+
+    if (extendMode === "start") {
+      startBtn.classList.add("active");
+      setStatus("Кликайте на карте, чтобы добавить точки в НАЧАЛО дороги", "drawing");
+    } else if (extendMode === "end") {
+      endBtn.classList.add("active");
+      setStatus("Кликайте на карте, чтобы добавить точки в КОНЕЦ дороги", "drawing");
+    } else {
+      setStatus(`Редактирование #${editingSegmentId}. Перетаскивайте точки. Двойной клик на точке — удалить её.`, "drawing");
+    }
+  }
+
+  async function saveEditSegment() {
+    if (editingPoints.length < 2) {
+      showError("Необходимо как минимум 2 точки!");
+      return;
+    }
+    const points = editingPoints.map((ll) => fromLatLng(ll));
+    const segmentId = editingSegmentId;
+
+    try {
+      const seg = await adminApi(`/api/admin/maps/${currentMapSlug}/roads/${segmentId}`, {
+        method: "PUT",
+        body: JSON.stringify({ points }),
+      });
+
+      const idx = allSegments.findIndex(s => s.id === segmentId);
+      if (idx !== -1) {
+        allSegments[idx] = seg;
+      }
+
+      const origLayer = segmentLayers.get(segmentId);
+      if (origLayer) {
+        roadsMap.removeLayer(origLayer);
+      }
+
+      cancelEditSegment();
+      
+      renderSegment(seg);
+      updateSegmentList();
+      
+      setStatus(`✅ Сегмент #${segmentId} успешно обновлен`, "idle");
+    } catch (e) {
+      showError("Ошибка обновления сегмента: " + e.message);
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -381,6 +651,12 @@
     document.getElementById("roads-cancel-btn").addEventListener("click", cancelDraw);
 
     document.getElementById("roads-reload-btn").addEventListener("click", loadSegments);
+
+    // Edit controls listeners
+    document.getElementById("roads-edit-extend-start").addEventListener("click", () => toggleExtendMode("start"));
+    document.getElementById("roads-edit-extend-end").addEventListener("click", () => toggleExtendMode("end"));
+    document.getElementById("roads-edit-save").addEventListener("click", saveEditSegment);
+    document.getElementById("roads-edit-cancel").addEventListener("click", cancelEditSegment);
   }
 
   // -------------------------------------------------------------------------
