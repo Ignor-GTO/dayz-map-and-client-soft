@@ -843,9 +843,10 @@ function renderRoads(segments) {
     L.polyline(latLngs, {
       color,
       weight,
-      opacity: 0.8,
+      opacity: 0.85,
       lineJoin: "round",
-      lineCap: "round",
+      lineCap: "butt",
+      smoothFactor: 1.5,
       interactive: false,
     }).addTo(state.roadLayer);
   });

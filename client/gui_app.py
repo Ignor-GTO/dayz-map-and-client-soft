@@ -91,7 +91,10 @@ class ClientApp(tk.Tk):
         self.success_color = "#10b981"  # Emerald green (OK)
         self.danger_color = "#ef4444"   # Rose red (Error)
 
-          # Configure TFrame
+        style = ttk.Style(self)
+        style.theme_use("clam")
+
+        # Configure TFrame
         style.configure("TFrame", background=self.bg_color)
         style.configure("Card.TFrame", 
                         background=self.card_bg, 

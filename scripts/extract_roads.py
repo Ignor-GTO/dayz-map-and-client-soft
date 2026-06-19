@@ -56,13 +56,15 @@ COLOR_RANGES = {
 }
 
 # Минимальный размер компонента (пикселей) — убирает шум
-MIN_COMPONENT_PIXELS = 80
+# При zoom=6 дороги шире, поэтому порог выше
+MIN_COMPONENT_PIXELS = 150
 
 # Параметры децимации полилинии (Ramer–Douglas–Peucker epsilon в пикселях)
-SIMPLIFY_EPSILON = 2.5
+# Больше epsilon = меньше точек, более плавные линии
+SIMPLIFY_EPSILON = 4.0
 
 # Расстояние для сшивки концов отрезков (пикселей)
-STITCH_DIST = 8
+STITCH_DIST = 12
 
 # Максимальное расстояние от игровой точки до дороги для snap (единицы карты)
 SNAP_DISTANCE = 300
@@ -214,14 +216,16 @@ def pixel_to_game(px: int, py: int, zoom: int) -> tuple[float, float]:
     """
     Перевести пиксель тайлового атласа → игровые координаты.
 
-    Для Leaflet CRS.Simple (tile_bounds = [0,0] to [-256, 256]):
-    - Весь атлас = 2^zoom × 256 пикселей
-    - Игровые коорд.: x = px / atlas_size * MAP_SIZE
-                       y = py / atlas_size * MAP_SIZE (y растёт вниз)
+    Для Leaflet CRS.Simple с TILE_BOUNDS = [(0,0), (-256,256)]:
+    - gameToLatLng в JS: lat = y/ratio - 256
+      → y=0 соответствует lat=-256 (НИЗ карты)
+      → y=MAP_SIZE соответствует lat=0 (ВЕРХ карты)
+    - Тайлы: py=0 = верх изображения = ВЕРХ карты
+    - Значит нужна инверсия: gy = MAP_SIZE - py/atlas_size * MAP_SIZE
     """
     atlas_size = (2 ** zoom) * TILE_SIZE
     gx = px / atlas_size * MAP_SIZE
-    gy = py / atlas_size * MAP_SIZE
+    gy = MAP_SIZE - (py / atlas_size * MAP_SIZE)
     return gx, gy
 
 
