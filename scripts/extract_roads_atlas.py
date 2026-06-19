@@ -406,7 +406,7 @@ def stitch_segments(segments: list[dict], stitch_dist: float = 20.0, min_len: fl
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--zoom",      type=int, default=4)
+    parser.add_argument("--zoom",      type=int, default=5)
     parser.add_argument("--out",       default="road_segments_atlas.json")
     parser.add_argument("--cache-dir", default="tile_cache")
     parser.add_argument("--load",      action="store_true")
@@ -427,7 +427,7 @@ def main():
 
     # 3. Скелетонизация
     skel = skeletonize(mask)
-    skel = prune_spurs(skel, max_spur_len=15)
+    skel = prune_spurs(skel, max_spur_len=3)
 
     # 4. Трассировка
     polylines_rc = trace_to_polylines(skel)
@@ -447,7 +447,7 @@ def main():
         segments.append({"road_type": "highway", "points": game_pts})
 
     # Сшиваем сегменты
-    segments = stitch_segments(segments, stitch_dist=20.0, min_len=5.0)
+    segments = stitch_segments(segments, stitch_dist=80.0, min_len=5.0)
     print(f"Итого сегментов: {len(segments)} (пропущено коротких: {skipped})")
 
     # 6. Сохраняем
