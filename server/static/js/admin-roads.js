@@ -615,13 +615,19 @@
   // Coordinate conversion
   // -------------------------------------------------------------------------
 
-  // Map uses CRS.Simple: lat = -y, lng = x
+  // Map uses CRS.Simple: lat = y/ratio - 256, lng = x/ratio
   function toLatLng(x, y) {
-    return L.latLng(-y, x);
+    const size = mapConfig ? (mapConfig.map_size || 20480) : 20480;
+    const ratio = size / 256;
+    return L.latLng(y / ratio - 256, x / ratio);
   }
 
   function fromLatLng(latlng) {
-    return [latlng.lng, -latlng.lat];
+    const size = mapConfig ? (mapConfig.map_size || 20480) : 20480;
+    const ratio = size / 256;
+    const x = latlng.lng * ratio;
+    const y = (latlng.lat + 256) * ratio;
+    return [x, y];
   }
 
   // -------------------------------------------------------------------------
