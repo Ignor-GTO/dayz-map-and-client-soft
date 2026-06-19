@@ -289,7 +289,10 @@
 
   function onMapClick(e) {
     if (isDrawing) {
-      const latlng = e.latlng;
+      let latlng = e.latlng;
+      const snapLatLng = getSnapLatLng(latlng);
+      if (snapLatLng) latlng = snapLatLng;
+
       drawPoints.push(latlng);
 
       // Add vertex marker
@@ -305,7 +308,10 @@
       updateDrawPolyline();
       setStatus(`${drawPoints.length} точек — двойной клик для сохранения`, "drawing");
     } else if (editingSegmentId && extendMode) {
-      const latlng = e.latlng;
+      let latlng = e.latlng;
+      const snapLatLng = getSnapLatLng(latlng);
+      if (snapLatLng) latlng = snapLatLng;
+
       if (extendMode === "start") {
         editingPoints.unshift(latlng);
       } else if (extendMode === "end") {
@@ -487,7 +493,13 @@
       }).addTo(roadsMap);
 
       m.on("drag", (e) => {
-        editingPoints[idx] = e.target.getLatLng();
+        let latlng = e.target.getLatLng();
+        const snapLatLng = getSnapLatLng(latlng);
+        if (snapLatLng) {
+          latlng = snapLatLng;
+          e.target.setLatLng(latlng);
+        }
+        editingPoints[idx] = latlng;
         updateEditPolyline();
         updateMidpointsDuringDrag();
       });
@@ -522,7 +534,12 @@
 
       let hasInserted = false;
       m.on("drag", (e) => {
-        const dragLatLng = e.target.getLatLng();
+        let dragLatLng = e.target.getLatLng();
+        const snapLatLng = getSnapLatLng(dragLatLng);
+        if (snapLatLng) {
+          dragLatLng = snapLatLng;
+          e.target.setLatLng(dragLatLng);
+        }
         if (!hasInserted) {
           hasInserted = true;
           editingPoints.splice(i + 1, 0, dragLatLng);
@@ -628,6 +645,34 @@
     const x = latlng.lng * ratio;
     const y = (latlng.lat + 256) * ratio;
     return [x, y];
+  }
+
+  function getSnapLatLng(latlng) {
+    const snapDistancePixels = 10; // Snap radius in pixels
+    let closestLatLng = null;
+    let minDistance = Infinity;
+
+    const pTarget = roadsMap.latLngToContainerPoint(latlng);
+
+    allSegments.forEach((seg) => {
+      if (seg.id === editingSegmentId) return;
+
+      seg.points.forEach((pt) => {
+        const candidateLatLng = toLatLng(pt[0], pt[1]);
+        const pCandidate = roadsMap.latLngToContainerPoint(candidateLatLng);
+        
+        const dx = pTarget.x - pCandidate.x;
+        const dy = pTarget.y - pCandidate.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < snapDistancePixels && dist < minDistance) {
+          minDistance = dist;
+          closestLatLng = candidateLatLng;
+        }
+      });
+    });
+
+    return closestLatLng;
   }
 
   // -------------------------------------------------------------------------
