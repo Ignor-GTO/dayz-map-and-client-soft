@@ -430,18 +430,19 @@ class ClientApp(tk.Tk):
         self.bind_all("<MouseWheel>", _on_mousewheel, add="+")
 
         # Context menu for entry fields (Server, Client Key, etc.)
+        self._menu_widget = None
         self.entry_menu = tk.Menu(self, tearoff=0)
         self.entry_menu.add_command(
             label="Вырезать",
-            command=lambda: self.focus_get().event_generate("<<Cut>>") if self.focus_get() else None
+            command=lambda: self._menu_widget.event_generate("<<Cut>>") if self._menu_widget else None
         )
         self.entry_menu.add_command(
             label="Копировать",
-            command=lambda: self.focus_get().event_generate("<<Copy>>") if self.focus_get() else None
+            command=lambda: self._menu_widget.event_generate("<<Copy>>") if self._menu_widget else None
         )
         self.entry_menu.add_command(
             label="Вставить",
-            command=lambda: self.focus_get().event_generate("<<Paste>>") if self.focus_get() else None
+            command=lambda: self._menu_widget.event_generate("<<Paste>>") if self._menu_widget else None
         )
         self.entry_menu.add_command(
             label="Выделить всё",
@@ -762,7 +763,7 @@ class ClientApp(tk.Tk):
         self.log_menu.post(event.x_root, event.y_root)
 
     def _select_all_entry(self) -> None:
-        widget = self.focus_get()
+        widget = getattr(self, "_menu_widget", None) or self.focus_get()
         if isinstance(widget, (tk.Entry, ttk.Entry)):
             widget.select_range(0, tk.END)
             widget.icursor(tk.END)
@@ -770,6 +771,7 @@ class ClientApp(tk.Tk):
     def _show_entry_menu(self, event) -> None:
         widget = event.widget
         widget.focus_set()
+        self._menu_widget = widget
         try:
             is_writable = widget.cget("state") == "normal"
         except (tk.TclError, AttributeError):
@@ -796,26 +798,72 @@ class ClientApp(tk.Tk):
         widget = event.widget
         if not isinstance(widget, (tk.Entry, ttk.Entry, tk.Text, scrolledtext.ScrolledText)):
             return None
-        if event.keycode == 86:  # Ctrl+V
+        
+        # Check keysym, char, and keycode for multi-layout and platform compatibility
+        keysym = event.keysym.lower()
+        char = event.char
+        keycode = event.keycode
+
+        is_v = keysym in ('v', 'cyrillic_em') or char == '\x16' or keycode == 86
+        is_c = keysym in ('c', 'cyrillic_es') or char == '\x03' or keycode == 67
+        is_x = keysym in ('x', 'cyrillic_ch') or char == '\x18' or keycode == 88
+        is_a = keysym in ('a', 'cyrillic_ef') or char == '\x01' or keycode == 65
+
+        if is_v:
             try:
                 state = widget.cget("state")
             except (tk.TclError, AttributeError):
                 state = "normal"
             if state == "normal":
-                widget.event_generate("<<Paste>>")
+                try:
+                    text = widget.clipboard_get()
+                    if isinstance(widget, (tk.Entry, ttk.Entry)):
+                        try:
+                            if widget.selection_present():
+                                widget.delete("sel.first", "sel.last")
+                        except tk.TclError:
+                            pass
+                        widget.insert(tk.INSERT, text)
+                    else:
+                        try:
+                            if widget.tag_ranges("sel"):
+                                widget.delete("sel.first", "sel.last")
+                        except tk.TclError:
+                            pass
+                        widget.insert(tk.INSERT, text)
+                except tk.TclError:
+                    pass
             return "break"
-        elif event.keycode == 67:  # Ctrl+C
-            widget.event_generate("<<Copy>>")
+        elif is_c:
+            try:
+                if isinstance(widget, (tk.Entry, ttk.Entry)):
+                    text = widget.selection_get()
+                else:
+                    text = widget.get("sel.first", "sel.last")
+                widget.clipboard_clear()
+                widget.clipboard_append(text)
+            except tk.TclError:
+                pass
             return "break"
-        elif event.keycode == 88:  # Ctrl+X
+        elif is_x:
             try:
                 state = widget.cget("state")
             except (tk.TclError, AttributeError):
                 state = "normal"
             if state == "normal":
-                widget.event_generate("<<Cut>>")
+                try:
+                    if isinstance(widget, (tk.Entry, ttk.Entry)):
+                        text = widget.selection_get()
+                        widget.delete("sel.first", "sel.last")
+                    else:
+                        text = widget.get("sel.first", "sel.last")
+                        widget.delete("sel.first", "sel.last")
+                    widget.clipboard_clear()
+                    widget.clipboard_append(text)
+                except tk.TclError:
+                    pass
             return "break"
-        elif event.keycode == 65:  # Ctrl+A
+        elif is_a:
             if isinstance(widget, (tk.Entry, ttk.Entry)):
                 widget.select_range(0, tk.END)
                 widget.icursor(tk.END)
