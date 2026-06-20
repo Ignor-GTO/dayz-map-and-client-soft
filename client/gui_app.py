@@ -528,30 +528,38 @@ class ClientApp(tk.Tk):
         self.btn_rec_close.grid(row=2, column=2, sticky="w", padx=2, pady=4)
         self.btn_rec_close.configure(command=lambda: self._record_hotkey(self.hotkey_close_map_var, self.btn_rec_close))
 
-        # Group 2: Markers Section Header
-        ttk.Label(hotkey_lf, text="📍 Метки и OCR", font=("Segoe UI", 9, "bold"), style="Card.TLabel").grid(row=3, column=0, columnspan=3, sticky="w", pady=(15, 5))
+        ttk.Label(hotkey_lf, text="Клавиша карты в игре (M):", style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=4)
+        self.game_map_key_var = tk.StringVar()
+        self.game_map_key_entry = ttk.Entry(hotkey_lf, textvariable=self.game_map_key_var, width=28)
+        self.game_map_key_entry.grid(row=3, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_game_map = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_game_map.grid(row=3, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_game_map.configure(command=lambda: self._record_hotkey(self.game_map_key_var, self.btn_rec_game_map))
 
-        ttk.Label(hotkey_lf, text="Отправить метку:", style="Card.TLabel").grid(row=4, column=0, sticky="w", pady=4)
+        # Group 2: Markers Section Header
+        ttk.Label(hotkey_lf, text="📍 Метки и OCR", font=("Segoe UI", 9, "bold"), style="Card.TLabel").grid(row=4, column=0, columnspan=3, sticky="w", pady=(15, 5))
+
+        ttk.Label(hotkey_lf, text="Отправить метку:", style="Card.TLabel").grid(row=5, column=0, sticky="w", pady=4)
         self.hotkey_send_marker_var = tk.StringVar()
         self.hotkey_send_marker_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_send_marker_var, width=28)
-        self.hotkey_send_marker_entry.grid(row=4, column=1, sticky="we", padx=5, pady=4)
+        self.hotkey_send_marker_entry.grid(row=5, column=1, sticky="we", padx=5, pady=4)
         self.btn_rec_send = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
-        self.btn_rec_send.grid(row=4, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_send.grid(row=5, column=2, sticky="w", padx=2, pady=4)
         self.btn_rec_send.configure(command=lambda: self._record_hotkey(self.hotkey_send_marker_var, self.btn_rec_send))
 
-        ttk.Label(hotkey_lf, text="Снимок координат:", style="Card.TLabel").grid(row=5, column=0, sticky="w", pady=4)
+        ttk.Label(hotkey_lf, text="Снимок координат:", style="Card.TLabel").grid(row=6, column=0, sticky="w", pady=4)
         self.hotkey_snip_coords_var = tk.StringVar()
         self.hotkey_snip_coords_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_snip_coords_var, width=28)
-        self.hotkey_snip_coords_entry.grid(row=5, column=1, sticky="we", padx=5, pady=4)
+        self.hotkey_snip_coords_entry.grid(row=6, column=1, sticky="we", padx=5, pady=4)
         self.btn_rec_snip = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
-        self.btn_rec_snip.grid(row=5, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_snip.grid(row=6, column=2, sticky="w", padx=2, pady=4)
         self.btn_rec_snip.configure(command=lambda: self._record_hotkey(self.hotkey_snip_coords_var, self.btn_rec_snip))
 
         ttk.Label(
             hotkey_lf, 
             text="Вы можете ввести клавиши вручную (через запятую) или нажать «Записать» для авто-определения.", 
             style="CardMuted.TLabel"
-        ).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 2))
+        ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6, 2))
         
         hotkey_lf.columnconfigure(1, weight=1)
 
