@@ -73,6 +73,13 @@
               <span>🟢 Клик = Старт</span>
               <span>🔴 Клик = Финиш</span>
             </div>
+            <div class="nav-controls" style="margin-top: 8px; border-top: 1px solid #2a3848; padding-top: 8px; display: flex; flex-direction: column; gap: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.82rem; cursor: pointer; color: var(--text);">
+                <input type="checkbox" id="nav-voice-chk" style="width: auto; margin: 0; cursor: pointer;" checked>
+                <span>🔊 Голосовой гид</span>
+              </label>
+              <button id="nav-sim-btn" class="secondary small" style="width: 100%; display: none; padding: 4px 8px; font-size: 0.8rem;">🏃 Симулировать движение</button>
+            </div>
           </div>
         </div>
 
@@ -108,6 +115,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js"></script>
-  <script src="/js/map.js?v=22"></script>
+  <script src="/js/map.js?v=23"></script>
 </body>
 </html>

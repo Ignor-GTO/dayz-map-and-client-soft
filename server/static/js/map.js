@@ -21,6 +21,14 @@ const state = {
   navFromMarker: null,
   navToMarker: null,
   navRouteLayer: null,      // L.polyline of computed route
+  navRoutePoints: [],
+  navRouteManeuvers: [],
+  navSimInterval: null,
+  navSimPathIndex: 0,
+  navSimDistanceCovered: 0,
+  navSimMarker: null,
+  navLastAnnouncedIndex: -1,
+  navLastAnnouncedPrepIndex: -1,
   filters: {
     labels: true,
     cities: true,
@@ -253,6 +261,7 @@ function upsertLive(pos) {
   // Для текущего пользователя двигаем карту как навигатор.
   if (state.me && pos.user_id === state.me.user_id && state.map) {
     state.map.panTo(latlng, { animate: true, duration: 0.6 });
+    trackPlayerOnRoute(pos.x, pos.y);
   }
   updatePlayersList();
 }
@@ -908,6 +917,12 @@ function navClearRoute() {
     state.map.removeLayer(state.navRouteLayer);
     state.navRouteLayer = null;
   }
+  state.navRoutePoints = [];
+  state.navRouteManeuvers = [];
+  const simBtn = document.getElementById("nav-sim-btn");
+  if (simBtn) simBtn.style.display = "none";
+  stopRouteSimulation();
+  clearSimulationMarker();
 }
 
 function navClearMarkers() {
@@ -921,6 +936,8 @@ function navReset() {
   state.navStep = "from";
   navClearMarkers();
   navClearRoute();
+  stopRouteSimulation();
+  clearSimulationMarker();
   updateNavUI();
 }
 
@@ -961,6 +978,10 @@ async function computeRoute() {
       return;
     }
 
+    state.navRoutePoints = result.path;
+    state.navRouteManeuvers = calculateManeuvers(result.path);
+    resetRouteTracking();
+
     const latLngs = result.path.map(([x, y]) => gameToLatLng(x, y));
     state.navRouteLayer = L.polyline(latLngs, {
       color: "#00e5ff",
@@ -975,6 +996,12 @@ async function computeRoute() {
 
     const km = (result.total_distance / 1000).toFixed(2);
     updateNavUI(`✅ Маршрут: ~${km} км`);
+
+    // Show simulation button
+    const simBtn = document.getElementById("nav-sim-btn");
+    if (simBtn) simBtn.style.display = "block";
+
+    speak("Маршрут построен.");
   } catch (e) {
     updateNavUI(`⚠ Ошибка: ${e.message}`);
   }
@@ -1038,6 +1065,295 @@ function initNavigatorButton() {
       state.map.getContainer().style.cursor = "";
       navReset();
     });
+  }
+
+  const simBtn = document.getElementById("nav-sim-btn");
+  if (simBtn) {
+    simBtn.addEventListener("click", () => {
+      if (state.navSimInterval) {
+        stopRouteSimulation();
+        clearSimulationMarker();
+      } else {
+        startRouteSimulation();
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Voice Navigator & Route Simulation Helpers
+// ---------------------------------------------------------------------------
+
+let selectedVoice = null;
+
+function loadVoice() {
+  if (!window.speechSynthesis) return;
+  const voices = window.speechSynthesis.getVoices();
+  let ruVoice = voices.find(v => {
+    const name = v.name.toLowerCase();
+    return v.lang.startsWith("ru") && (name.includes("alisa") || name.includes("alice") || name.includes("yandex"));
+  });
+  if (!ruVoice) {
+    ruVoice = voices.find(v => v.lang.startsWith("ru") && v.name.toLowerCase().includes("google"));
+  }
+  if (!ruVoice) {
+    ruVoice = voices.find(v => v.lang.startsWith("ru"));
+  }
+  selectedVoice = ruVoice;
+}
+
+if (window.speechSynthesis) {
+  window.speechSynthesis.onvoiceschanged = loadVoice;
+  loadVoice();
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  const isVoiceEnabled = document.getElementById("nav-voice-chk")?.checked !== false;
+  if (!isVoiceEnabled) return;
+
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "ru-RU";
+  
+  if (!selectedVoice) loadVoice();
+  if (selectedVoice) utterance.voice = selectedVoice;
+
+  utterance.pitch = 1.0;
+  utterance.rate = 1.05;
+  window.speechSynthesis.speak(utterance);
+}
+
+function resetRouteTracking() {
+  state.navLastAnnouncedIndex = -1;
+  state.navLastAnnouncedPrepIndex = -1;
+  if (state.navRouteManeuvers) {
+    state.navRouteManeuvers.forEach(m => {
+      m.announcedPrep = false;
+      m.announcedTurn = false;
+    });
+  }
+}
+
+function trackPlayerOnRoute(x, y) {
+  if (!state.navRoutePoints || state.navRoutePoints.length === 0) return;
+
+  // 1. Check arrival
+  const dest = state.navRoutePoints[state.navRoutePoints.length - 1];
+  const distToDest = Math.sqrt((x - dest[0])**2 + (y - dest[1])**2);
+  if (distToDest < 25) {
+    if (state.navLastAnnouncedIndex !== 9999) {
+      state.navLastAnnouncedIndex = 9999;
+      speak("Вы приехали!");
+      stopRouteSimulation();
+      clearSimulationMarker();
+    }
+    return;
+  }
+
+  // 2. Find closest segment
+  let minSegDist = Infinity;
+  let closestSegIdx = -1;
+  for (let i = 0; i < state.navRoutePoints.length - 1; i++) {
+    const p1 = state.navRoutePoints[i];
+    const p2 = state.navRoutePoints[i + 1];
+    const dist = distanceToSegment([x, y], p1, p2);
+    if (dist < minSegDist) {
+      minSegDist = dist;
+      closestSegIdx = i;
+    }
+  }
+
+  // 3. Off-route warning
+  if (minSegDist > 100) {
+    if (!state.navSimInterval) {
+      if (state.navLastAnnouncedIndex !== -888) {
+        state.navLastAnnouncedIndex = -888;
+        speak("Вы сошли с маршрута. Перепрокладываю.");
+        state.navFrom = { x, y };
+        computeRoute();
+      }
+    }
+    return;
+  }
+
+  // 4. Maneuvers warnings
+  state.navRouteManeuvers.forEach((m) => {
+    if (m.index <= closestSegIdx) return;
+
+    let distToManeuver = 0;
+    const pNextNode = state.navRoutePoints[closestSegIdx + 1];
+    distToManeuver += Math.sqrt((x - pNextNode[0])**2 + (y - pNextNode[1])**2);
+    for (let j = closestSegIdx + 1; j < m.index; j++) {
+      const p1 = state.navRoutePoints[j];
+      const p2 = state.navRoutePoints[j + 1];
+      distToManeuver += Math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2);
+    }
+
+    if (distToManeuver < 180 && distToManeuver > 80 && !m.announcedPrep) {
+      m.announcedPrep = true;
+      const meters = Math.round(distToManeuver);
+      speak(`Через ${meters} метров ${m.text}`);
+    }
+
+    if (distToManeuver < 35 && !m.announcedTurn) {
+      m.announcedTurn = true;
+      const capitalized = m.text.charAt(0).toUpperCase() + m.text.slice(1);
+      speak(capitalized);
+    }
+  });
+}
+
+function distanceToSegment(P, A, B) {
+  const l2 = (B[0] - A[0])**2 + (B[1] - A[1])**2;
+  if (l2 === 0) return Math.sqrt((P[0] - A[0])**2 + (P[1] - A[1])**2);
+  let t = ((P[0] - A[0]) * (B[0] - A[0]) + (P[1] - A[1]) * (B[1] - A[1])) / l2;
+  t = Math.max(0, Math.min(1, t));
+  const projX = A[0] + t * (B[0] - A[0]);
+  const projY = A[1] + t * (B[1] - A[1]);
+  return Math.sqrt((P[0] - projX)**2 + (P[1] - projY)**2);
+}
+
+function calculateManeuvers(path) {
+  const maneuvers = [];
+  if (path.length < 3) return maneuvers;
+
+  for (let i = 1; i < path.length - 1; i++) {
+    const pPrev = path[i - 1];
+    const pCurr = path[i];
+    const pNext = path[i + 1];
+
+    const dx1 = pCurr[0] - pPrev[0];
+    const dy1 = pCurr[1] - pPrev[1];
+    const dx2 = pNext[0] - pCurr[0];
+    const dy2 = pNext[1] - pCurr[1];
+
+    const cross = dx1 * dy2 - dy1 * dx2;
+    const dot = dx1 * dx2 + dy1 * dy2;
+    const angleRad = Math.atan2(cross, dot);
+    const angleDeg = angleRad * 180 / Math.PI;
+
+    const absAngle = Math.abs(angleDeg);
+    if (absAngle > 20) {
+      let turnText = "";
+      if (absAngle > 165) {
+        turnText = "развернитесь";
+      } else if (angleDeg > 0) {
+        if (absAngle < 60) turnText = "плавно поверните налево";
+        else if (absAngle < 120) turnText = "поверните налево";
+        else turnText = "круто поверните налево";
+      } else {
+        if (absAngle < 60) turnText = "плавно поверните направо";
+        else if (absAngle < 120) turnText = "поверните направо";
+        else turnText = "круто поверните направо";
+      }
+
+      maneuvers.push({
+        index: i,
+        coord: pCurr,
+        angle: angleDeg,
+        text: turnText,
+        announcedPrep: false,
+        announcedTurn: false,
+      });
+    }
+  }
+  return maneuvers;
+}
+
+function startRouteSimulation() {
+  if (!state.navRouteLayer || !state.navRoutePoints || state.navRoutePoints.length < 2) return;
+  stopRouteSimulation();
+
+  state.navSimPathIndex = 0;
+  state.navSimDistanceCovered = 0;
+
+  const simBtn = document.getElementById("nav-sim-btn");
+  if (simBtn) {
+    simBtn.innerHTML = "⏹ Остановить симуляцию";
+    simBtn.style.backgroundColor = "#c0392b";
+  }
+
+  const pStart = state.navRoutePoints[0];
+  updateSimulationPos(pStart[0], pStart[1]);
+
+  speak("Маршрут построен. Симуляция движения начата.");
+
+  const speed = 25; // game units per second
+  const intervalMs = 200;
+  const stepDist = speed * (intervalMs / 1000);
+
+  state.navSimInterval = setInterval(() => {
+    if (state.navSimPathIndex >= state.navRoutePoints.length - 1) {
+      stopRouteSimulation();
+      speak("Вы приехали!");
+      return;
+    }
+
+    const pCurr = state.navRoutePoints[state.navSimPathIndex];
+    const pNext = state.navRoutePoints[state.navSimPathIndex + 1];
+
+    const dx = pNext[0] - pCurr[0];
+    const dy = pNext[1] - pCurr[1];
+    const segLen = Math.sqrt(dx * dx + dy * dy);
+
+    state.navSimDistanceCovered += stepDist;
+    if (state.navSimDistanceCovered >= segLen) {
+      state.navSimDistanceCovered = 0;
+      state.navSimPathIndex++;
+      if (state.navSimPathIndex >= state.navRoutePoints.length - 1) {
+        const pFinal = state.navRoutePoints[state.navRoutePoints.length - 1];
+        updateSimulationPos(pFinal[0], pFinal[1]);
+        stopRouteSimulation();
+        speak("Вы приехали!");
+        return;
+      }
+      const pNew = state.navRoutePoints[state.navSimPathIndex];
+      updateSimulationPos(pNew[0], pNew[1]);
+    } else {
+      const ratio = state.navSimDistanceCovered / segLen;
+      const x = pCurr[0] + dx * ratio;
+      const y = pCurr[1] + dy * ratio;
+      updateSimulationPos(x, y);
+    }
+  }, intervalMs);
+}
+
+function stopRouteSimulation() {
+  if (state.navSimInterval) {
+    clearInterval(state.navSimInterval);
+    state.navSimInterval = null;
+  }
+  const simBtn = document.getElementById("nav-sim-btn");
+  if (simBtn) {
+    simBtn.innerHTML = "🏃 Симулировать движение";
+    simBtn.style.backgroundColor = "";
+  }
+}
+
+function updateSimulationPos(x, y) {
+  trackPlayerOnRoute(x, y);
+
+  if (!state.navSimMarker) {
+    const latlng = gameToLatLng(x, y);
+    state.navSimMarker = L.marker(latlng, {
+      icon: L.divIcon({
+        html: `<div style="background:#e0a82e;width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#000;font-size:14px;box-shadow:0 0 6px #000;font-weight:bold;">🚗</div>`,
+        className: "",
+        iconAnchor: [12, 12]
+      })
+    }).addTo(state.map);
+  } else {
+    state.navSimMarker.setLatLng(gameToLatLng(x, y));
+  }
+
+  state.map.panTo(gameToLatLng(x, y), { animate: true, duration: 0.2 });
+}
+
+function clearSimulationMarker() {
+  if (state.navSimMarker) {
+    state.map.removeLayer(state.navSimMarker);
+    state.navSimMarker = null;
   }
 }
 
