@@ -1783,12 +1783,14 @@ class ClientApp(tk.Tk):
 
         def work() -> None:
             try:
+                w, h = img.size
+                self.after(0, lambda: self.log_line(f"[{source}] Изображение: {w}x{h}px"))
                 coords, raw = self._coords_from_clipboard(img)
-                if raw:
-                    self.after(0, lambda t=raw: self.log_line(f"[{source}] OCR: {t!r}"))
+                clean_raw = " ".join([line.strip() for line in raw.split("\n") if line.strip()])
+                self.after(0, lambda t=clean_raw: self.log_line(f"[{source}] Распознанный текст: {t!r}"))
                 if coords:
                     x, y = coords
-                    self.after(0, lambda: self.log_line(f"[{source}] {x:.0f} / {y:.0f}"))
+                    self.after(0, lambda: self.log_line(f"[{source}] Координаты: {x:.0f} / {y:.0f}"))
                     if self.map_client:
                         ok, err_msg = self.map_client.send_marker(x, y, marker_type="screenshot")
                         if ok:
