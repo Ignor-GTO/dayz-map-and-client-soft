@@ -44,6 +44,7 @@ class ClientApp(tk.Tk):
         self.map_client: MapClient | None = None
         self.hotkeys_active = False
         self._map_session_active = False
+        self._map_session_counter = 0
         self._session_player_coords: tuple[float, float] | None = None
         self._clipboard_hash: str | None = None
         self._stop_clipboard = threading.Event()
@@ -1146,6 +1147,7 @@ class ClientApp(tk.Tk):
 
     def _start_map_session(self) -> None:
         self._map_session_active = True
+        self._map_session_counter += 1
         self._update_session_status()
         self._ensure_hud().show_map_session()
         self.log_line("[M] Сессия карты — Ctrl+Shift+D для метки")
@@ -1316,8 +1318,9 @@ class ClientApp(tk.Tk):
 
         def work() -> None:
             try:
+                session_id = self._map_session_counter
                 def is_cancelled() -> bool:
-                    return not self._map_session_active
+                    return not self._map_session_active or self._map_session_counter != session_id
 
                 coords = self._capture_coords(nudge=True, check_cancel=is_cancelled)
                 if is_cancelled():

@@ -26,8 +26,10 @@ function showPanel() {
 function switchTab(name) {
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
-  document.getElementById(`tab-${name}`).classList.remove("hidden");
+  const panel = document.getElementById(`tab-${name}`);
+  if (panel) panel.classList.remove("hidden");
   document.getElementById("admin-panel")?.classList.toggle("admin-radiation-mode", name === "radiation");
+  localStorage.setItem("admin_active_tab", name);
   if (name === "radiation" && window.RadiationEditor) {
     window.RadiationEditor.ensureLoaded();
   }
@@ -306,6 +308,7 @@ document.getElementById("admin-login-form").addEventListener("submit", async (e)
 
 document.getElementById("admin-logout").addEventListener("click", async () => {
   await api("/api/admin/logout", { method: "POST" });
+  localStorage.removeItem("admin_active_tab");
   showLogin();
 });
 
@@ -487,6 +490,10 @@ document.getElementById("password-form").addEventListener("submit", async (e) =>
     await loadPois();
     await loadPinPolicy();
     await loadRooms();
+    const savedTab = localStorage.getItem("admin_active_tab");
+    if (savedTab) {
+      switchTab(savedTab);
+    }
   } catch {
     showLogin();
   }
