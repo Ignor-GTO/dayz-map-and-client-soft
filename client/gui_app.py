@@ -56,6 +56,18 @@ class ClientApp(tk.Tk):
         self._hud: GameHudOverlay | None = None
         self.current_page = 0
 
+        # Clean up old updater files if they exist
+        import os
+        import sys
+        try:
+            exe_path = sys.executable
+            if exe_path.endswith(".exe"):
+                old_exe = exe_path + ".old"
+                if os.path.exists(old_exe):
+                    os.remove(old_exe)
+        except Exception:
+            pass
+
         self.preprocess_modes_map = {
             "Автоматический выбор (Все цвета)": "auto",
             "Белый (на тёмном)": "white",
@@ -598,6 +610,7 @@ class ClientApp(tk.Tk):
         ttk.Button(diag_btn_frm, text="Тест OCR (M)", command=self.test_ocr, style="Action.TButton").pack(side="left", padx=2, expand=True, fill="x")
         ttk.Button(diag_btn_frm, text="Проверить OCR", command=self.check_ocr, style="Action.TButton").pack(side="left", padx=2, expand=True, fill="x")
         ttk.Button(diag_btn_frm, text="Установить Windows OCR", command=self.install_windows_ocr, style="Action.TButton").pack(side="left", padx=2, expand=True, fill="x")
+        ttk.Button(diag_btn_frm, text="Проверить обновление", command=lambda: self.check_for_updates(manual=True), style="Action.TButton").pack(side="left", padx=2, expand=True, fill="x")
 
         # Bind context menu to entries
         for entry in [
@@ -620,6 +633,7 @@ class ClientApp(tk.Tk):
         self._create_tray_icon()
 
         self._refresh_monitors()
+        self.after(2000, lambda: self.check_for_updates(manual=False))
 
     def _show_page(self, page_index: int) -> None:
         self.current_page = page_index
@@ -905,6 +919,123 @@ class ClientApp(tk.Tk):
         if hk:
             entry_var.set(hk.strip().lower())
             self.log_line(f"[Hotkeys] Успешно записано: {hk.upper()}")
+
+    def check_for_updates(self, manual: bool = False) -> None:
+        def worker():
+            try:
+                import httpx
+                headers = {"User-Agent": "DayZMapClient"}
+                r = httpx.get("https://api.github.com/repos/Ignor-GTO/dayz-map-and-client-soft/releases/latest", headers=headers, timeout=10)
+                if r.status_code != 200:
+                    if manual:
+                        self.after(0, lambda: messagebox.showerror("Обновление", f"Не удалось проверить обновления: HTTP {r.status_code}"))
+                    return
+                
+                data = r.json()
+                tag_name = data.get("tag_name", "")
+                if not tag_name:
+                    if manual:
+                        self.after(0, lambda: messagebox.showinfo("Обновление", "Обновлений не найдено"))
+                    return
+                
+                # Compare versions
+                curr_ver = tuple(int(x) for x in __version__.lstrip("v").split("."))
+                latest_ver = tuple(int(x) for x in tag_name.lstrip("v").split("."))
+                
+                if latest_ver > curr_ver:
+                    download_url = None
+                    for asset in data.get("assets", []):
+                        if asset.get("name") == "DayZMapClient.exe":
+                            download_url = asset.get("browser_download_url")
+                            break
+                    
+                    if not download_url:
+                        download_url = f"https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/download/{tag_name}/DayZMapClient.exe"
+                    
+                    self.after(0, lambda: self.prompt_update(tag_name, download_url))
+                else:
+                    if manual:
+                        self.after(0, lambda: messagebox.showinfo("Обновление", f"У вас установлена последняя версия ({__version__})"))
+            except Exception as e:
+                if manual:
+                    self.after(0, lambda: messagebox.showerror("Обновление", f"Ошибка проверки обновлений: {e}"))
+        
+        threading.Thread(target=worker, daemon=True).start()
+
+    def prompt_update(self, version: str, download_url: str) -> None:
+        if messagebox.askyesno("Доступно обновление", f"Доступна новая версия {version}.\nХотите скачать и установить её прямо сейчас?"):
+            self.start_downloading_update(download_url)
+
+    def start_downloading_update(self, download_url: str) -> None:
+        import os
+        import sys
+        import subprocess
+        import httpx
+        
+        progress_win = tk.Toplevel(self)
+        progress_win.title("Обновление...")
+        progress_win.geometry("320x120")
+        progress_win.resizable(False, False)
+        progress_win.transient(self)
+        progress_win.grab_set()
+        
+        progress_win.geometry(f"+{self.winfo_x() + 160}+{self.winfo_y() + 200}")
+        
+        lbl = ttk.Label(progress_win, text="Скачивание обновления...", font=("Segoe UI", 10))
+        lbl.pack(pady=10)
+        
+        progress = ttk.Progressbar(progress_win, orient="horizontal", length=260, mode="determinate")
+        progress.pack(pady=5)
+        
+        def download_worker():
+            try:
+                exe_path = sys.executable
+                if not exe_path.endswith(".exe"):
+                    time.sleep(1.5)
+                    self.after(0, progress_win.destroy)
+                    self.after(0, lambda: messagebox.showinfo("Обновление", "В режиме разработки обновление имитировано."))
+                    return
+                
+                new_exe = exe_path + ".new"
+                old_exe = exe_path + ".old"
+                
+                with httpx.stream("GET", download_url, follow_redirects=True, timeout=30) as response:
+                    if response.status_code != 200:
+                        raise Exception(f"HTTP {response.status_code}")
+                    
+                    total_bytes = int(response.headers.get("content-length", 0))
+                    downloaded = 0
+                    
+                    with open(new_exe, "wb") as f:
+                        for chunk in response.iter_bytes(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                                downloaded += len(chunk)
+                                if total_bytes > 0:
+                                    percent = int((downloaded / total_bytes) * 100)
+                                    self.after(0, lambda p=percent: progress.configure(value=p))
+                                    self.after(0, lambda p=percent: lbl.configure(text=f"Скачивание: {p}%"))
+                
+                self.after(0, lambda: lbl.configure(text="Установка обновления..."))
+                time.sleep(0.5)
+                
+                if os.path.exists(old_exe):
+                    try:
+                        os.remove(old_exe)
+                    except Exception:
+                        pass
+                
+                os.rename(exe_path, old_exe)
+                os.rename(new_exe, exe_path)
+                
+                subprocess.Popen([exe_path])
+                self.after(0, lambda: self.on_close())
+                
+            except Exception as e:
+                self.after(0, progress_win.destroy)
+                self.after(0, lambda err=e: messagebox.showerror("Ошибка обновления", f"Не удалось обновить: {err}"))
+                
+        threading.Thread(target=download_worker, daemon=True).start()
 
     def _monitor_index(self) -> int:
         return self.monitor_combo.current() + 1 if self._monitors else self.cfg.get("monitor_index", 1)
