@@ -481,7 +481,7 @@ document.getElementById("password-form").addEventListener("submit", async (e) =>
   }
 });
 
-(async () => {
+window.addEventListener("DOMContentLoaded", async () => {
   try {
     await api("/api/admin/me");
     showPanel();
@@ -497,4 +497,4 @@ document.getElementById("password-form").addEventListener("submit", async (e) =>
   } catch {
     showLogin();
   }
-})();
+});
