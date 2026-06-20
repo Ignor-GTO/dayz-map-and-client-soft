@@ -37,7 +37,7 @@ class ClientApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
         self.title(f"DayZ Map Client v{__version__} — GTO Team")
-        self.geometry("640x720")
+        self.geometry("720x720")
         self.resizable(False, False)
         
         # Remove standard window border (make it borderless)
@@ -185,7 +185,7 @@ class ClientApp(tk.Tk):
                         lightcolor=self.bg_color,
                         darkcolor=self.bg_color,
                         font=("Segoe UI", 10, "bold"), 
-                        padding=[12, 6])
+                        padding=[6, 4])
         style.map("Nav.TButton",
                   background=[("active", self.card_bg)],
                   bordercolor=[("active", self.card_bg)],
@@ -198,7 +198,7 @@ class ClientApp(tk.Tk):
                         lightcolor=self.card_bg,
                         darkcolor=self.card_bg,
                         font=("Segoe UI", 10, "bold"), 
-                        padding=[12, 6])
+                        padding=[6, 4])
         style.map("NavActive.TButton",
                   background=[("active", self.card_bg)],
                   bordercolor=[("active", self.card_bg)],
@@ -329,16 +329,16 @@ class ClientApp(tk.Tk):
         nav_frm = ttk.Frame(header_frm, style="Header.TFrame")
         nav_frm.pack(side="right")
         
-        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="NavActive.TButton", width=12)
+        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="NavActive.TButton", width=10)
         self.nav_btn_main.pack(side="left", padx=2)
         
-        self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Nav.TButton", width=12)
+        self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Nav.TButton", width=10)
         self.nav_btn_settings.pack(side="left", padx=2)
 
-        self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=12)
+        self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=10)
         self.nav_btn_help.pack(side="left", padx=2)
 
-        self.nav_btn_about = ttk.Button(nav_frm, text="Инфо", command=lambda: self._show_page(3), style="Nav.TButton", width=12)
+        self.nav_btn_about = ttk.Button(nav_frm, text="Инфо", command=lambda: self._show_page(3), style="Nav.TButton", width=10)
         self.nav_btn_about.pack(side="left", padx=2)
 
         # Pages Container

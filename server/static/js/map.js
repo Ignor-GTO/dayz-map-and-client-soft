@@ -434,11 +434,38 @@ function updateMarkersList() {
     : `<div class="list-empty">Нет меток</div>`;
 }
 
+/** Return the sidebar width in pixels (0 if collapsed). */
+function getSidebarOffset() {
+  const legend = document.getElementById("legend");
+  if (!legend || legend.classList.contains("collapsed")) return 0;
+  return legend.offsetWidth || 280;
+}
+
+/**
+ * Set the map view so that `latlng` appears at the visual centre of the
+ * area NOT covered by the sidebar.  Without this adjustment Leaflet
+ * centres on the full container, which pushes the target behind the
+ * right-hand sidebar.
+ */
+function setViewCentered(latlng, zoom, opts = { animate: true }) {
+  const sidebarPx = getSidebarOffset();
+  if (sidebarPx === 0) {
+    state.map.setView(latlng, zoom, opts);
+    return;
+  }
+  // Convert target to pixel, shift left by half the sidebar width,
+  // then convert back to LatLng so the target ends up in the visible centre.
+  const targetPoint = state.map.project(latlng, zoom);
+  const offsetPoint = L.point(targetPoint.x - sidebarPx / 2, targetPoint.y);
+  const adjusted = state.map.unproject(offsetPoint, zoom);
+  state.map.setView(adjusted, zoom, opts);
+}
+
 function focusOnPlayer(userId) {
   if (!state.map) return;
   const marker = state.liveMarkers.get(userId);
   if (marker) {
-    state.map.setView(marker.getLatLng(), Math.max(state.map.getZoom(), 5), { animate: true });
+    setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
     marker.openPopup();
   }
 }
@@ -447,7 +474,7 @@ function focusOnMarker(markerId) {
   if (!state.map) return;
   let marker = state.pinMarkers.get(markerId) || state.pinMarkers.get(Number(markerId));
   if (marker) {
-    state.map.setView(marker.getLatLng(), Math.max(state.map.getZoom(), 5), { animate: true });
+    setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
     marker.openPopup();
   }
 }
@@ -854,7 +881,7 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
   if (!state.map || !state.me) return;
   const marker = state.liveMarkers.get(state.me.user_id);
   if (marker) {
-    state.map.setView(marker.getLatLng(), Math.max(state.map.getZoom(), 5), { animate: true });
+    setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
   } else {
     let fallbackLatLng = null;
     state.pinMarkers.forEach((m) => {
@@ -869,7 +896,7 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
       }
     });
     if (fallbackLatLng) {
-      state.map.setView(fallbackLatLng, Math.max(state.map.getZoom(), 5), { animate: true });
+      setViewCentered(fallbackLatLng, Math.max(state.map.getZoom(), 5));
     }
   }
 });

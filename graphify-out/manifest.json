@@ -1,0 +1,262 @@
+{
+  "D:\\projects\\dayz_map_and_client_soft\\client\\api_client.py": {
+    "mtime": 1781593736.701624,
+    "ast_hash": "18fa7aabc51ff28a718eb68bb9d0219c",
+    "semantic_hash": "18fa7aabc51ff28a718eb68bb9d0219c"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\bump_version.py": {
+    "mtime": 1781607020.5816224,
+    "ast_hash": "3e0b6ded9bb2e790b669055dad9d441e",
+    "semantic_hash": "3e0b6ded9bb2e790b669055dad9d441e"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\capture.py": {
+    "mtime": 1781604446.0495272,
+    "ast_hash": "2050b9fae18c749f212f41154acbee23",
+    "semantic_hash": "2050b9fae18c749f212f41154acbee23"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\clipboard_util.py": {
+    "mtime": 1781639643.5801969,
+    "ast_hash": "96b5c2e1cf9277c0e586d3dd37e5d8ca",
+    "semantic_hash": "96b5c2e1cf9277c0e586d3dd37e5d8ca"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\config.py": {
+    "mtime": 1781639643.1873,
+    "ast_hash": "8350bfa26ac282c86f7dbc66537c27c8",
+    "semantic_hash": "8350bfa26ac282c86f7dbc66537c27c8"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\gui_app.py": {
+    "mtime": 1781644159.4761305,
+    "ast_hash": "e78132cb4d98bee7aabe0b44c161e07f",
+    "semantic_hash": "e78132cb4d98bee7aabe0b44c161e07f"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\main.py": {
+    "mtime": 1781596349.4978583,
+    "ast_hash": "f091b64cd5ea4ee160ca4ee45088905c",
+    "semantic_hash": "f091b64cd5ea4ee160ca4ee45088905c"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\mouse_util.py": {
+    "mtime": 1781610935.4390368,
+    "ast_hash": "c11c9989a849258d25c8b4fd163e253c",
+    "semantic_hash": "c11c9989a849258d25c8b4fd163e253c"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\ocr.py": {
+    "mtime": 1781639643.2211213,
+    "ast_hash": "aeda73e5a29bf2f0d846ccda90446f29",
+    "semantic_hash": "aeda73e5a29bf2f0d846ccda90446f29"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\ocr_engine.py": {
+    "mtime": 1781640708.5067978,
+    "ast_hash": "afaeb96907be07140820590764680e7f",
+    "semantic_hash": "afaeb96907be07140820590764680e7f"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\ocr_fallback.py": {
+    "mtime": 1781608545.8340702,
+    "ast_hash": "a9622d62f972c43e2f64cda8449130b0",
+    "semantic_hash": "a9622d62f972c43e2f64cda8449130b0"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\ocr_preprocess.py": {
+    "mtime": 1781639643.4714255,
+    "ast_hash": "5a64877222eec3cb4caa8122b894b9fe",
+    "semantic_hash": "5a64877222eec3cb4caa8122b894b9fe"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\ocr_setup.py": {
+    "mtime": 1781607679.605359,
+    "ast_hash": "d152aa38c398c2469fbc895f23e780cd",
+    "semantic_hash": "d152aa38c398c2469fbc895f23e780cd"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\ocr_tesseract.py": {
+    "mtime": 1781639643.5053892,
+    "ast_hash": "345ab2fafef47baf28a527d5cc3f3ce4",
+    "semantic_hash": "345ab2fafef47baf28a527d5cc3f3ce4"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\pyi_rth_winrt.py": {
+    "mtime": 1781604546.2866495,
+    "ast_hash": "2f5f90bb1c318ddead1eccbd958e3bb5",
+    "semantic_hash": "2f5f90bb1c318ddead1eccbd958e3bb5"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\region_overlay.py": {
+    "mtime": 1781604311.107576,
+    "ast_hash": "a68ee956248adb114a850e5c6e207448",
+    "semantic_hash": "a68ee956248adb114a850e5c6e207448"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\status_overlay.py": {
+    "mtime": 1781639643.6353078,
+    "ast_hash": "83337b73f3e961f8a66eebfaa49d04ed",
+    "semantic_hash": "83337b73f3e961f8a66eebfaa49d04ed"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\version.py": {
+    "mtime": 1781644159.4418907,
+    "ast_hash": "247060070a4315537d1b3301e268aaa6",
+    "semantic_hash": "247060070a4315537d1b3301e268aaa6"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\client\\.venv-build\\Scripts\\Activate.ps1": {
+    "mtime": 1733241492.0,
+    "ast_hash": "ffb4825411d10183bffd185b012cf301",
+    "semantic_hash": "ffb4825411d10183bffd185b012cf301"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\scripts\\deploy-dokploy.ps1": {
+    "mtime": 1781596270.9946709,
+    "ast_hash": "2f11a2b221398f58f2607814da7e4804",
+    "semantic_hash": "2f11a2b221398f58f2607814da7e4804"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\admin_routes.py": {
+    "mtime": 1781634906.0706856,
+    "ast_hash": "2137b8c2a3508060a213f2b362f4de9e",
+    "semantic_hash": "2137b8c2a3508060a213f2b362f4de9e"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\auth.py": {
+    "mtime": 1781599582.737361,
+    "ast_hash": "6a7be4601704580487713a706be8f39a",
+    "semantic_hash": "6a7be4601704580487713a706be8f39a"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\config.py": {
+    "mtime": 1781596363.9742737,
+    "ast_hash": "a1f7c8ca5625447aad37a9c262de0086",
+    "semantic_hash": "a1f7c8ca5625447aad37a9c262de0086"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\database.py": {
+    "mtime": 1781599583.561188,
+    "ast_hash": "13b8be57a4eec1630724c934edeee8a7",
+    "semantic_hash": "13b8be57a4eec1630724c934edeee8a7"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\locations_service.py": {
+    "mtime": 1781620486.0314844,
+    "ast_hash": "c83f2b026b035ce1c6cec0b72087d194",
+    "semantic_hash": "c83f2b026b035ce1c6cec0b72087d194"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\main.py": {
+    "mtime": 1781632137.420843,
+    "ast_hash": "574cdb15d777defdd7cde2bb7c270486",
+    "semantic_hash": "574cdb15d777defdd7cde2bb7c270486"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\maps_service.py": {
+    "mtime": 1781599568.2768242,
+    "ast_hash": "e173a0fab81f905d39248cc0aeb703d9",
+    "semantic_hash": "e173a0fab81f905d39248cc0aeb703d9"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\models.py": {
+    "mtime": 1781622090.660028,
+    "ast_hash": "40a92f4823dae665f2d9fe1ac41d48e2",
+    "semantic_hash": "40a92f4823dae665f2d9fe1ac41d48e2"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\poi_icons.py": {
+    "mtime": 1781622232.3549314,
+    "ast_hash": "1c5dabc08215c1a000a4fd1e73148901",
+    "semantic_hash": "1c5dabc08215c1a000a4fd1e73148901"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\poi_upload.py": {
+    "mtime": 1781633140.3557942,
+    "ast_hash": "fe82a359ee56b7fd05c259d27872fbfd",
+    "semantic_hash": "fe82a359ee56b7fd05c259d27872fbfd"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\radiation_service.py": {
+    "mtime": 1781633152.5199978,
+    "ast_hash": "c8699877c9941854147ae315ff2c8e69",
+    "semantic_hash": "c8699877c9941854147ae315ff2c8e69"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\radiation_upload.py": {
+    "mtime": 1781634906.0567272,
+    "ast_hash": "db4fdfae0d7b519297f8817a9c9f4be7",
+    "semantic_hash": "db4fdfae0d7b519297f8817a9c9f4be7"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\routes.py": {
+    "mtime": 1781622144.1453183,
+    "ast_hash": "901ff731f550ced82f83bedf5b454cd5",
+    "semantic_hash": "901ff731f550ced82f83bedf5b454cd5"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\schemas.py": {
+    "mtime": 1781631934.2111297,
+    "ast_hash": "52a8e532aad8695bf89a9a44ed98205f",
+    "semantic_hash": "52a8e532aad8695bf89a9a44ed98205f"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\seed.py": {
+    "mtime": 1781622094.340027,
+    "ast_hash": "5d3642f7021f54e1cbd161cc44b50fe2",
+    "semantic_hash": "5d3642f7021f54e1cbd161cc44b50fe2"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\settings_service.py": {
+    "mtime": 1781604054.7085364,
+    "ast_hash": "89a1e8e557859bc9fc5f1e210d10d4e9",
+    "semantic_hash": "89a1e8e557859bc9fc5f1e210d10d4e9"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\websocket.py": {
+    "mtime": 1781596373.1176267,
+    "ast_hash": "e320a71c5743ca615de68a0ce043fd4b",
+    "semantic_hash": "e320a71c5743ca615de68a0ce043fd4b"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\app\\__init__.py": {
+    "mtime": 1781630224.8583815,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\data\\radiation\\pripyat.json": {
+    "mtime": 1781634243.2645388,
+    "ast_hash": "ba140b9ee907d93f54bdff655c09c6fc",
+    "semantic_hash": "ba140b9ee907d93f54bdff655c09c6fc"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\scripts\\build_radiation_circles.py": {
+    "mtime": 1781631426.3446527,
+    "ast_hash": "a75561f64bffe55197325051c5cb5516",
+    "semantic_hash": "a75561f64bffe55197325051c5cb5516"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\scripts\\build_radiation_mask.py": {
+    "mtime": 1781621153.8655918,
+    "ast_hash": "6b25689b1e641558d821e8fcd88e4f73",
+    "semantic_hash": "6b25689b1e641558d821e8fcd88e4f73"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\scripts\\build_radiation_polygons.py": {
+    "mtime": 1781624180.7220705,
+    "ast_hash": "50ff249bed33e7542687154db570bcc8",
+    "semantic_hash": "50ff249bed33e7542687154db570bcc8"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\scripts\\gen_poi_icons_js.py": {
+    "mtime": 1781622121.6782005,
+    "ast_hash": "df663931f018111eebd34976b7ec5aa8",
+    "semantic_hash": "df663931f018111eebd34976b7ec5aa8"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\data\\pripyat-locations.json": {
+    "mtime": 1781611661.819446,
+    "ast_hash": "4e3099bddfd32defe0e648757353a0e3",
+    "semantic_hash": "4e3099bddfd32defe0e648757353a0e3"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\data\\pripyat-radiation-circles-src.json": {
+    "mtime": 1781631347.5841718,
+    "ast_hash": "545da749be4efd297b82c2cdc04ba9dc",
+    "semantic_hash": "545da749be4efd297b82c2cdc04ba9dc"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\data\\pripyat-radiation-polygons.json": {
+    "mtime": 1781624219.2935634,
+    "ast_hash": "14341d5ad94da6eca2530ffe5a1f2f51",
+    "semantic_hash": "14341d5ad94da6eca2530ffe5a1f2f51"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\data\\pripyat-radiation-zones.json": {
+    "mtime": 1781631437.721426,
+    "ast_hash": "b26d3447f269bd470fc54e3ba2b999ba",
+    "semantic_hash": "b26d3447f269bd470fc54e3ba2b999ba"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\data\\pripyat-radiation.json": {
+    "mtime": 1781631437.721426,
+    "ast_hash": "9383e2ea5ee2512e9bd5e599ff989bd7",
+    "semantic_hash": "9383e2ea5ee2512e9bd5e599ff989bd7"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\js\\admin-radiation.js": {
+    "mtime": 1781636554.2664838,
+    "ast_hash": "0dfcac084574cba8f8be10165c4ea615",
+    "semantic_hash": "0dfcac084574cba8f8be10165c4ea615"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\js\\admin.js": {
+    "mtime": 1781633180.4514031,
+    "ast_hash": "8117eece5f35fa7c9afadf9b0434adfb",
+    "semantic_hash": "8117eece5f35fa7c9afadf9b0434adfb"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\js\\map.js": {
+    "mtime": 1781625223.633609,
+    "ast_hash": "00a74a33e412be6be91250c6a2a3de4b",
+    "semantic_hash": "00a74a33e412be6be91250c6a2a3de4b"
+  },
+  "D:\\projects\\dayz_map_and_client_soft\\server\\static\\js\\poi-icons.js": {
+    "mtime": 1781622235.058931,
+    "ast_hash": "84abf443bd10252714a4222bef1ecf9b",
+    "semantic_hash": "84abf443bd10252714a4222bef1ecf9b"
+  }
+}
