@@ -280,6 +280,9 @@ class ClientApp(tk.Tk):
         self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=12)
         self.nav_btn_help.pack(side="left", padx=2)
 
+        self.nav_btn_about = ttk.Button(nav_frm, text="О приложении", command=lambda: self._show_page(3), style="Nav.TButton", width=12)
+        self.nav_btn_about.pack(side="left", padx=2)
+
         # Pages Container
         self.pages_container = ttk.Frame(self)
         self.pages_container.pack(fill="both", expand=True, padx=5, pady=5)
@@ -287,6 +290,7 @@ class ClientApp(tk.Tk):
         self.main_page = ttk.Frame(self.pages_container)
         self.settings_page = ttk.Frame(self.pages_container)
         self.help_page = ttk.Frame(self.pages_container)
+        self.about_page = ttk.Frame(self.pages_container)
 
         # ---------------- MAIN PAGE ----------------
         main_frm = ttk.Frame(self.main_page, padding=10)
@@ -649,6 +653,9 @@ class ClientApp(tk.Tk):
 
         # Build help page
         self._build_help_page()
+        
+        # Build about page
+        self._build_about_page()
 
         # Show default page
         self._show_page(0)
@@ -661,27 +668,28 @@ class ClientApp(tk.Tk):
 
     def _show_page(self, page_index: int) -> None:
         self.current_page = page_index
+        self.main_page.pack_forget()
+        self.settings_page.pack_forget()
+        self.help_page.pack_forget()
+        self.about_page.pack_forget()
+        
+        self.nav_btn_main.configure(style="Nav.TButton")
+        self.nav_btn_settings.configure(style="Nav.TButton")
+        self.nav_btn_help.configure(style="Nav.TButton")
+        self.nav_btn_about.configure(style="Nav.TButton")
+        
         if page_index == 0:
-            self.settings_page.pack_forget()
-            self.help_page.pack_forget()
             self.main_page.pack(fill="both", expand=True)
             self.nav_btn_main.configure(style="NavActive.TButton")
-            self.nav_btn_settings.configure(style="Nav.TButton")
-            self.nav_btn_help.configure(style="Nav.TButton")
         elif page_index == 1:
-            self.main_page.pack_forget()
-            self.help_page.pack_forget()
             self.settings_page.pack(fill="both", expand=True)
-            self.nav_btn_main.configure(style="Nav.TButton")
             self.nav_btn_settings.configure(style="NavActive.TButton")
-            self.nav_btn_help.configure(style="Nav.TButton")
         elif page_index == 2:
-            self.main_page.pack_forget()
-            self.settings_page.pack_forget()
             self.help_page.pack(fill="both", expand=True)
-            self.nav_btn_main.configure(style="Nav.TButton")
-            self.nav_btn_settings.configure(style="Nav.TButton")
             self.nav_btn_help.configure(style="NavActive.TButton")
+        elif page_index == 3:
+            self.about_page.pack(fill="both", expand=True)
+            self.nav_btn_about.configure(style="NavActive.TButton")
 
     def _build_help_page(self) -> None:
         # Scrollable Canvas container
@@ -767,6 +775,42 @@ class ClientApp(tk.Tk):
                    "Попробуйте изменить «Цвет текста» в настройках (например, выбрать «Высокий контраст» или конкретный цвет текста координат) или немного увеличить рамку считывания в редакторе.")
         add_bullet(faq_lf, "Метка не появляется на веб-карте", 
                    "Проверьте правильность URL сервера и Ключа клиента в «Настройках». Убедитесь, что имя вашего персонажа в игре совпадает с тем, под которым вы авторизованы на сайте карты (с учётом регистра).")
+
+    def _build_about_page(self) -> None:
+        about_frm = ttk.Frame(self.about_page, padding=20)
+        about_frm.pack(fill="both", expand=True)
+        
+        # A card-style container for about details
+        about_card = ttk.Frame(about_frm, padding=20, style="Card.TFrame")
+        about_card.pack(fill="both", expand=True, pady=10)
+        
+        logo_lbl = ttk.Label(about_card, text="🧭 DayZ GPS Assistant", font=("Segoe UI", 16, "bold"), foreground=self.accent_color, style="Card.TLabel")
+        logo_lbl.pack(pady=(15, 10))
+        
+        desc_lbl = ttk.Label(
+            about_card, 
+            text="Вспомогательный клиент для автоматического считывания координат из игры DayZ и обновления вашего местоположения на интерактивной карте.",
+            style="CardMuted.TLabel",
+            wraplength=480,
+            justify="center"
+        )
+        desc_lbl.pack(pady=(0, 20))
+        
+        # Version info row
+        version_frm = ttk.Frame(about_card, style="CardSub.TFrame")
+        version_frm.pack(pady=10)
+        
+        ttk.Label(version_frm, text="Установленная версия: ", font=("Segoe UI", 11), style="Card.TLabel").pack(side="left")
+        self.about_version_lbl = ttk.Label(version_frm, text=f"v{__version__}", font=("Segoe UI", 11, "bold"), foreground=self.success_color, style="Card.TLabel")
+        self.about_version_lbl.pack(side="left")
+        
+        # Check Update button
+        update_btn = ttk.Button(about_card, text="Проверить обновление", command=lambda: self.check_for_updates(manual=True), width=24)
+        update_btn.pack(pady=15)
+        
+        # Developer info
+        dev_lbl = ttk.Label(about_card, text="Разработчик: GTO Team\nGitHub: https://github.com/Ignor-GTO/dayz-map-and-client-soft", style="CardMuted.TLabel", justify="center")
+        dev_lbl.pack(side="bottom", pady=10)
 
     def _create_tray_icon(self) -> None:
         self.tray_image = create_tray_image()
