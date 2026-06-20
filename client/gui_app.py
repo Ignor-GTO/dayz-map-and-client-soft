@@ -298,19 +298,17 @@ class ClientApp(tk.Tk):
         title_lbl = ttk.Label(header_frm, text="🧭 DAYZ GPS ASSISTANT", style="HeaderTitle.TLabel")
         title_lbl.pack(side="left", pady=2)
 
-        # Drag bindings to make the borderless window draggable
+        # Drag bindings to make the borderless window draggable (using screen coordinates for smooth, lag-free motion)
         self._drag_start_x = 0
         self._drag_start_y = 0
 
         def start_drag(event):
-            self._drag_start_x = event.x
-            self._drag_start_y = event.y
+            self._drag_start_x = event.x_root - self.winfo_x()
+            self._drag_start_y = event.y_root - self.winfo_y()
 
         def do_drag(event):
-            deltax = event.x - self._drag_start_x
-            deltay = event.y - self._drag_start_y
-            x = self.winfo_x() + deltax
-            y = self.winfo_y() + deltay
+            x = event.x_root - self._drag_start_x
+            y = event.y_root - self._drag_start_y
             self.geometry(f"+{x}+{y}")
 
         header_frm.bind("<Button-1>", start_drag)
