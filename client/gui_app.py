@@ -277,12 +277,16 @@ class ClientApp(tk.Tk):
         self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Nav.TButton", width=12)
         self.nav_btn_settings.pack(side="left", padx=2)
 
+        self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=12)
+        self.nav_btn_help.pack(side="left", padx=2)
+
         # Pages Container
         self.pages_container = ttk.Frame(self)
         self.pages_container.pack(fill="both", expand=True, padx=5, pady=5)
         
         self.main_page = ttk.Frame(self.pages_container)
         self.settings_page = ttk.Frame(self.pages_container)
+        self.help_page = ttk.Frame(self.pages_container)
 
         # ---------------- MAIN PAGE ----------------
         main_frm = ttk.Frame(self.main_page, padding=10)
@@ -395,35 +399,37 @@ class ClientApp(tk.Tk):
         save_btn.pack(side="right", padx=5)
 
         # Scrollable Canvas container
-        canvas = tk.Canvas(self.settings_page, borderwidth=0, highlightthickness=0, bg=self.bg_color)
-        scrollbar = ttk.Scrollbar(self.settings_page, orient="vertical", command=canvas.yview, style="Vertical.TScrollbar")
-        scrollable_frame = ttk.Frame(canvas, style="TFrame")
+        self._settings_canvas = tk.Canvas(self.settings_page, borderwidth=0, highlightthickness=0, bg=self.bg_color)
+        scrollbar = ttk.Scrollbar(self.settings_page, orient="vertical", command=self._settings_canvas.yview, style="Vertical.TScrollbar")
+        scrollable_frame = ttk.Frame(self._settings_canvas, style="TFrame")
 
         scrollable_frame.bind(
             "<Configure>",
-            lambda e: canvas.configure(
-                scrollregion=canvas.bbox("all")
+            lambda e: self._settings_canvas.configure(
+                scrollregion=self._settings_canvas.bbox("all")
             )
         )
 
-        canvas_window = canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar.set)
+        canvas_window = self._settings_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self._settings_canvas.configure(yscrollcommand=scrollbar.set)
         
         # Expand scrollable frame to fill canvas width
-        canvas.bind(
+        self._settings_canvas.bind(
             "<Configure>",
-            lambda e: canvas.itemconfig(canvas_window, width=e.width),
+            lambda e: self._settings_canvas.itemconfig(canvas_window, width=e.width),
             add="+"
         )
 
-        canvas.pack(side="left", fill="both", expand=True)
+        self._settings_canvas.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
 
-        # Scroll on settings page with mouse wheel
+        # Scroll on settings and help pages with mouse wheel
         def _on_mousewheel(event):
             try:
-                if self.current_page == 1: # settings page
-                    canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                if self.current_page == 1 and hasattr(self, "_settings_canvas"):
+                    self._settings_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                elif self.current_page == 2 and hasattr(self, "_help_canvas"):
+                    self._help_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
             except Exception:
                 pass
         
@@ -635,6 +641,9 @@ class ClientApp(tk.Tk):
         ]:
             entry.bind("<Button-3>", self._show_entry_menu)
 
+        # Build help page
+        self._build_help_page()
+
         # Show default page
         self._show_page(0)
 
@@ -648,14 +657,110 @@ class ClientApp(tk.Tk):
         self.current_page = page_index
         if page_index == 0:
             self.settings_page.pack_forget()
+            self.help_page.pack_forget()
             self.main_page.pack(fill="both", expand=True)
             self.nav_btn_main.configure(style="NavActive.TButton")
             self.nav_btn_settings.configure(style="Nav.TButton")
+            self.nav_btn_help.configure(style="Nav.TButton")
         elif page_index == 1:
             self.main_page.pack_forget()
+            self.help_page.pack_forget()
             self.settings_page.pack(fill="both", expand=True)
             self.nav_btn_main.configure(style="Nav.TButton")
             self.nav_btn_settings.configure(style="NavActive.TButton")
+            self.nav_btn_help.configure(style="Nav.TButton")
+        elif page_index == 2:
+            self.main_page.pack_forget()
+            self.settings_page.pack_forget()
+            self.help_page.pack(fill="both", expand=True)
+            self.nav_btn_main.configure(style="Nav.TButton")
+            self.nav_btn_settings.configure(style="Nav.TButton")
+            self.nav_btn_help.configure(style="NavActive.TButton")
+
+    def _build_help_page(self) -> None:
+        # Scrollable Canvas container
+        self._help_canvas = tk.Canvas(self.help_page, borderwidth=0, highlightthickness=0, bg=self.bg_color)
+        scrollbar = ttk.Scrollbar(self.help_page, orient="vertical", command=self._help_canvas.yview, style="Vertical.TScrollbar")
+        scrollable_frame = ttk.Frame(self._help_canvas, style="TFrame")
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: self._help_canvas.configure(
+                scrollregion=self._help_canvas.bbox("all")
+            )
+        )
+
+        canvas_window = self._help_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        self._help_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Expand scrollable frame to fill canvas width
+        self._help_canvas.bind(
+            "<Configure>",
+            lambda e: self._help_canvas.itemconfig(canvas_window, width=e.width),
+            add="+"
+        )
+
+        self._help_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Helper to create beautiful sections (Labelframes)
+        def create_section(parent, text):
+            lf = ttk.LabelFrame(parent, text=f" {text} ", padding=12)
+            lf.pack(fill="x", padx=15, pady=8)
+            return lf
+
+        # Helper to create bullet points in sections
+        def add_bullet(parent, title, desc):
+            f = ttk.Frame(parent, style="CardSub.TFrame")
+            f.pack(fill="x", pady=4)
+            # Bold title
+            lbl_title = ttk.Label(f, text=title, font=("Segoe UI", 10, "bold"), foreground=self.accent_color, style="Card.TLabel")
+            lbl_title.pack(anchor="w")
+            # Description
+            lbl_desc = ttk.Label(f, text=desc, font=("Segoe UI", 9), style="Card.TLabel", wraplength=550, justify="left")
+            lbl_desc.pack(anchor="w", padx=12, pady=(2, 0))
+
+        # --- Section 1: Быстрый старт ---
+        start_lf = create_section(scrollable_frame, "🚀 Быстрый старт")
+        add_bullet(start_lf, "1. Настройка подключения", 
+                   "Перейдите во вкладку «Настройки» и укажите URL сервера вашей карты (например, https://dayz-map.gto-team.uz) и Ключ клиента, полученный из панели администратора вашей веб-карты.")
+        add_bullet(start_lf, "2. Запуск службы", 
+                   "Вернитесь на вкладку «Главная» и нажмите кнопку «Запустить hotkeys». В логе событий отобразится статус запуска службы.")
+        add_bullet(start_lf, "3. Проверка в игре", 
+                   "Войдите на сервер DayZ, откройте игровую карту или планшет iZurvive и нажмите клавишу считывания (по умолчанию Num Lock). При успешном считывании в HUD-оверлее и логе клиента отобразятся ваши текущие координаты.")
+
+        # --- Section 2: Использование горячих клавиш ---
+        hk_lf = create_section(scrollable_frame, "⌨️ Горячие клавиши")
+        add_bullet(hk_lf, "Открыть карту / позиция (по умолчанию: Num Lock)", 
+                   "Основная кнопка. Запускает сессию: считывает координаты с экрана, отправляет их на веб-карту и оставляет сессию активной.")
+        add_bullet(hk_lf, "Клавиша карты в игре (по умолчанию: M)", 
+                   "Кнопка, на которую в самой игре открывается карта. Клиент будет автоматически симулировать её нажатие при активации считывания.")
+        add_bullet(hk_lf, "Отправить метку (по умолчанию: Ctrl+Shift+D)", 
+                   "Быстро ставит маркер на веб-карту в точке вашего текущего положения. Удобно для отметки объектов, лута или контактов.")
+        add_bullet(hk_lf, "Снимок координат (по умолчанию: Ctrl+Shift+S, Ctrl+Shift+C)", 
+                   "Позволяет принудительно запустить разовое распознавание координат с экрана в любой момент.")
+        add_bullet(hk_lf, "Закрыть карту (по умолчанию: Esc)", 
+                   "Закрывает сессию считывания и скрывает оверлей на экране.")
+
+        # --- Section 3: Настройка области распознавания (OCR) ---
+        ocr_lf = create_section(scrollable_frame, "🔍 Настройка распознавания (OCR)")
+        add_bullet(ocr_lf, "Выбор монитора", 
+                   "Укажите номер монитора, на котором запущена игра. Используйте кнопку «↻» для обновления списка подключенных экранов.")
+        add_bullet(ocr_lf, "Выбор области считывания", 
+                   "Нажмите кнопку «Редактор», чтобы открыть полупрозрачное окно. Переместите и растяните его так, чтобы рамка находилась ровно над полем с координатами (в правом нижнем углу игровой карты). Затем дважды кликните по рамке или нажмите Enter для сохранения.")
+        add_bullet(ocr_lf, "Предустановка iZurvive", 
+                   "Если вы считываете координаты с сайта iZurvive на Full HD (1920x1080) мониторе, нажмите кнопку «iZurvive» для автоматического применения оптимальных координат рамки.")
+        add_bullet(ocr_lf, "Цвет текста (Фильтр)", 
+                   "Позволяет настроить цветовой фильтр под цвет координат на вашей карте. Вариант «Автоматический выбор» подходит для большинства случаев.")
+
+        # --- Section 4: Решение проблем (FAQ) ---
+        faq_lf = create_section(scrollable_frame, "❓ Решение проблем")
+        add_bullet(faq_lf, "Клиент не распознает координаты", 
+                   "1. Убедитесь, что рамка в Редакторе наведена точно на цифры координат (без лишнего текста или рамок вокруг).\n2. Проверьте правильность выбранного монитора.\n3. Убедитесь, что игра запущена в режиме «Оконный без рамки» (Borderless Windowed). В полноэкранном режиме (Fullscreen) Windows блокирует снятие скриншотов.")
+        add_bullet(faq_lf, "Координаты считываются с ошибками", 
+                   "Попробуйте изменить «Цвет текста» в настройках (например, выбрать «Высокий контраст» или конкретный цвет текста координат) или немного увеличить рамку считывания в редакторе.")
+        add_bullet(faq_lf, "Метка не появляется на веб-карте", 
+                   "Проверьте правильность URL сервера и Ключа клиента в «Настройках». Убедитесь, что имя вашего персонажа в игре совпадает с тем, под которым вы авторизованы на сайте карты (с учётом регистра).")
 
     def _create_tray_icon(self) -> None:
         self.tray_image = create_tray_image()
