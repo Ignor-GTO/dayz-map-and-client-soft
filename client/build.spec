@@ -24,6 +24,7 @@ for pkg in (
     'winrt.windows.foundation.collections',
     'rapidocr',
     'onnxruntime',
+    'numpy',
 ):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
     datas += pkg_datas
