@@ -775,6 +775,16 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
   }
 });
 
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") {
+    return;
+  }
+  if (e.key === "/") {
+    e.preventDefault();
+    document.getElementById("btn-focus-me")?.click();
+  }
+});
+
 document.getElementById("legend-toggle")?.addEventListener("click", () => {
   const legend = document.getElementById("legend");
   const btn = document.getElementById("legend-toggle");
