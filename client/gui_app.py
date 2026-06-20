@@ -604,6 +604,7 @@ class ClientApp(tk.Tk):
             self.server_entry, 
             self.key_entry, 
             self.hotkey_toggle_map_entry, 
+            self.game_map_key_entry,
             self.hotkey_send_marker_entry, 
             self.hotkey_snip_coords_entry, 
             self.hotkey_close_map_entry,
@@ -684,7 +685,8 @@ class ClientApp(tk.Tk):
         self.ocr_preprocess_mode_var.set(self.preprocess_modes_reverse_map.get(mode_val, "Автоматический выбор (Все цвета)"))
         
         # Hotkeys
-        self.hotkey_toggle_map_var.set(", ".join(self.cfg.get("hotkey_toggle_map", ["m", "num lock"])))
+        self.hotkey_toggle_map_var.set(", ".join(self.cfg.get("hotkey_toggle_map", ["num lock"])))
+        self.game_map_key_var.set(self.cfg.get("game_map_key", "m"))
         self.hotkey_send_marker_var.set(", ".join(self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])))
         self.hotkey_snip_coords_var.set(", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])))
         self.hotkey_close_map_var.set(", ".join(self.cfg.get("hotkey_close_map", ["esc"])))
@@ -699,12 +701,13 @@ class ClientApp(tk.Tk):
         self._update_help_labels()
 
     def _update_help_labels(self) -> None:
-        toggle_keys = ", ".join(self.cfg.get("hotkey_toggle_map", ["m", "num lock"])).upper()
+        toggle_keys = ", ".join(self.cfg.get("hotkey_toggle_map", ["num lock"])).upper()
+        game_key = self.cfg.get("game_map_key", "m").upper()
         send_keys = ", ".join(self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])).upper()
         snip_keys = ", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])).upper()
         close_keys = ", ".join(self.cfg.get("hotkey_close_map", ["esc"])).upper()
         
-        self.help_lbl_1.configure(text=f"• Открыть карту / Обновить позицию: {toggle_keys}")
+        self.help_lbl_1.configure(text=f"• Запуск считывания (OCR): {toggle_keys} (симулирует {game_key})")
         self.help_lbl_2.configure(text=f"• Отправить метку на карту: {send_keys}")
         self.help_lbl_3.configure(text=f"• Снимок координат с экрана: {snip_keys}")
         self.help_lbl_4.configure(text=f"• Закрыть карту: {close_keys}")
@@ -806,7 +809,7 @@ class ClientApp(tk.Tk):
             
         # Hotkeys validation
         hotkey_fields = {
-            "Открыть карту/позиция": (self.hotkey_toggle_map_var.get(), "hotkey_toggle_map"),
+            "Запуск считывания (OCR)": (self.hotkey_toggle_map_var.get(), "hotkey_toggle_map"),
             "Отправить метку": (self.hotkey_send_marker_var.get(), "hotkey_send_marker"),
             "Снимок координат": (self.hotkey_snip_coords_var.get(), "hotkey_snip_coords"),
             "Закрыть карту": (self.hotkey_close_map_var.get(), "hotkey_close_map"),
@@ -822,6 +825,14 @@ class ClientApp(tk.Tk):
                     messagebox.showerror("Ошибка", f"Недопустимое сочетание клавиш для '{label}': '{p}'")
                     return
             parsed_hotkeys[config_key] = parts
+
+        game_key_str = self.game_map_key_var.get().strip().lower()
+        if game_key_str:
+            try:
+                keyboard.parse_hotkey(game_key_str)
+            except Exception:
+                messagebox.showerror("Ошибка", f"Недопустимая клавиша для 'Игровая клавиша карты': '{game_key_str}'")
+                return
 
         # Parse and validate numeric settings
         try:
@@ -852,6 +863,7 @@ class ClientApp(tk.Tk):
                 "ocr_region": [v.get() for v in self.region_vars],
                 "ocr_preprocess_mode": ocr_mode,
                 "hotkey_toggle_map": parsed_hotkeys["hotkey_toggle_map"],
+                "game_map_key": game_key_str,
                 "hotkey_send_marker": parsed_hotkeys["hotkey_send_marker"],
                 "hotkey_snip_coords": parsed_hotkeys["hotkey_snip_coords"],
                 "hotkey_close_map": parsed_hotkeys["hotkey_close_map"],
@@ -1131,8 +1143,8 @@ class ClientApp(tk.Tk):
         self.hotkeys_active = True
         self._map_session_active = False
         
-        toggle_keys = self.cfg.get("hotkey_toggle_map", ["m", "num lock"])
-        self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} открыть карту")
+        toggle_keys = self.cfg.get("hotkey_toggle_map", ["num lock"])
+        self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} запуск считывания")
         self.start_btn.configure(text="Остановить hotkeys")
         
         for hk in toggle_keys:
@@ -1196,12 +1208,12 @@ class ClientApp(tk.Tk):
     def _update_session_status(self) -> None:
         if not self.hotkeys_active:
             return
-        toggle_keys = self.cfg.get("hotkey_toggle_map", ["m", "num lock"])
+        toggle_keys = self.cfg.get("hotkey_toggle_map", ["num lock"])
         send_keys = self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])
         if self._map_session_active:
-            self.status_var.set(f"Карта открыта — {', '.join(toggle_keys).upper()} закрыть · {', '.join(send_keys).upper()} — метка")
+            self.status_var.set(f"Считывание активно — {', '.join(toggle_keys).upper()} остановить · {', '.join(send_keys).upper()} — метка")
         else:
-            self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} открыть карту / позиция")
+            self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} запустить считывание")
 
     def _capture_coords(self, *, nudge: bool, check_cancel: Callable[[], bool] | None = None) -> tuple[float, float] | None:
         monitor = self._monitor_index()
@@ -1336,24 +1348,26 @@ class ClientApp(tk.Tk):
         if not self.map_client:
             return
 
+        game_key = self.cfg.get("game_map_key", "m").strip().lower()
+
         if self._map_session_active:
             self._end_map_session()
-            if pressed_key.strip().lower() != "m":
+            if pressed_key.strip().lower() != game_key:
                 try:
-                    keyboard.press("m")
-                    self.after(100, lambda: keyboard.release("m"))
+                    keyboard.press(game_key)
+                    self.after(100, lambda: keyboard.release(game_key))
                 except Exception as e:
-                    self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
+                    self.log_line(f"[Ошибка] Не удалось симулировать нажатие '{game_key.upper()}': {e}")
             return
 
         self._map_session_trigger_key = pressed_key.strip().lower()
         self._start_map_session()
-        if pressed_key.strip().lower() != "m":
+        if pressed_key.strip().lower() != game_key:
             try:
-                keyboard.press("m")
-                self.after(100, lambda: keyboard.release("m"))
+                keyboard.press(game_key)
+                self.after(100, lambda: keyboard.release(game_key))
             except Exception as e:
-                self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M': {e}")
+                self.log_line(f"[Ошибка] Не удалось симулировать нажатие '{game_key.upper()}': {e}")
 
         self._ensure_hud().show_busy("Позиция игрока…")
 
