@@ -30,15 +30,50 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
             num_str = matches[0].group(0)
             n = len(num_str)
             if 6 <= n <= 10:
-                half = n // 2
-                for split_idx in ((half, half + 1) if n % 2 != 0 else (half,)):
+                best_split_coords = None
+                best_split_score = -9999
+                
+                # Try all possible split points between 3 and n-3
+                for split_idx in range(3, n - 2):
                     xs, ys = num_str[:split_idx], num_str[split_idx:]
                     try:
                         x, y = float(xs), float(ys)
-                        if _valid_coord(x, y):
-                            return (x, y)
                     except ValueError:
-                        pass
+                        continue
+                    if not _valid_coord(x, y):
+                        continue
+                        
+                    # Score this split
+                    score = 0
+                    len_x, len_y = len(xs), len(ys)
+                    
+                    # 3-5 digits is ideal
+                    if 3 <= len_x <= 5 and 3 <= len_y <= 5:
+                        score += 100
+                    
+                    # Penalty for leading zeros in Y unless Y is just 0
+                    if ys.startswith("0") and len(ys) > 1:
+                        if ys.startswith("00"):
+                            score -= 60
+                        else:
+                            score -= 20
+                            
+                    # Penalty for leading zeros in X unless X is just 0
+                    if xs.startswith("0") and len(xs) > 1:
+                        if xs.startswith("00"):
+                            score -= 60
+                        else:
+                            score -= 20
+                            
+                    # Prefer splits where the lengths are as close as possible
+                    score -= abs(len_x - len_y) * 10
+                    
+                    if score > best_split_score:
+                        best_split_score = score
+                        best_split_coords = (x, y)
+                        
+                if best_split_coords and best_split_score >= -50:
+                    return best_split_coords
         return None
 
     best_pair = None

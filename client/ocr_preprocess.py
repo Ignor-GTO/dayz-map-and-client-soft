@@ -81,8 +81,18 @@ def preprocess_variants(image: Image.Image) -> list[Image.Image]:
     elif mode == "high_contrast":
         return [preprocess_high_contrast(image)]
     else:
-        return [
+        variants = [
             preprocess_white_on_dark(image),
             preprocess_lime_on_dark(image),
             preprocess_high_contrast(image),
         ]
+        
+        # Plain grayscale autocontrasted variant
+        gray_norm = ImageOps.autocontrast(image.convert("L"), cutoff=1)
+        variants.append(_upscale(gray_norm))
+        
+        # Inverted grayscale autocontrasted variant
+        gray_inv = ImageOps.invert(gray_norm)
+        variants.append(_upscale(gray_inv))
+        
+        return variants

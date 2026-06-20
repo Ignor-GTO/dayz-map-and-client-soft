@@ -317,34 +317,40 @@ class ClientApp(tk.Tk):
         
         self.help_lbl_1 = ttk.Label(
             help_card, 
-            text="• Открыть карту / Обновить позицию: клавиша задаётся в настройках",
+            text="• Карта (с авто-закрытием): клавиша задаётся в настройках",
             style="CardMuted.TLabel"
         )
         self.help_lbl_1.pack(anchor="w")
         self.help_lbl_2 = ttk.Label(
             help_card, 
-            text="• Отправить метку на карту: клавиша задаётся в настройках",
+            text="• Карта (без закрытия / в игре): клавиша задаётся в настройках",
             style="CardMuted.TLabel"
         )
         self.help_lbl_2.pack(anchor="w")
         self.help_lbl_3 = ttk.Label(
             help_card, 
-            text="• Снимок координат с экрана: клавиша задаётся в настройках",
+            text="• Отправить метку на карту: клавиша задаётся в настройках",
             style="CardMuted.TLabel"
         )
         self.help_lbl_3.pack(anchor="w")
         self.help_lbl_4 = ttk.Label(
             help_card, 
-            text="• Закрыть карту: клавиша закрытия задаётся в настройках",
+            text="• Снимок координат с экрана: клавиша задаётся в настройках",
             style="CardMuted.TLabel"
         )
         self.help_lbl_4.pack(anchor="w")
         self.help_lbl_5 = ttk.Label(
             help_card, 
-            text="• Авто-захват из буфера (Win+Shift+S): работает автоматически при запущенных hotkeys",
+            text="• Закрыть карту: клавиша закрытия задаётся в настройках",
             style="CardMuted.TLabel"
         )
         self.help_lbl_5.pack(anchor="w")
+        self.help_lbl_6 = ttk.Label(
+            help_card, 
+            text="• Авто-захват из буфера (Win+Shift+S): работает автоматически при запущенных hotkeys",
+            style="CardMuted.TLabel"
+        )
+        self.help_lbl_6.pack(anchor="w")
 
         # Modern Flat Log with Custom Scrollbar
         log_frm = ttk.Frame(main_frm)
@@ -731,10 +737,10 @@ class ClientApp(tk.Tk):
 
         # --- Section 2: Использование горячих клавиш ---
         hk_lf = create_section(scrollable_frame, "⌨️ Горячие клавиши")
-        add_bullet(hk_lf, "Открыть карту / позиция (по умолчанию: Num Lock)", 
-                   "Основная кнопка. Запускает сессию: считывает координаты с экрана, отправляет их на веб-карту и оставляет сессию активной.")
-        add_bullet(hk_lf, "Клавиша карты в игре (по умолчанию: M)", 
-                   "Кнопка, на которую в самой игре открывается карта. Клиент будет автоматически симулировать её нажатие при активации считывания.")
+        add_bullet(hk_lf, "Карта с авто-закрытием (по умолчанию: Num Lock)", 
+                   "Кнопка для быстрого считывания: симулирует открытие карты в игре, считывает координаты, отправляет их на веб-карту, затем автоматически закрывает карту в игре.")
+        add_bullet(hk_lf, "Карта без авто-закрытия (по умолчанию: M)", 
+                   "Кнопка, на которую открывается карта в игре. Клиент перехватит её нажатие, запустит сессию считывания координат, отправит их на веб-карту, но оставит карту открытой.")
         add_bullet(hk_lf, "Отправить метку (по умолчанию: Ctrl+Shift+D)", 
                    "Быстро ставит маркер на веб-карту в точке вашего текущего положения. Удобно для отметки объектов, лута или контактов.")
         add_bullet(hk_lf, "Снимок координат (по умолчанию: Ctrl+Shift+S, Ctrl+Shift+C)", 
@@ -835,10 +841,11 @@ class ClientApp(tk.Tk):
         snip_keys = ", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])).upper()
         close_keys = ", ".join(self.cfg.get("hotkey_close_map", ["esc"])).upper()
         
-        self.help_lbl_1.configure(text=f"• Запуск считывания (OCR): {toggle_keys} (симулирует {game_key})")
-        self.help_lbl_2.configure(text=f"• Отправить метку на карту: {send_keys}")
-        self.help_lbl_3.configure(text=f"• Снимок координат с экрана: {snip_keys}")
-        self.help_lbl_4.configure(text=f"• Закрыть карту: {close_keys}")
+        self.help_lbl_1.configure(text=f"• Карта с авто-закрытием: {toggle_keys}")
+        self.help_lbl_2.configure(text=f"• Карта без авто-закрытия: {game_key}")
+        self.help_lbl_3.configure(text=f"• Отправить метку на карту: {send_keys}")
+        self.help_lbl_4.configure(text=f"• Снимок координат с экрана: {snip_keys}")
+        self.help_lbl_5.configure(text=f"• Закрыть карту: {close_keys}")
 
     def log_line(self, text: str) -> None:
         self.log.configure(state="normal")
@@ -1450,7 +1457,11 @@ class ClientApp(tk.Tk):
         self._map_session_active = False
         
         toggle_keys = self.cfg.get("hotkey_toggle_map", ["num lock"])
-        self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} запуск считывания")
+        toggle_keys_lower = [k.strip().lower() for k in toggle_keys if k.strip()]
+        game_map_key = self.cfg.get("game_map_key", "m")
+        game_map_key_lower = game_map_key.strip().lower()
+
+        self.status_var.set(f"Работает — {game_map_key.upper()} / {', '.join(toggle_keys).upper()} запуск считывания")
         self.start_btn.configure(text="Остановить hotkeys")
         
         for hk in toggle_keys:
@@ -1460,6 +1471,13 @@ class ClientApp(tk.Tk):
                     lambda key=hk: self.after(0, lambda: self._handle_m_hotkey(key)), 
                     suppress=False
                 )
+
+        if game_map_key.strip() and game_map_key_lower not in toggle_keys_lower:
+            keyboard.add_hotkey(
+                game_map_key_lower,
+                lambda key=game_map_key: self.after(0, lambda: self._handle_m_hotkey(key)),
+                suppress=False
+            )
                 
         for hk in self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"]):
             if hk.strip():
@@ -1477,7 +1495,7 @@ class ClientApp(tk.Tk):
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         self.log_line(
             f"[Запуск] Hotkeys: "
-            f"карта: {', '.join(toggle_keys).upper()}, "
+            f"карта: {game_map_key.upper()} (ручн) / {', '.join(toggle_keys).upper()} (авто), "
             f"метка: {', '.join(self.cfg.get('hotkey_send_marker', ['ctrl+shift+d'])).upper()}, "
             f"снимок: {', '.join(self.cfg.get('hotkey_snip_coords', ['ctrl+shift+s', 'ctrl+shift+c'])).upper()}, "
             f"закрыть: {', '.join(self.cfg.get('hotkey_close_map', ['esc'])).upper()}; "
@@ -1515,11 +1533,12 @@ class ClientApp(tk.Tk):
         if not self.hotkeys_active:
             return
         toggle_keys = self.cfg.get("hotkey_toggle_map", ["num lock"])
+        game_key = self.cfg.get("game_map_key", "m")
         send_keys = self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])
         if self._map_session_active:
-            self.status_var.set(f"Считывание активно — {', '.join(toggle_keys).upper()} остановить · {', '.join(send_keys).upper()} — метка")
+            self.status_var.set(f"Считывание активно · {', '.join(send_keys).upper()} — метка · ESC / {getattr(self, '_map_session_trigger_key', 'm').upper()} — закрыть")
         else:
-            self.status_var.set(f"Работает — {', '.join(toggle_keys).upper()} запустить считывание")
+            self.status_var.set(f"Работает — {game_key.upper()} / {', '.join(toggle_keys).upper()} запуск считывания")
 
     def _capture_coords(self, *, nudge: bool, check_cancel: Callable[[], bool] | None = None) -> tuple[float, float] | None:
         monitor = self._monitor_index()
@@ -1701,7 +1720,7 @@ class ClientApp(tk.Tk):
                         else:
                             self.after(0, lambda t=err_msg: self.log_line(f"[M] Ошибка отправки: {t}"))
                             self.after(0, lambda: self._ensure_hud().show_error("Ошибка отправки"))
-                    if not is_cancelled() and getattr(self, "_map_session_trigger_key", "m") != "m":
+                    if not is_cancelled() and getattr(self, "_map_session_trigger_key", "m") != game_key:
                         self.after(300, self._close_map_automatically)
                 else:
                     self.after(0, lambda: self.log_line("[M] Координаты не распознаны"))
@@ -1720,11 +1739,12 @@ class ClientApp(tk.Tk):
         if not self._map_session_active:
             return
         self._end_map_session(keep_hud=True)
+        game_key = self.cfg.get("game_map_key", "m").strip().lower()
         try:
-            keyboard.press("m")
-            self.after(100, lambda: keyboard.release("m"))
+            keyboard.press(game_key)
+            self.after(100, lambda: keyboard.release(game_key))
         except Exception as e:
-            self.log_line(f"[Ошибка] Не удалось симулировать нажатие 'M' для авто-закрытия: {e}")
+            self.log_line(f"[Ошибка] Не удалось симулировать нажатие '{game_key.upper()}' для авто-закрытия: {e}")
 
     def _handle_esc_hotkey(self) -> None:
         if not self.hotkeys_active:
