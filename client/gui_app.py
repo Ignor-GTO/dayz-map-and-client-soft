@@ -39,6 +39,9 @@ class ClientApp(tk.Tk):
         self.title(f"DayZ Map Client v{__version__} — GTO Team")
         self.geometry("640x720")
         self.resizable(False, False)
+        
+        # Remove standard window border (make it borderless)
+        self.overrideredirect(True)
 
         self.cfg = load_config()
         self.map_client: MapClient | None = None
@@ -200,6 +203,33 @@ class ClientApp(tk.Tk):
                   background=[("active", self.card_bg)],
                   bordercolor=[("active", self.card_bg)],
                   foreground=[("active", self.accent_color)])
+
+        # Styling for window control buttons (Minimize / Close)
+        style.configure("WinCtrl.TButton", 
+                        background=self.bg_color, 
+                        foreground=self.text_muted, 
+                        bordercolor=self.bg_color, 
+                        lightcolor=self.bg_color,
+                        darkcolor=self.bg_color,
+                        font=("Segoe UI", 9, "bold"), 
+                        padding=[6, 3])
+        style.map("WinCtrl.TButton",
+                  background=[("active", self.card_bg)],
+                  bordercolor=[("active", self.card_bg)],
+                  foreground=[("active", self.fg_color)])
+                  
+        style.configure("WinClose.TButton", 
+                        background=self.bg_color, 
+                        foreground=self.text_muted, 
+                        bordercolor=self.bg_color, 
+                        lightcolor=self.bg_color,
+                        darkcolor=self.bg_color,
+                        font=("Segoe UI", 9, "bold"), 
+                        padding=[6, 3])
+        style.map("WinClose.TButton",
+                  background=[("active", self.danger_color)],
+                  bordercolor=[("active", self.danger_color)],
+                  foreground=[("active", "#ffffff")])
                   
         # Configure TEntry
         style.configure("TEntry", 
@@ -267,6 +297,36 @@ class ClientApp(tk.Tk):
         
         title_lbl = ttk.Label(header_frm, text="🧭 DAYZ GPS ASSISTANT", style="HeaderTitle.TLabel")
         title_lbl.pack(side="left", pady=2)
+
+        # Drag bindings to make the borderless window draggable
+        self._drag_start_x = 0
+        self._drag_start_y = 0
+
+        def start_drag(event):
+            self._drag_start_x = event.x
+            self._drag_start_y = event.y
+
+        def do_drag(event):
+            deltax = event.x - self._drag_start_x
+            deltay = event.y - self._drag_start_y
+            x = self.winfo_x() + deltax
+            y = self.winfo_y() + deltay
+            self.geometry(f"+{x}+{y}")
+
+        header_frm.bind("<Button-1>", start_drag)
+        header_frm.bind("<B1-Motion>", do_drag)
+        title_lbl.bind("<Button-1>", start_drag)
+        title_lbl.bind("<B1-Motion>", do_drag)
+
+        # Custom window controls (Minimize, Close)
+        win_ctrls = ttk.Frame(header_frm, style="Header.TFrame")
+        win_ctrls.pack(side="right", padx=(10, 0))
+        
+        btn_close = ttk.Button(win_ctrls, text="✕", width=3, style="WinClose.TButton", command=self.on_close)
+        btn_close.pack(side="right", padx=1)
+        
+        btn_min = ttk.Button(win_ctrls, text="—", width=3, style="WinCtrl.TButton", command=self._minimize_to_tray)
+        btn_min.pack(side="right", padx=1)
         
         nav_frm = ttk.Frame(header_frm, style="Header.TFrame")
         nav_frm.pack(side="right")
@@ -280,7 +340,7 @@ class ClientApp(tk.Tk):
         self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=12)
         self.nav_btn_help.pack(side="left", padx=2)
 
-        self.nav_btn_about = ttk.Button(nav_frm, text="О приложении", command=lambda: self._show_page(3), style="Nav.TButton", width=12)
+        self.nav_btn_about = ttk.Button(nav_frm, text="Инфо", command=lambda: self._show_page(3), style="Nav.TButton", width=12)
         self.nav_btn_about.pack(side="left", padx=2)
 
         # Pages Container

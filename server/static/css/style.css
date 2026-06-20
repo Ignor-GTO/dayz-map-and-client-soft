@@ -591,3 +591,84 @@ button.secondary.small {
   accent-color: var(--accent);
 }
 
+/* Sidebar Lists for Players and Markers */
+.sidebar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  background: rgba(15, 20, 25, 0.5);
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  padding: 0.4rem;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.sidebar-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  background: rgba(26, 35, 50, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sidebar-row:hover {
+  background: rgba(61, 158, 229, 0.12);
+  border-color: rgba(61, 158, 229, 0.3);
+}
+
+.sidebar-row-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.sidebar-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.sidebar-info {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.sidebar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.list-empty {
+  color: var(--muted);
+  font-style: italic;
+  font-size: 0.78rem;
+  text-align: center;
+  padding: 0.5rem;
+}
+
+.delete-btn-small {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  line-height: 1;
+}
+
+.delete-btn-small:hover {
+  color: var(--error);
+  background: rgba(255, 107, 107, 0.15);
+}
+

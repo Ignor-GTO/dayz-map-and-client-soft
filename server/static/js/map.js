@@ -252,9 +252,11 @@ function upsertLive(pos) {
     marker.setLatLng(latlng);
     marker.setIcon(icon);
     marker.setPopupContent(popup);
+    marker._playerMeta = pos;
   } else {
     marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popup);
+    marker._playerMeta = pos;
     state.liveMarkers.set(pos.user_id, marker);
   }
 
@@ -310,9 +312,11 @@ function upsertPin(m) {
     marker.setLatLng(latlng);
     marker.setIcon(icon);
     marker.setPopupContent(popupHtml);
+    marker._markerMeta = m;
   } else {
     marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popupHtml);
+    marker._markerMeta = m;
     marker.on("popupopen", () => {
       const btn = document.querySelector(".marker-delete");
       if (btn) {
@@ -325,6 +329,7 @@ function upsertPin(m) {
   if (isMine && state.map) {
     state.map.panTo(latlng, { animate: true, duration: 0.6 });
   }
+  updateMarkersList();
 }
 
 function upsertPoi(p) {
@@ -356,6 +361,7 @@ function removePin(id) {
     state.map.removeLayer(marker);
     state.pinMarkers.delete(id);
   }
+  updateMarkersList();
 }
 
 async function deleteMarker(id) {
@@ -368,17 +374,88 @@ async function deleteMarker(id) {
 }
 
 function updatePlayersList() {
-  const el = document.getElementById("players-list");
-  const entries = [];
+  const el = document.getElementById("web-players-list");
+  if (!el) return;
+  
+  const rows = [];
   state.liveMarkers.forEach((marker) => {
-    const content = marker.getPopup()?.getContent() || "";
-    const match = content.match(/^<b>(.+?)<\/b>/);
-    if (match) entries.push(match[1]);
+    const pos = marker._playerMeta;
+    if (!pos) return;
+    
+    const color = colorForUser(pos.user_id);
+    const isMe = state.me && pos.user_id === state.me.user_id;
+    const nameLabel = isMe ? `${pos.nickname} (Вы)` : pos.nickname;
+    
+    rows.push(`
+      <div class="sidebar-row" onclick="focusOnPlayer(${pos.user_id})">
+        <div class="sidebar-row-left">
+          <span class="sidebar-dot" style="background: ${color}"></span>
+          <span class="sidebar-name" title="${pos.nickname}">${nameLabel}</span>
+        </div>
+        <span class="sidebar-info">${Math.round(pos.x)} / ${Math.round(pos.y)}</span>
+      </div>
+    `);
   });
-  el.innerHTML = entries.length
-    ? entries.map((n) => `<div class="player-row">● ${n}</div>`).join("")
-    : "<div class='player-row'>Никого онлайн на карте</div>";
+  
+  el.innerHTML = rows.length
+    ? rows.join("")
+    : `<div class="list-empty">Никого онлайн</div>`;
 }
+
+function updateMarkersList() {
+  const el = document.getElementById("web-markers-list");
+  if (!el) return;
+  
+  const rows = [];
+  state.pinMarkers.forEach((marker) => {
+    const m = marker._markerMeta;
+    if (!m) return;
+    
+    const isMine = state.me && m.user_id === state.me.user_id;
+    const typeLabel = m.type === "screenshot" ? "📷 Снимок" : "📍 Метка";
+    const label = `${m.nickname}: ${typeLabel}`;
+    
+    rows.push(`
+      <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
+        <div class="sidebar-row-left">
+          <span class="sidebar-dot" style="background: ${colorForUser(m.user_id)}"></span>
+          <span class="sidebar-name" title="${label}">${label}</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <span class="sidebar-info" style="margin-right: 4px;">${Math.round(m.x)}/${Math.round(m.y)}</span>
+          ${isMine ? `<button class="delete-btn-small" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Удалить">✕</button>` : ""}
+        </div>
+      </div>
+    `);
+  });
+  
+  el.innerHTML = rows.length
+    ? rows.join("")
+    : `<div class="list-empty">Нет меток</div>`;
+}
+
+function focusOnPlayer(userId) {
+  if (!state.map) return;
+  const marker = state.liveMarkers.get(userId);
+  if (marker) {
+    state.map.setView(marker.getLatLng(), Math.max(state.map.getZoom(), 5), { animate: true });
+    marker.openPopup();
+  }
+}
+
+function focusOnMarker(markerId) {
+  if (!state.map) return;
+  let marker = state.pinMarkers.get(markerId) || state.pinMarkers.get(Number(markerId));
+  if (marker) {
+    state.map.setView(marker.getLatLng(), Math.max(state.map.getZoom(), 5), { animate: true });
+    marker.openPopup();
+  }
+}
+
+// Expose functions globally for inline HTML event handlers
+window.focusOnPlayer = focusOnPlayer;
+window.focusOnMarker = focusOnMarker;
+window.deleteMarker = deleteMarker;
 
 function connectWebSocket() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
