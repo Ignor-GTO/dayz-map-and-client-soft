@@ -23,7 +23,8 @@ DEFAULT_CONFIG = {
     "mouse_nudge_delay_ms": 400,
     "mouse_nudge_edge_offset": 8,
     "mouse_nudge_restore": True,
-    "hotkey_toggle_map": ["m", "num lock"],
+    "hotkey_toggle_map": ["num lock"],
+    "game_map_key": "m",
     "hotkey_send_marker": ["ctrl+shift+d"],
     "hotkey_snip_coords": ["ctrl+shift+s", "ctrl+shift+c"],
     "hotkey_close_map": ["esc"],
@@ -38,6 +39,14 @@ def load_config() -> dict:
             with open(CONFIG_PATH, encoding="utf-8") as f:
                 loaded = json.load(f)
                 if isinstance(loaded, dict):
+                    # Migration: if hotkey_toggle_map contains both "m" and "num lock" (old behavior),
+                    # split them by removing "m" from toggle keys and setting game_map_key to "m"
+                    if "hotkey_toggle_map" in loaded and isinstance(loaded["hotkey_toggle_map"], list):
+                        toggle_list = [k.strip().lower() for k in loaded["hotkey_toggle_map"]]
+                        if "m" in toggle_list and len(toggle_list) > 1:
+                            loaded["hotkey_toggle_map"] = [k for k in toggle_list if k != "m"]
+                            if "game_map_key" not in loaded:
+                                loaded["game_map_key"] = "m"
                     cfg.update(loaded)
         except Exception:
             pass
