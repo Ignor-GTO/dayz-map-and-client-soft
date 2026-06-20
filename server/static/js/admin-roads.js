@@ -195,7 +195,7 @@
           <div class="road-seg-item" data-id="${seg.id}" id="seg-item-${seg.id}" onclick="window.RoadsEditor.selectSegment(${seg.id}, event)" style="cursor: pointer;">
             <span class="seg-color-dot" style="background:${color}"></span>
             <div class="seg-info">
-              <span class="seg-type">${label}</span>
+              <span class="seg-type">${label} #${seg.id}</span>
               <span class="seg-pts">${pts} точек</span>
             </div>
             <button class="seg-focus-btn" onclick="event.stopPropagation(); window.RoadsEditor.focusSegment(${seg.id})" title="Найти на карте">🎯</button>
@@ -203,6 +203,20 @@
           </div>`;
       })
       .join("");
+
+    filterSegmentList();
+  }
+
+  function filterSegmentList() {
+    const query = document.getElementById("roads-search-input")?.value.toLowerCase().trim() || "";
+    document.querySelectorAll(".road-seg-item").forEach((item) => {
+      const typeText = item.querySelector(".seg-type")?.textContent.toLowerCase() || "";
+      if (typeText.includes(query)) {
+        item.style.display = "flex";
+      } else {
+        item.style.display = "none";
+      }
+    });
   }
 
   function highlightSegment(id) {
@@ -443,12 +457,57 @@
   // Drawing mode
   // -------------------------------------------------------------------------
 
+  function selectRoadTypeUI(type) {
+    selectedRoadType = type;
+    document.querySelectorAll(".road-type-btn").forEach((btn) => {
+      if (btn.dataset.type === type) {
+        btn.classList.add("active");
+      } else {
+        btn.classList.remove("active");
+      }
+    });
+  }
+
+  function updateDrawSaveButton() {
+    const btn = document.getElementById("roads-draw-save");
+    if (btn) {
+      btn.disabled = !isDrawing || drawPoints.length < 2;
+    }
+  }
+
+  function startDrawBranch(latlng, roadType) {
+    if (editingSegmentId) cancelEditSegment();
+
+    selectRoadTypeUI(roadType);
+
+    isDrawing = true;
+    drawPoints = [latlng];
+    clearDrawPreview();
+
+    roadsMap.getContainer().style.cursor = "crosshair";
+
+    // Add first vertex marker
+    const vm = L.circleMarker(latlng, {
+      radius: 5,
+      color: ROAD_COLORS[selectedRoadType],
+      fillColor: "#fff",
+      fillOpacity: 1,
+      weight: 2,
+    }).addTo(roadsMap);
+    drawMarkers.push(vm);
+
+    updateDrawPolyline();
+    updateDrawSaveButton();
+    setStatus("Ветка начата. Кликайте по карте, двойной клик — сохранить сегмент", "drawing");
+  }
+
   function startDraw() {
     if (editingSegmentId) cancelEditSegment();
     isDrawing = true;
     drawPoints = [];
     clearDrawPreview();
     roadsMap.getContainer().style.cursor = "crosshair";
+    updateDrawSaveButton();
     setStatus("Кликайте по карте, двойной клик — сохранить сегмент", "drawing");
   }
 
@@ -457,6 +516,7 @@
     drawPoints = [];
     clearDrawPreview();
     roadsMap.getContainer().style.cursor = "";
+    updateDrawSaveButton();
     setStatus("Готов", "idle");
   }
 
@@ -475,6 +535,7 @@
     const removedMarker = drawMarkers.pop();
     if (removedMarker) roadsMap.removeLayer(removedMarker);
     updateDrawPolyline();
+    updateDrawSaveButton();
     if (drawPoints.length === 0) {
       setStatus("Кликайте по карте, двойной клик — сохранить сегмент", "drawing");
     }
@@ -499,6 +560,7 @@
       drawMarkers.push(vm);
 
       updateDrawPolyline();
+      updateDrawSaveButton();
       setStatus(`${drawPoints.length} точек — двойной клик для сохранения`, "drawing");
     } else if (editingSegmentId && extendMode) {
       let latlng = e.latlng;
@@ -547,7 +609,29 @@
   }
 
   async function saveSegment() {
-    const points = drawPoints.map((ll) => fromLatLng(ll));
+    const rawPoints = drawPoints.map((ll) => fromLatLng(ll));
+    const points = [];
+    rawPoints.forEach((pt) => {
+      if (points.length === 0) {
+        points.push(pt);
+      } else {
+        const lastPt = points[points.length - 1];
+        const dx = pt[0] - lastPt[0];
+        const dy = pt[1] - lastPt[1];
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist > 0.1) {
+          points.push(pt);
+        }
+      }
+    });
+
+    if (points.length < 2) {
+      showError("Недостаточно уникальных точек для сохранения сегмента (минимум 2)!");
+      cancelDraw();
+      startDraw();
+      return;
+    }
+
     cancelDraw();
 
     try {
@@ -576,8 +660,13 @@
   function selectSegment(id) {
     const seg = allSegments.find((s) => s.id === id);
     if (seg) {
-      highlightSegment(id);
+      const searchInput = document.getElementById("roads-search-input");
+      if (searchInput && searchInput.value) {
+        searchInput.value = "";
+        filterSegmentList();
+      }
       startEditSegment(seg);
+      highlightSegment(id);
     }
   }
 
@@ -717,13 +806,88 @@
           e.originalEvent.preventDefault();
         }
         L.DomEvent.stopPropagation(e);
-        if (idx === 0 || idx === editingPoints.length - 1) {
-          showError("Нельзя разрезать дорогу на концах!");
-          return;
+
+        const container = document.createElement("div");
+        container.className = "roads-popup-menu";
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.gap = "6px";
+        container.style.padding = "4px 0";
+
+        // Button 1: Start branch
+        const branchBtn = document.createElement("button");
+        branchBtn.className = "roads-popup-btn";
+        branchBtn.innerHTML = "🌿 Начать ветку отсюда";
+        branchBtn.style.padding = "6px 12px";
+        branchBtn.style.border = "none";
+        branchBtn.style.borderRadius = "4px";
+        branchBtn.style.background = "#2c3e50";
+        branchBtn.style.color = "#fff";
+        branchBtn.style.cursor = "pointer";
+        branchBtn.style.fontSize = "0.85rem";
+        branchBtn.style.textAlign = "left";
+        branchBtn.style.whiteSpace = "nowrap";
+        branchBtn.onmouseover = () => branchBtn.style.background = "#34495e";
+        branchBtn.onmouseout = () => branchBtn.style.background = "#2c3e50";
+        branchBtn.onclick = () => {
+          const roadType = allSegments.find(s => s.id === editingSegmentId)?.road_type || selectedRoadType;
+          startDrawBranch(latlng, roadType);
+          roadsMap.closePopup();
+        };
+        container.appendChild(branchBtn);
+
+        // Button 2: Split segment
+        if (idx > 0 && idx < editingPoints.length - 1) {
+          const splitBtn = document.createElement("button");
+          splitBtn.className = "roads-popup-btn";
+          splitBtn.innerHTML = "✂️ Разрезать сегмент здесь";
+          splitBtn.style.padding = "6px 12px";
+          splitBtn.style.border = "none";
+          splitBtn.style.borderRadius = "4px";
+          splitBtn.style.background = "#2c3e50";
+          splitBtn.style.color = "#fff";
+          splitBtn.style.cursor = "pointer";
+          splitBtn.style.fontSize = "0.85rem";
+          splitBtn.style.textAlign = "left";
+          splitBtn.style.whiteSpace = "nowrap";
+          splitBtn.onmouseover = () => splitBtn.style.background = "#34495e";
+          splitBtn.onmouseout = () => splitBtn.style.background = "#2c3e50";
+          splitBtn.onclick = () => {
+            splitSegmentAt(idx);
+            roadsMap.closePopup();
+          };
+          container.appendChild(splitBtn);
         }
-        if (confirm(`Разделить дорогу в этой точке на два отдельных сегмента?`)) {
-          splitSegmentAt(idx);
+
+        // Button 3: Delete vertex
+        if (editingPoints.length > 2) {
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "roads-popup-btn";
+          deleteBtn.innerHTML = "🗑 Удалить точку";
+          deleteBtn.style.padding = "6px 12px";
+          deleteBtn.style.border = "none";
+          deleteBtn.style.borderRadius = "4px";
+          deleteBtn.style.background = "#c0392b";
+          deleteBtn.style.color = "#fff";
+          deleteBtn.style.cursor = "pointer";
+          deleteBtn.style.fontSize = "0.85rem";
+          deleteBtn.style.textAlign = "left";
+          deleteBtn.style.whiteSpace = "nowrap";
+          deleteBtn.onmouseover = () => deleteBtn.style.background = "#e74c3c";
+          deleteBtn.onmouseout = () => deleteBtn.style.background = "#c0392b";
+          deleteBtn.onclick = () => {
+            editingPoints.splice(idx, 1);
+            updateEditPolyline();
+            renderEditMarkers();
+            roadsMap.closePopup();
+          };
+          container.appendChild(deleteBtn);
         }
+
+        L.popup()
+          .setLatLng(latlng)
+          .setContent(container)
+          .openOn(roadsMap);
       });
 
       editMarkers.push(m);
@@ -947,6 +1111,12 @@
       if (!isDrawing) startDraw();
     });
 
+    document.getElementById("roads-draw-save").addEventListener("click", () => {
+      if (isDrawing && drawPoints.length >= 2) {
+        saveSegment();
+      }
+    });
+
     document.getElementById("roads-undo-btn").addEventListener("click", undoLastPoint);
 
     document.getElementById("roads-cancel-btn").addEventListener("click", cancelDraw);
@@ -958,6 +1128,11 @@
     document.getElementById("roads-edit-extend-end").addEventListener("click", () => toggleExtendMode("end"));
     document.getElementById("roads-edit-save").addEventListener("click", saveEditSegment);
     document.getElementById("roads-edit-cancel").addEventListener("click", cancelEditSegment);
+
+    const searchInput = document.getElementById("roads-search-input");
+    if (searchInput) {
+      searchInput.addEventListener("input", filterSegmentList);
+    }
   }
 
   // -------------------------------------------------------------------------

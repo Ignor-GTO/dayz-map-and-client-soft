@@ -276,6 +276,7 @@
 
             <div id="roads-draw-tools" class="roads-tools">
               <button id="roads-draw-btn" class="roads-tool-btn active">✏️ Рисовать</button>
+              <button id="roads-draw-save" class="roads-tool-btn success" style="background-color: #1e8449; color: white;" disabled>💾 Сохранить</button>
               <button id="roads-undo-btn" class="roads-tool-btn">↩ Отменить точку</button>
               <button id="roads-cancel-btn" class="roads-tool-btn danger">✖ Отмена</button>
             </div>
@@ -299,6 +300,9 @@
               <h3>Сегменты</h3>
               <button id="roads-reload-btn" class="secondary small">↻ Обновить</button>
             </div>
+            <div class="roads-search-container" style="margin-bottom: 8px;">
+              <input type="text" id="roads-search-input" placeholder="Поиск по названию или #ID..." style="width: 100%; padding: 6px 10px; border: 1px solid #2a3848; border-radius: 6px; background: #0f1826; color: #e8f0ff; font-size: 0.85rem; box-sizing: border-box;">
+            </div>
             <div id="roads-segment-list" class="roads-segment-list"></div>
 
             <p id="roads-error" class="error hidden"></p>
@@ -314,6 +318,6 @@
   <script src="/js/poi-icons.js?v=2"></script>
   <script src="/js/admin.js?v=5"></script>
   <script src="/js/admin-radiation.js?v=7"></script>
-  <script src="/js/admin-roads.js?v=3"></script>
+  <script src="/js/admin-roads.js?v=6"></script>
 </body>
 </html>
