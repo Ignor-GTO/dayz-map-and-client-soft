@@ -762,7 +762,9 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
       const popup = m.getPopup();
       if (popup && typeof popup.getContent === "function") {
         const content = popup.getContent();
-        if (content && content.includes(`<b>${state.me.nickname}</b>`)) {
+        const normContent = content ? content.toLowerCase().trim() : "";
+        const normNick = state.me.nickname ? state.me.nickname.toLowerCase().trim() : "";
+        if (normContent && normNick && normContent.includes(`<b>${normNick}</b>`)) {
           fallbackLatLng = m.getLatLng();
         }
       }

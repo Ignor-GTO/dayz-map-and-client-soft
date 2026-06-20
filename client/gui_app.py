@@ -497,31 +497,49 @@ class ClientApp(tk.Tk):
         hotkey_lf = ttk.LabelFrame(scrollable_frame, text=" Горячие клавиши ", padding=10)
         hotkey_lf.pack(fill="x", padx=10, pady=5)
         
-        ttk.Label(hotkey_lf, text="Открыть карту / позиция:", style="Card.TLabel").grid(row=0, column=0, sticky="w", pady=4)
+        # Group 1: Map Control Section
+        ttk.Label(hotkey_lf, text="🗺 Управление картой", font=("Segoe UI", 9, "bold"), style="Card.TLabel").grid(row=0, column=0, columnspan=3, sticky="w", pady=(5, 5))
+        
+        ttk.Label(hotkey_lf, text="Открыть карту / позиция:", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
         self.hotkey_toggle_map_var = tk.StringVar()
-        self.hotkey_toggle_map_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_toggle_map_var, width=35)
-        self.hotkey_toggle_map_entry.grid(row=0, column=1, sticky="we", padx=5, pady=4)
+        self.hotkey_toggle_map_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_toggle_map_var, width=28)
+        self.hotkey_toggle_map_entry.grid(row=1, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_toggle = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_toggle.grid(row=1, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_toggle.configure(command=lambda: self._record_hotkey(self.hotkey_toggle_map_var, self.btn_rec_toggle))
         
-        ttk.Label(hotkey_lf, text="Отправить метку:", style="Card.TLabel").grid(row=1, column=0, sticky="w", pady=4)
-        self.hotkey_send_marker_var = tk.StringVar()
-        self.hotkey_send_marker_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_send_marker_var, width=35)
-        self.hotkey_send_marker_entry.grid(row=1, column=1, sticky="we", padx=5, pady=4)
-        
-        ttk.Label(hotkey_lf, text="Снимок координат:", style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=4)
-        self.hotkey_snip_coords_var = tk.StringVar()
-        self.hotkey_snip_coords_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_snip_coords_var, width=35)
-        self.hotkey_snip_coords_entry.grid(row=2, column=1, sticky="we", padx=5, pady=4)
-        
-        ttk.Label(hotkey_lf, text="Закрыть карту:", style="Card.TLabel").grid(row=3, column=0, sticky="w", pady=4)
+        ttk.Label(hotkey_lf, text="Закрыть карту:", style="Card.TLabel").grid(row=2, column=0, sticky="w", pady=4)
         self.hotkey_close_map_var = tk.StringVar()
-        self.hotkey_close_map_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_close_map_var, width=35)
-        self.hotkey_close_map_entry.grid(row=3, column=1, sticky="we", padx=5, pady=4)
-        
+        self.hotkey_close_map_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_close_map_var, width=28)
+        self.hotkey_close_map_entry.grid(row=2, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_close = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_close.grid(row=2, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_close.configure(command=lambda: self._record_hotkey(self.hotkey_close_map_var, self.btn_rec_close))
+
+        # Group 2: Markers Section Header
+        ttk.Label(hotkey_lf, text="📍 Метки и OCR", font=("Segoe UI", 9, "bold"), style="Card.TLabel").grid(row=3, column=0, columnspan=3, sticky="w", pady=(15, 5))
+
+        ttk.Label(hotkey_lf, text="Отправить метку:", style="Card.TLabel").grid(row=4, column=0, sticky="w", pady=4)
+        self.hotkey_send_marker_var = tk.StringVar()
+        self.hotkey_send_marker_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_send_marker_var, width=28)
+        self.hotkey_send_marker_entry.grid(row=4, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_send = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_send.grid(row=4, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_send.configure(command=lambda: self._record_hotkey(self.hotkey_send_marker_var, self.btn_rec_send))
+
+        ttk.Label(hotkey_lf, text="Снимок координат:", style="Card.TLabel").grid(row=5, column=0, sticky="w", pady=4)
+        self.hotkey_snip_coords_var = tk.StringVar()
+        self.hotkey_snip_coords_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_snip_coords_var, width=28)
+        self.hotkey_snip_coords_entry.grid(row=5, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_snip = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_snip.grid(row=5, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_snip.configure(command=lambda: self._record_hotkey(self.hotkey_snip_coords_var, self.btn_rec_snip))
+
         ttk.Label(
             hotkey_lf, 
-            text="Можно указать несколько клавиш через запятую (например: m, num lock)", 
+            text="Вы можете ввести клавиши вручную (через запятую) или нажать «Записать» для авто-определения.", 
             style="CardMuted.TLabel"
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(2, 4))
+        ).grid(row=6, column=0, columnspan=3, sticky="w", pady=(6, 2))
         
         hotkey_lf.columnconfigure(1, weight=1)
 
@@ -852,6 +870,29 @@ class ClientApp(tk.Tk):
         if self.hotkeys_active:
             self.stop_hotkeys()
             self.start_hotkeys()
+
+    def _record_hotkey(self, entry_var, btn) -> None:
+        btn.configure(text="⌛ Нажмите...", state="disabled")
+        self.log_line("[Hotkeys] Запись сочетания: нажмите нужные клавиши...")
+
+        def worker() -> None:
+            time.sleep(0.25)
+            try:
+                hk = keyboard.read_hotkey(suppress=True)
+                self.after(0, lambda: self._on_hotkey_recorded(entry_var, btn, hk))
+            except Exception as e:
+                self.after(0, lambda: self._on_hotkey_recorded(entry_var, btn, None, err=str(e)))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_hotkey_recorded(self, entry_var, btn, hk: str | None, err: str | None = None) -> None:
+        btn.configure(text="Записать", state="normal")
+        if err:
+            self.log_line(f"[Ошибка] Ошибка записи: {err}")
+            return
+        if hk:
+            entry_var.set(hk.strip().lower())
+            self.log_line(f"[Hotkeys] Успешно записано: {hk.upper()}")
 
     def _monitor_index(self) -> int:
         return self.monitor_combo.current() + 1 if self._monitors else self.cfg.get("monitor_index", 1)
