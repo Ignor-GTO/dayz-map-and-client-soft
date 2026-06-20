@@ -25,6 +25,20 @@ def parse_coordinates(text: str) -> tuple[float, float] | None:
     
     matches = list(_DIGITS.finditer(cleaned))
     if len(matches) < 2:
+        if len(matches) == 1:
+            # Fallback for single merged number (e.g. 75141111 or 151000879)
+            num_str = matches[0].group(0)
+            n = len(num_str)
+            if 6 <= n <= 10:
+                half = n // 2
+                for split_idx in ((half, half + 1) if n % 2 != 0 else (half,)):
+                    xs, ys = num_str[:split_idx], num_str[split_idx:]
+                    try:
+                        x, y = float(xs), float(ys)
+                        if _valid_coord(x, y):
+                            return (x, y)
+                    except ValueError:
+                        pass
         return None
 
     best_pair = None
