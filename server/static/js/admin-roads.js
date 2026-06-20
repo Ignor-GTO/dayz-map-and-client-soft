@@ -497,6 +497,8 @@
     drawMarkers.push(vm);
 
     updateDrawPolyline();
+    const drawBtn = document.getElementById("roads-draw-btn");
+    if (drawBtn) drawBtn.classList.add("active");
     updateDrawSaveButton();
     setStatus("Ветка начата. Кликайте по карте, двойной клик — сохранить сегмент", "drawing");
   }
@@ -507,6 +509,8 @@
     drawPoints = [];
     clearDrawPreview();
     roadsMap.getContainer().style.cursor = "crosshair";
+    const drawBtn = document.getElementById("roads-draw-btn");
+    if (drawBtn) drawBtn.classList.add("active");
     updateDrawSaveButton();
     setStatus("Кликайте по карте, двойной клик — сохранить сегмент", "drawing");
   }
@@ -516,6 +520,8 @@
     drawPoints = [];
     clearDrawPreview();
     roadsMap.getContainer().style.cursor = "";
+    const drawBtn = document.getElementById("roads-draw-btn");
+    if (drawBtn) drawBtn.classList.remove("active");
     updateDrawSaveButton();
     setStatus("Готов", "idle");
   }
@@ -628,7 +634,6 @@
     if (points.length < 2) {
       showError("Недостаточно уникальных точек для сохранения сегмента (минимум 2)!");
       cancelDraw();
-      startDraw();
       return;
     }
 
@@ -648,9 +653,6 @@
     } catch (e) {
       showError("Ошибка сохранения: " + e.message);
     }
-
-    // restart drawing mode
-    startDraw();
   }
 
   // -------------------------------------------------------------------------
