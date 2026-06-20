@@ -321,6 +321,10 @@ function upsertPin(m) {
     });
     state.pinMarkers.set(m.id, marker);
   }
+
+  if (isMine && state.map) {
+    state.map.panTo(latlng, { animate: true, duration: 0.6 });
+  }
 }
 
 function upsertPoi(p) {
@@ -746,6 +750,28 @@ document.getElementById("close-key-modal").addEventListener("click", () => {
 
 document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTileLayer("satellite"));
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
+
+document.getElementById("btn-focus-me")?.addEventListener("click", () => {
+  if (!state.map || !state.me) return;
+  const marker = state.liveMarkers.get(state.me.user_id);
+  if (marker) {
+    state.map.setView(marker.getLatLng(), Math.max(state.map.getZoom(), 5), { animate: true });
+  } else {
+    let fallbackLatLng = null;
+    state.pinMarkers.forEach((m) => {
+      const popup = m.getPopup();
+      if (popup && typeof popup.getContent === "function") {
+        const content = popup.getContent();
+        if (content && content.includes(`<b>${state.me.nickname}</b>`)) {
+          fallbackLatLng = m.getLatLng();
+        }
+      }
+    });
+    if (fallbackLatLng) {
+      state.map.setView(fallbackLatLng, Math.max(state.map.getZoom(), 5), { animate: true });
+    }
+  }
+});
 
 document.getElementById("legend-toggle")?.addEventListener("click", () => {
   const legend = document.getElementById("legend");

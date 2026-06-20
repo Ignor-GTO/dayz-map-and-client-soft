@@ -301,6 +301,31 @@ button.secondary:hover { background: #3a4858; }
   border-color: var(--accent);
 }
 
+.focus-me-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-weight: bold;
+  background: #27ae60;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.focus-me-btn:hover {
+  background: #2ecc71;
+}
+
+.focus-me-btn:active {
+  transform: scale(0.98);
+}
+
 .leaflet-control-attribution {
   font-size: 0.7rem;
   background: rgba(26, 35, 50, 0.85) !important;
