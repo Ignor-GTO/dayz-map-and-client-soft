@@ -995,8 +995,22 @@ class ClientApp(tk.Tk):
                     return
                 
                 # Compare versions
-                curr_ver = tuple(int(x) for x in __version__.lstrip("v").split("."))
-                latest_ver = tuple(int(x) for x in tag_name.lstrip("v").split("."))
+                import re
+                
+                # Check tag_name for version number, if not found try release name
+                version_match = re.search(r'v?(\d+\.\d+\.\d+)', tag_name)
+                if not version_match:
+                    version_match = re.search(r'v?(\d+\.\d+\.\d+)', data.get("name", ""))
+                
+                if version_match:
+                    latest_ver_str = version_match.group(1)
+                    latest_ver = tuple(int(x) for x in latest_ver_str.split("."))
+                    latest_ver_display = f"v{latest_ver_str}"
+                else:
+                    latest_ver = tuple(int(x) for x in tag_name.lstrip("v").split(".") if x.isdigit())
+                    latest_ver_display = tag_name
+                
+                curr_ver = tuple(int(x) for x in __version__.lstrip("v").split(".") if x.isdigit())
                 
                 if latest_ver > curr_ver:
                     download_url = None
@@ -1008,7 +1022,7 @@ class ClientApp(tk.Tk):
                     if not download_url:
                         download_url = f"https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/download/{tag_name}/DayZMapClient.exe"
                     
-                    self.after(0, lambda: self.prompt_update(tag_name, download_url))
+                    self.after(0, lambda: self.prompt_update(latest_ver_display, download_url))
                 else:
                     if manual:
                         self.after(0, lambda: messagebox.showinfo("Обновление", f"У вас установлена последняя версия ({__version__})"))
@@ -1046,7 +1060,7 @@ class ClientApp(tk.Tk):
         def download_worker():
             try:
                 exe_path = sys.executable
-                if not exe_path.endswith(".exe"):
+                if not getattr(sys, "frozen", False) or not exe_path.endswith(".exe"):
                     time.sleep(1.5)
                     self.after(0, progress_win.destroy)
                     self.after(0, lambda: messagebox.showinfo("Обновление", "В режиме разработки обновление имитировано."))
