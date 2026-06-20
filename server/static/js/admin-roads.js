@@ -167,6 +167,14 @@
       }
     });
 
+    poly.on("contextmenu", (e) => {
+      if (!isDrawing) {
+        L.DomEvent.stopPropagation(e);
+        if (e.originalEvent) e.originalEvent.preventDefault();
+        window.RoadsEditor.deleteSegment(seg.id);
+      }
+    });
+
     segmentLayers.set(seg.id, poly);
     return poly;
   }
@@ -225,19 +233,204 @@
     }
   };
 
-  window.RoadsEditor.deleteSegment = async function (id) {
-    if (!confirm(`Удалить сегмент #${id}?`)) return;
-    try {
-      await adminApi(`/api/admin/maps/${currentMapSlug}/roads/${id}`, {
-        method: "DELETE",
-      });
-      if (editingSegmentId === id) {
-        cancelEditSegment();
+  function isSamePoint(p1, p2, threshold = 0.5) {
+    return Math.abs(p1.lat - p2.lat) < threshold && Math.abs(p1.lng - p2.lng) < threshold;
+  }
+
+  function findConnectedSegments(startSegId) {
+    const startSeg = allSegments.find(s => s.id === startSegId);
+    if (!startSeg) return [];
+
+    const visited = new Set();
+    const queue = [startSegId];
+    visited.add(startSegId);
+
+    while (queue.length > 0) {
+      const currentId = queue.shift();
+      const currentSeg = allSegments.find(s => s.id === currentId);
+      if (!currentSeg) continue;
+
+      const currentLatLngs = currentSeg.points.map(([x, y]) => toLatLng(x, y));
+      if (currentLatLngs.length < 2) continue;
+
+      const pStart = currentLatLngs[0];
+      const pEnd = currentLatLngs[currentLatLngs.length - 1];
+
+      for (const otherSeg of allSegments) {
+        if (visited.has(otherSeg.id)) continue;
+        if (otherSeg.road_type !== currentSeg.road_type) continue;
+
+        const otherLatLngs = otherSeg.points.map(([x, y]) => toLatLng(x, y));
+        if (otherLatLngs.length < 2) continue;
+
+        const oStart = otherLatLngs[0];
+        const oEnd = otherLatLngs[otherLatLngs.length - 1];
+
+        const threshold = 1.0;
+        const isConnected = 
+          isSamePoint(pStart, oStart, threshold) ||
+          isSamePoint(pStart, oEnd, threshold) ||
+          isSamePoint(pEnd, oStart, threshold) ||
+          isSamePoint(pEnd, oEnd, threshold);
+
+        if (isConnected) {
+          visited.add(otherSeg.id);
+          queue.push(otherSeg.id);
+        }
       }
-      allSegments = allSegments.filter((s) => s.id !== id);
-      const layer = segmentLayers.get(id);
-      if (layer) roadsMap.removeLayer(layer);
-      segmentLayers.delete(id);
+    }
+
+    return Array.from(visited);
+  }
+
+  function showDeleteModal(segmentId, connectedCount) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement("div");
+      overlay.style.position = "fixed";
+      overlay.style.top = "0";
+      overlay.style.left = "0";
+      overlay.style.width = "100vw";
+      overlay.style.height = "100vh";
+      overlay.style.background = "rgba(10, 15, 23, 0.75)";
+      overlay.style.backdropFilter = "blur(6px)";
+      overlay.style.webkitBackdropFilter = "blur(6px)";
+      overlay.style.display = "flex";
+      overlay.style.alignItems = "center";
+      overlay.style.justifyContent = "center";
+      overlay.style.zIndex = "99999";
+      overlay.style.opacity = "0";
+      overlay.style.transition = "opacity 0.2s ease";
+
+      const modal = document.createElement("div");
+      modal.style.background = "#1a2634";
+      modal.style.border = "1px solid #2e3e52";
+      modal.style.borderRadius = "12px";
+      modal.style.padding = "24px";
+      modal.style.width = "400px";
+      modal.style.maxWidth = "90%";
+      modal.style.boxShadow = "0 20px 40px rgba(0,0,0,0.55)";
+      modal.style.transform = "scale(0.9)";
+      modal.style.transition = "transform 0.2s ease";
+      modal.style.color = "#e8f0ff";
+      modal.style.fontFamily = "'Segoe UI', Roboto, sans-serif";
+
+      const header = document.createElement("h3");
+      header.textContent = "Удаление дороги";
+      header.style.margin = "0 0 12px 0";
+      header.style.fontSize = "1.25rem";
+      header.style.color = "#ff4757";
+      modal.appendChild(header);
+
+      const body = document.createElement("p");
+      body.innerHTML = `Этот сегмент соединен с другими частями дороги.<br><br>Найдено <strong>${connectedCount}</strong> соединенных сегментов этого же типа.<br>Что вы хотите удалить?`;
+      body.style.margin = "0 0 20px 0";
+      body.style.lineHeight = "1.5";
+      body.style.fontSize = "0.95rem";
+      modal.appendChild(body);
+
+      const btnContainer = document.createElement("div");
+      btnContainer.style.display = "flex";
+      btnContainer.style.flexDirection = "column";
+      btnContainer.style.gap = "8px";
+
+      function createBtn(text, bg, fg, hoverBg, onClick) {
+        const btn = document.createElement("button");
+        btn.textContent = text;
+        btn.style.padding = "10px 16px";
+        btn.style.border = "none";
+        btn.style.borderRadius = "6px";
+        btn.style.cursor = "pointer";
+        btn.style.fontWeight = "600";
+        btn.style.fontSize = "0.9rem";
+        btn.style.background = bg;
+        btn.style.color = fg;
+        btn.style.transition = "background 0.15s ease, transform 0.1s ease";
+        btn.onmouseover = () => btn.style.background = hoverBg;
+        btn.onmouseout = () => btn.style.background = bg;
+        btn.onmousedown = () => btn.style.transform = "scale(0.98)";
+        btn.onmouseup = () => btn.style.transform = "scale(1)";
+        btn.onclick = onClick;
+        return btn;
+      }
+
+      const onlySegBtn = createBtn(
+        `Удалить только этот сегмент (#${segmentId})`,
+        "#2c3e50",
+        "#e8f0ff",
+        "#34495e",
+        () => { cleanup(); resolve("segment"); }
+      );
+
+      const entireRoadBtn = createBtn(
+        `Удалить всю соединенную дорогу (${connectedCount} сегм.)`,
+        "#c0392b",
+        "#ffffff",
+        "#e74c3c",
+        () => { cleanup(); resolve("road"); }
+      );
+
+      const cancelBtn = createBtn(
+        "Отмена",
+        "transparent",
+        "#95a5a6",
+        "rgba(255,255,255,0.05)",
+        () => { cleanup(); resolve(null); }
+      );
+      cancelBtn.style.border = "1px solid #7f8c8d";
+
+      btnContainer.appendChild(entireRoadBtn);
+      btnContainer.appendChild(onlySegBtn);
+      btnContainer.appendChild(cancelBtn);
+      modal.appendChild(btnContainer);
+      overlay.appendChild(modal);
+      document.body.appendChild(overlay);
+
+      setTimeout(() => {
+        overlay.style.opacity = "1";
+        modal.style.transform = "scale(1)";
+      }, 20);
+
+      function cleanup() {
+        overlay.style.opacity = "0";
+        modal.style.transform = "scale(0.9)";
+        setTimeout(() => {
+          document.body.removeChild(overlay);
+        }, 200);
+      }
+    });
+  }
+
+  window.RoadsEditor.deleteSegment = async function (id) {
+    const connectedIds = findConnectedSegments(id);
+    let choice = "segment";
+    let idsToDelete = [id];
+
+    if (connectedIds.length > 1) {
+      choice = await showDeleteModal(id, connectedIds.length);
+      if (choice === null) return; // Cancelled
+      if (choice === "road") {
+        idsToDelete = connectedIds;
+      }
+    } else {
+      if (!confirm(`Удалить сегмент #${id}?`)) return;
+    }
+
+    try {
+      await adminApi(`/api/admin/maps/${currentMapSlug}/roads/delete-bulk`, {
+        method: "POST",
+        body: JSON.stringify(idsToDelete),
+      });
+
+      idsToDelete.forEach((delId) => {
+        if (editingSegmentId === delId) {
+          cancelEditSegment();
+        }
+        allSegments = allSegments.filter((s) => s.id !== delId);
+        const layer = segmentLayers.get(delId);
+        if (layer) roadsMap.removeLayer(layer);
+        segmentLayers.delete(delId);
+      });
+
       updateSegmentList();
       document.getElementById("roads-seg-count").textContent =
         `${allSegments.length} сегментов`;

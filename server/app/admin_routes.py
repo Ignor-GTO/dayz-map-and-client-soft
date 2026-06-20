@@ -588,6 +588,22 @@ async def admin_clear_roads(
     return {"ok": True, "deleted": count}
 
 
+@router.post("/maps/{map_slug}/roads/delete-bulk")
+async def admin_delete_roads_bulk(
+    map_slug: str,
+    payload: list[int],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    from sqlalchemy import delete
+    result = await db.execute(
+        delete(RoadSegment).where(RoadSegment.map_id == game_map.id, RoadSegment.id.in_(payload))
+    )
+    await db.commit()
+    return {"ok": True, "deleted": result.rowcount}
+
+
 @router.post("/maps/{map_slug}/roads/bulk", response_model=list[RoadSegmentResponse])
 async def admin_create_roads_bulk(
     map_slug: str,
