@@ -1312,7 +1312,17 @@ class ClientApp(tk.Tk):
                 os.rename(exe_path, old_exe)
                 os.rename(new_exe, exe_path)
                 
-                subprocess.Popen([exe_path])
+                # Strip MEIPASS variables from inherited environment so the child starts fresh
+                env = os.environ.copy()
+                for key in list(env.keys()):
+                    if "MEIPASS" in key:
+                        env.pop(key, None)
+                
+                creationflags = 0
+                if sys.platform == "win32":
+                    creationflags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                
+                subprocess.Popen([exe_path], env=env, close_fds=True, creationflags=creationflags)
                 self.after(0, lambda: self.on_close())
                 
             except Exception as e:

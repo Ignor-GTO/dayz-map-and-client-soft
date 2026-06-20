@@ -452,10 +452,32 @@ function focusOnMarker(markerId) {
   }
 }
 
+function switchLegendTab(tabId) {
+  const groupBtn = document.getElementById("tab-btn-group");
+  const filtersBtn = document.getElementById("tab-btn-filters");
+  const groupContent = document.getElementById("tab-content-group");
+  const filtersContent = document.getElementById("tab-content-filters");
+  
+  if (!groupBtn || !filtersBtn || !groupContent || !filtersContent) return;
+
+  if (tabId === "group") {
+    groupBtn.classList.add("active");
+    filtersBtn.classList.remove("active");
+    groupContent.classList.remove("hidden");
+    filtersContent.classList.add("hidden");
+  } else {
+    groupBtn.classList.remove("active");
+    filtersBtn.classList.add("active");
+    groupContent.classList.add("hidden");
+    filtersContent.classList.remove("hidden");
+  }
+}
+
 // Expose functions globally for inline HTML event handlers
 window.focusOnPlayer = focusOnPlayer;
 window.focusOnMarker = focusOnMarker;
 window.deleteMarker = deleteMarker;
+window.switchLegendTab = switchLegendTab;
 
 function connectWebSocket() {
   const proto = location.protocol === "https:" ? "wss" : "ws";

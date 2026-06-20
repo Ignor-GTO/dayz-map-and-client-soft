@@ -672,3 +672,40 @@ button.secondary.small {
   background: rgba(255, 107, 107, 0.15);
 }
 
+/* Legend Tab System */
+.legend-tabs {
+  display: flex;
+  border-bottom: 1px solid #2a3848;
+  margin-bottom: 0.75rem;
+  margin-top: -0.25rem; /* pull up slightly */
+}
+
+.legend-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 0.6rem 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+.legend-tab-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.legend-tab-btn.active {
+  color: var(--accent);
+  border-bottom: 2px solid var(--accent);
+}
+
