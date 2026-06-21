@@ -32,6 +32,27 @@ def create_tray_image() -> Image.Image:
     dc.line([46, 32, 60, 32], fill=(59, 130, 246, 255), width=4)
     return image
 
+def get_safe_scan_code(key_name: str) -> int | str:
+    key_name = key_name.strip().lower()
+    if not key_name:
+        return key_name
+    try:
+        import sys
+        if sys.platform == "win32":
+            import keyboard._winkeyboard as wk
+            wk._setup_name_tables()
+            entries = wk.from_name.get(key_name)
+            if entries:
+                for _, entry in entries:
+                    scan_code, vk, is_extended, modifiers = entry
+                    if 166 <= vk <= 183:  # Skip VK_BROWSER_* and media keys
+                        continue
+                    if scan_code:
+                        return scan_code
+    except Exception:
+        pass
+    return key_name
+
 
 class ClientApp(tk.Tk):
     def __init__(self) -> None:
@@ -1789,13 +1810,14 @@ class ClientApp(tk.Tk):
             return
 
         game_key = self.cfg.get("game_map_key", "m").strip().lower()
+        game_key_sc = get_safe_scan_code(game_key)
 
         if self._map_session_active:
             self._end_map_session()
             if pressed_key.strip().lower() != game_key:
                 try:
-                    keyboard.press(game_key)
-                    self.after(100, lambda: keyboard.release(game_key))
+                    keyboard.press(game_key_sc)
+                    self.after(100, lambda: keyboard.release(game_key_sc))
                 except Exception as e:
                     self.log_line(f"[Ошибка] Не удалось симулировать нажатие '{game_key.upper()}': {e}")
             return
@@ -1804,8 +1826,8 @@ class ClientApp(tk.Tk):
         self._start_map_session()
         if pressed_key.strip().lower() != game_key:
             try:
-                keyboard.press(game_key)
-                self.after(100, lambda: keyboard.release(game_key))
+                keyboard.press(game_key_sc)
+                self.after(100, lambda: keyboard.release(game_key_sc))
             except Exception as e:
                 self.log_line(f"[Ошибка] Не удалось симулировать нажатие '{game_key.upper()}': {e}")
 
@@ -1855,9 +1877,10 @@ class ClientApp(tk.Tk):
             return
         self._end_map_session(keep_hud=True)
         game_key = self.cfg.get("game_map_key", "m").strip().lower()
+        game_key_sc = get_safe_scan_code(game_key)
         try:
-            keyboard.press(game_key)
-            self.after(100, lambda: keyboard.release(game_key))
+            keyboard.press(game_key_sc)
+            self.after(100, lambda: keyboard.release(game_key_sc))
         except Exception as e:
             self.log_line(f"[Ошибка] Не удалось симулировать нажатие '{game_key.upper()}' для авто-закрытия: {e}")
 
