@@ -29,6 +29,8 @@ const state = {
   navSimMarker: null,
   navLastAnnouncedIndex: -1,
   navLastAnnouncedPrepIndex: -1,
+  navAnnouncedRadZones: new Set(),
+  radiationData: null,
   filters: {
     labels: true,
     cities: true,
@@ -782,6 +784,7 @@ async function loadMapRadiation() {
     const res = await fetch(`/api/maps/${slug}/radiation`, { credentials: "same-origin" });
     if (!res.ok) return;
     const data = await res.json();
+    state.radiationData = data;
     renderRadiationLayer(data);
   } catch {
     /* optional layer */
@@ -1373,6 +1376,7 @@ function speak(text) {
 function resetRouteTracking() {
   state.navLastAnnouncedIndex = -1;
   state.navLastAnnouncedPrepIndex = -1;
+  state.navAnnouncedRadZones = new Set();
   if (state.navRouteManeuvers) {
     state.navRouteManeuvers.forEach(m => {
       m.announcedPrep = false;
@@ -1448,6 +1452,23 @@ function trackPlayerOnRoute(x, y) {
       speak(capitalized);
     }
   });
+
+  // 5. Check radiation zones ahead
+  if (state.radiationData && state.radiationData.zones) {
+    if (!state.navAnnouncedRadZones) {
+      state.navAnnouncedRadZones = new Set();
+    }
+    state.radiationData.zones.forEach((zone) => {
+      if (state.navAnnouncedRadZones.has(zone.id)) return;
+
+      const distToZone = getDistanceToCircularZoneAlongRoute(x, y, closestSegIdx, zone);
+      if (distToZone >= 0 && distToZone <= 300) {
+        state.navAnnouncedRadZones.add(zone.id);
+        const cleanLabel = zone.label.replace("мЗв/ч", "миллизиверт в час").replace("мкЗв/ч", "микрозиверт в час");
+        speak(`Впереди радиация. ${cleanLabel}`);
+      }
+    });
+  }
 }
 
 function distanceToSegment(P, A, B) {
@@ -1458,6 +1479,63 @@ function distanceToSegment(P, A, B) {
   const projX = A[0] + t * (B[0] - A[0]);
   const projY = A[1] + t * (B[1] - A[1]);
   return Math.sqrt((P[0] - projX)**2 + (P[1] - projY)**2);
+}
+
+function getDistanceToCircularZoneAlongRoute(x, y, closestSegIdx, zone) {
+  const cx = zone.x;
+  const cy = zone.y;
+  const r = zone.radius;
+
+  let accumulatedDist = 0;
+  let currentX = x;
+  let currentY = y;
+
+  for (let i = closestSegIdx; i < state.navRoutePoints.length - 1; i++) {
+    const nextNode = state.navRoutePoints[i + 1];
+    const nextX = nextNode[0];
+    const nextY = nextNode[1];
+
+    const dx = nextX - currentX;
+    const dy = nextY - currentY;
+    const len = Math.sqrt(dx * dx + dy * dy);
+
+    if (len === 0) continue;
+
+    const ux = currentX - cx;
+    const uy = currentY - cy;
+
+    const a = len * len;
+    const b = 2 * (ux * dx + uy * dy);
+    const c = ux * ux + uy * uy - r * r;
+
+    if (c < 0) {
+      return accumulatedDist;
+    }
+
+    const disc = b * b - 4 * a * c;
+    if (disc >= 0) {
+      const sqrtDisc = Math.sqrt(disc);
+      const t1 = (-b - sqrtDisc) / (2 * a);
+      const t2 = (-b + sqrtDisc) / (2 * a);
+
+      let t = -1;
+      if (t1 >= 0 && t1 <= 1) {
+        t = t1;
+      } else if (t2 >= 0 && t2 <= 1) {
+        t = t2;
+      }
+
+      if (t >= 0) {
+        return accumulatedDist + t * len;
+      }
+    }
+
+    accumulatedDist += len;
+    currentX = nextX;
+    currentY = nextY;
+  }
+
+  return -1;
 }
 
 function calculateManeuvers(path) {
