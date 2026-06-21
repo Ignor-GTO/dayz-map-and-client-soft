@@ -184,7 +184,7 @@ class ClientApp(tk.Tk):
                         bordercolor=self.bg_color, 
                         lightcolor=self.bg_color,
                         darkcolor=self.bg_color,
-                        font=("Segoe UI", 10, "bold"), 
+                        font=("Segoe UI", 9, "bold"), 
                         padding=[6, 4])
         style.map("Nav.TButton",
                   background=[("active", self.card_bg)],
@@ -197,7 +197,7 @@ class ClientApp(tk.Tk):
                         bordercolor=self.card_bg, 
                         lightcolor=self.card_bg,
                         darkcolor=self.card_bg,
-                        font=("Segoe UI", 10, "bold"), 
+                        font=("Segoe UI", 9, "bold"), 
                         padding=[6, 4])
         style.map("NavActive.TButton",
                   background=[("active", self.card_bg)],
@@ -329,16 +329,16 @@ class ClientApp(tk.Tk):
         nav_frm = ttk.Frame(header_frm, style="Header.TFrame")
         nav_frm.pack(side="right")
         
-        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="NavActive.TButton", width=10)
+        self.nav_btn_main = ttk.Button(nav_frm, text="Главная", command=lambda: self._show_page(0), style="NavActive.TButton", width=8)
         self.nav_btn_main.pack(side="left", padx=2)
         
         self.nav_btn_settings = ttk.Button(nav_frm, text="Настройки", command=lambda: self._show_page(1), style="Nav.TButton", width=10)
         self.nav_btn_settings.pack(side="left", padx=2)
 
-        self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=10)
+        self.nav_btn_help = ttk.Button(nav_frm, text="Помощь", command=lambda: self._show_page(2), style="Nav.TButton", width=8)
         self.nav_btn_help.pack(side="left", padx=2)
 
-        self.nav_btn_about = ttk.Button(nav_frm, text="Инфо", command=lambda: self._show_page(3), style="Nav.TButton", width=10)
+        self.nav_btn_about = ttk.Button(nav_frm, text="Инфо", command=lambda: self._show_page(3), style="Nav.TButton", width=6)
         self.nav_btn_about.pack(side="left", padx=2)
 
         # Pages Container
@@ -1578,10 +1578,13 @@ class ClientApp(tk.Tk):
         
         for hk in toggle_keys:
             if hk.strip():
+                key_lower = hk.strip().lower()
+                # Suppress lock keys to prevent side-effects in OS/browser (like opening browser on NumLock)
+                suppress_key = (key_lower in ["num lock", "scroll lock", "caps lock"])
                 keyboard.add_hotkey(
-                    hk.strip().lower(), 
+                    key_lower, 
                     lambda key=hk: self.after(0, lambda: self._handle_m_hotkey(key)), 
-                    suppress=False
+                    suppress=suppress_key
                 )
 
         if game_map_key.strip() and game_map_key_lower not in toggle_keys_lower:
