@@ -137,6 +137,63 @@ def _dist(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.sqrt(dx * dx + dy * dy)
 
 
+def link_close_nodes(
+    graph: dict[tuple[float, float], list[tuple[float, tuple[float, float]]]],
+    max_gap: float = 20.0,
+    speed_factor: float = 0.5,
+) -> None:
+    """
+    Find all pairs of nodes in the graph that are within `max_gap` distance
+    and add bidirectional edges between them.
+    Grid-based bucketing is used for O(N) complexity.
+    """
+    if not graph:
+        return
+
+    # 1. Bucket all nodes into grid cells
+    grid: dict[tuple[int, int], list[tuple[float, float]]] = {}
+    for node in graph.keys():
+        gx = int(node[0] // max_gap)
+        gy = int(node[1] // max_gap)
+        cell = (gx, gy)
+        if cell not in grid:
+            grid[cell] = []
+        grid[cell].append(node)
+
+    # 2. Compare nodes within same cell and 8 neighboring cells
+    for cell, nodes in grid.items():
+        gx, gy = cell
+        # Get all candidate nodes from neighboring cells
+        candidates = []
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                neighbor_cell = (gx + dx, gy + dy)
+                if neighbor_cell in grid:
+                    candidates.extend(grid[neighbor_cell])
+
+        # Find close pairs and link them
+        for node in nodes:
+            for cand in candidates:
+                if node == cand:
+                    continue
+                
+                # Check if already connected in graph
+                already_connected = False
+                for _, neighbor in graph[node]:
+                    if neighbor == cand:
+                        already_connected = True
+                        break
+                if already_connected:
+                    continue
+
+                # Calculate distance
+                d = _dist(node, cand)
+                if d <= max_gap:
+                    cost = d / speed_factor
+                    graph[node].append((cost, cand))
+                    graph[cand].append((cost, node))
+
+
 def build_graph(segments: list[dict]) -> dict[tuple[float, float], list[tuple[float, tuple[float, float]]]]:
     """
     Build adjacency list from road segments.
@@ -163,6 +220,9 @@ def build_graph(segments: list[dict]) -> dict[tuple[float, float], list[tuple[fl
             ensure_node(b)
             graph[a].append((cost, b))
             graph[b].append((cost, a))  # bidirectional
+
+    # Link close disconnected nodes (gaps within 20 meters)
+    link_close_nodes(graph, max_gap=20.0, speed_factor=0.5)
 
     return graph
 
