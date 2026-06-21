@@ -1106,19 +1106,37 @@ function navReset() {
 }
 
 function navSetPoint(x, y) {
-  if (state.navStep === "from") {
-    state.navFrom = { x, y };
+  // If player position is available, use it as the starting point (navFrom)
+  const myMarker = state.me ? state.liveMarkers.get(state.me.user_id) : null;
+  const myPos = myMarker ? myMarker._playerMeta : null;
+
+  if (myPos) {
+    state.navFrom = { x: myPos.x, y: myPos.y };
     if (state.navFromMarker) state.map.removeLayer(state.navFromMarker);
-    state.navFromMarker = navMakeMarker(x, y, "🟢 Старт", "#00e676");
-    state.navStep = "to";
-    updateNavUI("Теперь кликните точку финиша");
-  } else {
+    state.navFromMarker = navMakeMarker(myPos.x, myPos.y, "🟢 Игрок", "#00e676");
+    
     state.navTo = { x, y };
     if (state.navToMarker) state.map.removeLayer(state.navToMarker);
     state.navToMarker = navMakeMarker(x, y, "🔴 Финиш", "#ff1744");
-    state.navStep = "from"; // allow re-routing by clicking again from
-    updateNavUI("Прокладываю маршрут…");
+    
+    state.navStep = "to"; // keep it in destination setting mode
+    updateNavUI("Прокладываю маршрут от игрока…");
     computeRoute();
+  } else {
+    if (state.navStep === "from") {
+      state.navFrom = { x, y };
+      if (state.navFromMarker) state.map.removeLayer(state.navFromMarker);
+      state.navFromMarker = navMakeMarker(x, y, "🟢 Старт", "#00e676");
+      state.navStep = "to";
+      updateNavUI("Теперь кликните точку финиша");
+    } else {
+      state.navTo = { x, y };
+      if (state.navToMarker) state.map.removeLayer(state.navToMarker);
+      state.navToMarker = navMakeMarker(x, y, "🔴 Финиш", "#ff1744");
+      state.navStep = "from"; // allow re-routing from new start
+      updateNavUI("Прокладываю маршрут…");
+      computeRoute();
+    }
   }
 }
 
@@ -1183,9 +1201,15 @@ function updateNavUI(statusText) {
     panel.classList.remove("hidden");
     if (status && statusText) status.textContent = statusText;
     else if (status && !statusText) {
-      status.textContent = state.navStep === "from"
-        ? "Кликните точку старта на карте"
-        : "Кликните точку финиша на карте";
+      const myMarker = state.me ? state.liveMarkers.get(state.me.user_id) : null;
+      const myPos = myMarker ? myMarker._playerMeta : null;
+      if (myPos) {
+        status.textContent = "Кликните на карту для построения маршрута от игрока";
+      } else {
+        status.textContent = state.navStep === "from"
+          ? "Кликните точку старта на карте"
+          : "Кликните точку финиша на карте";
+      }
     }
   } else {
     if (btn) btn.classList.remove("active");
@@ -1197,6 +1221,19 @@ function toggleNavigator() {
   state.navActive = !state.navActive;
   if (state.navActive) {
     state.map.getContainer().style.cursor = "crosshair";
+    
+    // Auto-initialize start point at current player position if available
+    const myMarker = state.me ? state.liveMarkers.get(state.me.user_id) : null;
+    const myPos = myMarker ? myMarker._playerMeta : null;
+    if (myPos) {
+      state.navFrom = { x: myPos.x, y: myPos.y };
+      if (state.navFromMarker) state.map.removeLayer(state.navFromMarker);
+      state.navFromMarker = navMakeMarker(myPos.x, myPos.y, "🟢 Игрок", "#00e676");
+      state.navStep = "to";
+    } else {
+      state.navStep = "from";
+    }
+    
     updateNavUI();
   } else {
     state.map.getContainer().style.cursor = "";
