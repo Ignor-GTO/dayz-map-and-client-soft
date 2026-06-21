@@ -209,6 +209,27 @@ function initLeaflet(config) {
     navSetPoint(gameCoords.x, gameCoords.y);
   });
 
+  // Handle popup action button clicks
+  state.map.on("popupopen", (e) => {
+    const container = e.popup.getElement();
+    if (!container) return;
+
+    const deleteBtn = container.querySelector(".marker-delete");
+    if (deleteBtn) {
+      deleteBtn.onclick = () => deleteMarker(Number(deleteBtn.dataset.id));
+    }
+
+    const routeBtn = container.querySelector(".marker-route");
+    if (routeBtn) {
+      routeBtn.onclick = () => {
+        const x = Number(routeBtn.dataset.x);
+        const y = Number(routeBtn.dataset.y);
+        navRouteTo(x, y);
+        e.popup.close();
+      };
+    }
+  });
+
   setTileLayer("satellite");
   state.map.fitBounds(TILE_BOUNDS);
 
@@ -223,7 +244,9 @@ function upsertLive(pos) {
   const color = colorForUser(pos.user_id);
   let marker = state.liveMarkers.get(pos.user_id);
 
-  const popup = `<b>${pos.nickname}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}`;
+  const isMe = state.me && pos.user_id === state.me.user_id;
+  const routeBtn = isMe ? "" : `<br><button class="marker-route" data-x="${pos.x}" data-y="${pos.y}" style="margin-top: 8px;">Маршрут</button>`;
+  const popup = `<b>${pos.nickname}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
 
   const iconHtml = `
     <div style="display:flex;align-items:center;white-space:nowrap;filter:drop-shadow(0 0 3px rgba(0,0,0,0.8));">
@@ -277,8 +300,11 @@ function upsertPin(m) {
   const isMine = state.me && m.user_id === state.me.user_id;
   const popupHtml = `
     <b>${m.nickname}</b> — метка<br>
-    ${Math.round(m.x)} / ${Math.round(m.y)}
-    ${isMine ? `<br><button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
+    ${Math.round(m.x)} / ${Math.round(m.y)}<br>
+    <div style="display: flex; gap: 6px; margin-top: 8px;">
+      <button class="marker-route" data-x="${m.x}" data-y="${m.y}">Маршрут</button>
+      ${isMine ? `<button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
+    </div>
   `;
 
   let iconHtml = "";
@@ -317,12 +343,6 @@ function upsertPin(m) {
     marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popupHtml);
     marker._markerMeta = m;
-    marker.on("popupopen", () => {
-      const btn = document.querySelector(".marker-delete");
-      if (btn) {
-        btn.onclick = () => deleteMarker(Number(btn.dataset.id));
-      }
-    });
     state.pinMarkers.set(m.id, marker);
   }
 
@@ -505,6 +525,7 @@ window.focusOnPlayer = focusOnPlayer;
 window.focusOnMarker = focusOnMarker;
 window.deleteMarker = deleteMarker;
 window.switchLegendTab = switchLegendTab;
+window.navRouteTo = navRouteTo;
 
 function connectWebSocket() {
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -1119,6 +1140,35 @@ function navReset() {
   }
   
   updateNavUI();
+}
+
+function navRouteTo(x, y) {
+  state.navActive = true;
+  state.map.getContainer().style.cursor = "crosshair";
+
+  state.navTo = { x, y };
+  if (state.navToMarker) state.map.removeLayer(state.navToMarker);
+  state.navToMarker = navMakeMarker(x, y, "🔴 Финиш", "#ff1744");
+
+  const pLoc = getPlayerLocation();
+  if (pLoc) {
+    state.navFrom = pLoc;
+    if (state.navFromMarker) {
+      state.map.removeLayer(state.navFromMarker);
+      state.navFromMarker = null;
+    }
+    state.navStep = "to";
+    updateNavUI("Прокладываю маршрут…");
+    computeRoute();
+  } else {
+    state.navFrom = null;
+    if (state.navFromMarker) {
+      state.map.removeLayer(state.navFromMarker);
+      state.navFromMarker = null;
+    }
+    state.navStep = "from";
+    updateNavUI("Кликните точку старта на карте");
+  }
 }
 
 function navSetPoint(x, y) {

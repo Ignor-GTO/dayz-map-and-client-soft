@@ -42,7 +42,7 @@ function poiPopupHtml(poi) {
   const img = poi.description_image_url
     ? `<img class="poi-desc-image" src="${escapeHtml(poi.description_image_url)}" alt="" loading="lazy">`
     : "";
-  return `<b>${escapeHtml(poi.title)}</b>${desc}${img}<br><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span>`;
+  return `<b>${escapeHtml(poi.title)}</b>${desc}${img}<br><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span><br><button class="marker-route" data-x="${poi.x}" data-y="${poi.y}" style="margin-top: 8px;">Маршрут</button>`;
 }
 
 function renderPoiIconPicker(container, selectedKey, onChange) {
