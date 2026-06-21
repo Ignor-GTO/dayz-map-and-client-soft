@@ -453,10 +453,10 @@ function setViewCentered(latlng, zoom, opts = { animate: true }) {
     state.map.setView(latlng, zoom, opts);
     return;
   }
-  // Convert target to pixel, shift left by half the sidebar width,
+  // Convert target to pixel, shift right by half the sidebar width,
   // then convert back to LatLng so the target ends up in the visible centre.
   const targetPoint = state.map.project(latlng, zoom);
-  const offsetPoint = L.point(targetPoint.x - sidebarPx / 2, targetPoint.y);
+  const offsetPoint = L.point(targetPoint.x + sidebarPx / 2, targetPoint.y);
   const adjusted = state.map.unproject(offsetPoint, zoom);
   state.map.setView(adjusted, zoom, opts);
 }
