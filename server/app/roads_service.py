@@ -256,24 +256,29 @@ async def find_route(
     start_snap_dist = _dist(start_node, (from_x, from_y))
     goal_snap_dist = _dist(goal_node, (to_x, to_y))
 
-    if start_snap_dist > SNAP_DISTANCE or goal_snap_dist > SNAP_DISTANCE:
-        return {
-            "ok": False,
-            "error": f"Точка старта или финиша слишком далеко от дороги ({max(start_snap_dist, goal_snap_dist):.0f} ед.). Добавьте дороги рядом с этой точкой.",
-        }
-
     path = astar(graph, start_node, goal_node)
     if path is None:
         return {"ok": False, "error": "Маршрут не найден. Дорожная сеть может быть не связной."}
 
-    # Calculate total distance
+    # Prepend actual starting coordinates and append actual goal coordinates
+    # to show off-road segments connecting to the road network
+    full_path = []
+    if start_snap_dist > 0.1:
+        full_path.append((from_x, from_y))
+    
+    full_path.extend(path)
+    
+    if goal_snap_dist > 0.1:
+        full_path.append((to_x, to_y))
+
+    # Calculate total distance including off-road segments
     total_dist = 0.0
-    for i in range(len(path) - 1):
-        total_dist += _dist(path[i], path[i + 1])
+    for i in range(len(full_path) - 1):
+        total_dist += _dist(full_path[i], full_path[i + 1])
 
     return {
         "ok": True,
-        "path": [[p[0], p[1]] for p in path],
+        "path": [[p[0], p[1]] for p in full_path],
         "total_distance": round(total_dist, 1),
         "snap": {
             "start": {"x": start_node[0], "y": start_node[1], "dist": round(start_snap_dist, 1)},
