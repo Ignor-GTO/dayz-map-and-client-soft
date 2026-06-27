@@ -59,6 +59,7 @@ const state = {
     previewLayer: null,
   },
   commandZoomAnchor: null,
+  commandZoomApplying: false,
   ws: null,
 };
 
@@ -304,7 +305,14 @@ function initLeaflet(config) {
   state.radiationLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
-  state.map.on("moveend", saveMapView);
+  state.map.on("moveend", () => {
+    // Keep anchor synced with where user is currently looking
+    // unless this movement came from a programmatic client zoom step.
+    if (!state.commandZoomApplying) {
+      rememberCommandZoomAnchor(state.map.getCenter());
+    }
+    saveMapView();
+  });
   state.map.on("zoomend", saveMapView);
 
   state.map.on("click", (e) => {
@@ -796,21 +804,33 @@ function rememberCommandZoomAnchor(latlng = null) {
 
 function applyCommandZoom(action) {
   if (!state.map) return;
+  const minZoom = state.map.getMinZoom();
+  const maxZoom = state.map.getMaxZoom();
+  const currentZoom = state.map.getZoom();
+  const anchor = state.commandZoomAnchor || state.map.getCenter();
+
+  const zoomToAnchor = (targetZoom) => {
+    state.commandZoomApplying = true;
+    state.map.once("moveend", () => {
+      state.commandZoomApplying = false;
+    });
+    state.map.setView(anchor, targetZoom, { animate: true });
+  };
+
   if (action === "zoom_out") {
-    // Keep current focus before zooming out.
-    rememberCommandZoomAnchor();
-    state.map.zoomOut();
+    // Save current viewport focus once and preserve it through zoom cycle.
+    rememberCommandZoomAnchor(state.map.getCenter());
+    const targetZoom = Math.max(minZoom, currentZoom - 1);
+    zoomToAnchor(targetZoom);
     return;
   }
   if (action === "zoom_in") {
-    const currentZoom = state.map.getZoom();
-    const targetZoom = Math.min(currentZoom + 1, state.map.getMaxZoom());
-    const anchor = state.commandZoomAnchor || state.map.getCenter();
-    // Zoom around the last area user focused, not map bounds center.
-    state.map.setZoomAround(anchor, targetZoom, { animate: true });
+    const targetZoom = Math.min(currentZoom + 1, maxZoom);
+    zoomToAnchor(targetZoom);
     return;
   }
   if (action === "zoom_reset") {
+    state.commandZoomAnchor = null;
     state.map.setZoom(state.map.getMinZoom() || 3);
   }
 }
