@@ -44,10 +44,17 @@ const state = {
     radiation: true,
     roads: false,
   },
+  draw: {
+    mode: null, // null | "point" | "circle" | "line"
+    circleCenter: null, // {x,y}
+    linePoints: [],
+    tempLayer: null,
+  },
   ws: null,
 };
 
 const FILTER_PREFS_KEY = "dayz_map_filters_v1";
+const MAP_VIEW_PREFS_KEY_PREFIX = "dayz_map_view_v1_";
 
 function loadFilterPrefs() {
   try {
@@ -81,6 +88,52 @@ function hydrateFilterPrefs() {
 }
 
 hydrateFilterPrefs();
+
+function mapViewStorageKey() {
+  const slug = state.me?.map_slug || "default";
+  return `${MAP_VIEW_PREFS_KEY_PREFIX}${slug}`;
+}
+
+function saveMapView() {
+  if (!state.map || !state.me) return;
+  const center = state.map.getCenter();
+  const game = latLngToGame(center);
+  try {
+    localStorage.setItem(
+      mapViewStorageKey(),
+      JSON.stringify({
+        x: Number(game.x.toFixed(2)),
+        y: Number(game.y.toFixed(2)),
+        zoom: state.map.getZoom(),
+      }),
+    );
+  } catch {
+    // ignore storage failures
+  }
+}
+
+function restoreMapView() {
+  if (!state.map || !state.me) return false;
+  try {
+    const raw = localStorage.getItem(mapViewStorageKey());
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (
+      typeof parsed?.x !== "number"
+      || typeof parsed?.y !== "number"
+      || typeof parsed?.zoom !== "number"
+    ) {
+      return false;
+    }
+    const minZoom = state.map.getMinZoom();
+    const maxZoom = state.map.getMaxZoom();
+    const zoom = Math.max(minZoom, Math.min(maxZoom, parsed.zoom));
+    state.map.setView(gameToLatLng(parsed.x, parsed.y), zoom, { animate: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 
 const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
@@ -238,12 +291,18 @@ function initLeaflet(config) {
   state.radiationLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
+  state.map.on("moveend", saveMapView);
+  state.map.on("zoomend", saveMapView);
 
-  // Navigator: intercept map clicks when nav mode is active
   state.map.on("click", (e) => {
-    if (!state.navActive) return;
     const gameCoords = latLngToGame(e.latlng);
-    navSetPoint(gameCoords.x, gameCoords.y);
+    if (state.draw.mode) {
+      handleDrawMapClick(gameCoords.x, gameCoords.y);
+      return;
+    }
+    if (state.navActive) {
+      navSetPoint(gameCoords.x, gameCoords.y);
+    }
   });
 
   // Handle popup action button clicks
@@ -280,6 +339,7 @@ function initLeaflet(config) {
 
   const center = gameToLatLng(mapSize(config) / 2, mapSize(config) / 2, config);
   state.map.setView(center, 3);
+  restoreMapView();
 
 }
 
@@ -366,14 +426,142 @@ function markerIconHtml(type, color) {
   return `<div style="font-size:22px;line-height:1;filter:drop-shadow(0 0 3px rgba(0,0,0,0.9));">${def.emoji}</div>`;
 }
 
+function drawHint(text) {
+  const el = document.getElementById("draw-hint");
+  if (el) el.textContent = text;
+}
+
+function clearDrawTemp() {
+  if (state.draw.tempLayer && state.map) {
+    state.map.removeLayer(state.draw.tempLayer);
+  }
+  state.draw.tempLayer = null;
+}
+
+function setDrawMode(mode) {
+  state.draw.mode = mode;
+  state.draw.circleCenter = null;
+  state.draw.linePoints = [];
+  clearDrawTemp();
+  document.querySelectorAll(".draw-tool-row button").forEach((btn) => btn.classList.remove("active"));
+  if (mode === "point") document.getElementById("draw-point-btn")?.classList.add("active");
+  if (mode === "circle") document.getElementById("draw-circle-btn")?.classList.add("active");
+  if (mode === "line") document.getElementById("draw-line-btn")?.classList.add("active");
+  document.getElementById("draw-cancel-btn")?.classList.toggle("hidden", !mode);
+  document.getElementById("draw-finish-btn")?.classList.toggle("hidden", mode !== "line");
+  if (!mode) drawHint("Выберите инструмент и кликните по карте");
+  else if (mode === "point") drawHint("Кликните по карте для установки метки");
+  else if (mode === "circle") drawHint("1-й клик: центр круга, 2-й клик: радиус");
+  else drawHint("Кликайте точки линии, затем нажмите 'Сохранить линию'");
+}
+
+function distanceGame(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+async function createUserShape(payload) {
+  const created = await api("/api/markers", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  upsertPin(created);
+  return created;
+}
+
+async function handleDrawMapClick(x, y) {
+  const mode = state.draw.mode;
+  if (!mode) return;
+  try {
+    if (mode === "point") {
+      await createUserShape({
+        x,
+        y,
+        type: "marker",
+        geometry_kind: "point",
+        title: null,
+      });
+      drawHint("Метка добавлена. Можно изменить через кнопку 'Изменить'");
+      return;
+    }
+    if (mode === "circle") {
+      if (!state.draw.circleCenter) {
+        state.draw.circleCenter = { x, y };
+        clearDrawTemp();
+        state.draw.tempLayer = L.marker(gameToLatLng(x, y)).addTo(state.map);
+        drawHint("Выберите вторую точку, чтобы задать радиус");
+        return;
+      }
+      const radius = Math.max(30, distanceGame(state.draw.circleCenter, { x, y }));
+      await createUserShape({
+        x: state.draw.circleCenter.x,
+        y: state.draw.circleCenter.y,
+        type: "danger",
+        geometry_kind: "circle",
+        radius,
+        stroke_color: "#ff9800",
+        fill_color: "#ff9800",
+      });
+      setDrawMode(null);
+      drawHint("Круг добавлен");
+      return;
+    }
+    if (mode === "line") {
+      state.draw.linePoints.push([x, y]);
+      clearDrawTemp();
+      if (state.draw.linePoints.length >= 2) {
+        state.draw.tempLayer = L.polyline(
+          state.draw.linePoints.map(([px, py]) => gameToLatLng(px, py)),
+          { color: "#00e5ff", weight: 3, dashArray: "6,4" },
+        ).addTo(state.map);
+      } else {
+        state.draw.tempLayer = L.marker(gameToLatLng(x, y)).addTo(state.map);
+      }
+      drawHint(`Точек линии: ${state.draw.linePoints.length}`);
+    }
+  } catch (e) {
+    alert(e.message || "Не удалось создать фигуру");
+    setDrawMode(null);
+  }
+}
+
+async function finishLineDrawing() {
+  if (state.draw.mode !== "line") return;
+  if (state.draw.linePoints.length < 2) {
+    alert("Для линии нужно минимум 2 точки.");
+    return;
+  }
+  try {
+    await createUserShape({
+      points: state.draw.linePoints,
+      type: "point",
+      geometry_kind: "line",
+      stroke_color: "#00e5ff",
+    });
+    setDrawMode(null);
+    drawHint("Линия добавлена");
+  } catch (e) {
+    alert(e.message || "Не удалось сохранить линию");
+  }
+}
+
+function markerCenterLatLng(layer) {
+  if (typeof layer.getLatLng === "function") return layer.getLatLng();
+  if (typeof layer.getBounds === "function") return layer.getBounds().getCenter();
+  return null;
+}
+
 function upsertPin(m) {
   if (!state.filters.markers) return;
-  const latlng = gameToLatLng(m.x, m.y);
   const color = colorForUser(m.user_id);
-  let marker = state.pinMarkers.get(m.id);
+  let layer = state.pinMarkers.get(m.id);
 
   const inGroup = true; // any group member can edit
+  const kind = m.geometry_kind || "point";
   const title = m.title || markerTypeLabel(m.type || "marker");
+  const roundedX = Math.round(m.x || 0);
+  const roundedY = Math.round(m.y || 0);
   const imgHtml = m.image_url
     ? `<img class="marker-popup-img" src="${m.image_url}" alt="Скриншот" onclick="window.open('${m.image_url}','_blank')">`
     : "";
@@ -383,7 +571,7 @@ function upsertPin(m) {
 
   const popupHtml = `
     <b>${title}</b><br>
-    <span style="color:#555;font-size:0.82rem">${m.nickname} · ${Math.round(m.x)} / ${Math.round(m.y)}</span>
+    <span style="color:#555;font-size:0.82rem">${m.nickname} · ${roundedX} / ${roundedY}</span>
     ${descHtml}
     ${imgHtml}
     <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
@@ -393,29 +581,49 @@ function upsertPin(m) {
     </div>
   `;
 
-  const iconHtml = markerIconHtml(m.type || "marker", color);
-  const isEmoji = m.type && m.type !== "marker";
-  const icon = L.divIcon({
-    className: `pin-icon-${m.type || "marker"}`,
-    html: iconHtml,
-    iconSize: isEmoji ? [28, 28] : [24, 24],
-    iconAnchor: isEmoji ? [14, 14] : [12, 12],
-  });
+  const prevLayer = layer;
+  if (prevLayer && state.map) state.map.removeLayer(prevLayer);
 
-  if (marker) {
-    marker.setLatLng(latlng);
-    marker.setIcon(icon);
-    marker.setPopupContent(popupHtml);
-    marker._markerMeta = m;
+  if (kind === "circle") {
+    const center = gameToLatLng(m.x, m.y);
+    layer = L.circle(center, {
+      radius: gameRadiusToLeaflet(m.radius || 300),
+      color: m.stroke_color || m.fill_color || "#ff9800",
+      fillColor: m.fill_color || "#ff9800",
+      fillOpacity: 0.2,
+      weight: 2,
+    }).addTo(state.map);
+    layer.bindPopup(popupHtml);
+  } else if (kind === "line" && Array.isArray(m.points) && m.points.length >= 2) {
+    layer = L.polyline(
+      m.points.map(([x, y]) => gameToLatLng(x, y)),
+      {
+        color: m.stroke_color || "#00e5ff",
+        weight: 3,
+        opacity: 0.95,
+      },
+    ).addTo(state.map);
+    layer.bindPopup(popupHtml);
   } else {
-    marker = L.marker(latlng, { icon }).addTo(state.map);
-    marker.bindPopup(popupHtml);
-    marker._markerMeta = m;
-    state.pinMarkers.set(m.id, marker);
+    const latlng = gameToLatLng(m.x, m.y);
+    const iconHtml = markerIconHtml(m.type || "marker", color);
+    const isEmoji = m.type && m.type !== "marker";
+    const icon = L.divIcon({
+      className: `pin-icon-${m.type || "marker"}`,
+      html: iconHtml,
+      iconSize: isEmoji ? [28, 28] : [24, 24],
+      iconAnchor: isEmoji ? [14, 14] : [12, 12],
+    });
+    layer = L.marker(latlng, { icon }).addTo(state.map);
+    layer.bindPopup(popupHtml);
   }
 
-  if (state.me && m.user_id === state.me.user_id && state.map) {
-    state.map.panTo(latlng, { animate: true, duration: 0.6 });
+  layer._markerMeta = m;
+  state.pinMarkers.set(m.id, layer);
+
+  const centerLatLng = markerCenterLatLng(layer);
+  if (state.me && m.user_id === state.me.user_id && state.map && centerLatLng) {
+    state.map.panTo(centerLatLng, { animate: true, duration: 0.6 });
   }
   updateMarkersList();
 }
@@ -501,7 +709,10 @@ function updateMarkersList() {
 
     const isMine = state.me && m.user_id === state.me.user_id;
     const def = MARKER_ICON_DEFS[m.type] || MARKER_ICON_DEFS.marker;
-    const label = m.title ? `${def.emoji} ${m.title}` : `${def.emoji} ${def.label}`;
+    const shapePrefix = m.geometry_kind === "circle"
+      ? "⭕"
+      : (m.geometry_kind === "line" ? "📏" : def.emoji);
+    const label = m.title ? `${shapePrefix} ${m.title}` : `${shapePrefix} ${def.label}`;
     const subLabel = m.nickname;
 
     rows.push(`
@@ -560,8 +771,10 @@ function focusOnMarker(markerId) {
   if (!state.map) return;
   let marker = state.pinMarkers.get(markerId) || state.pinMarkers.get(Number(markerId));
   if (marker) {
+    const center = markerCenterLatLng(marker);
+    if (!center) return;
     state.map.once("moveend", () => marker.openPopup());
-    setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
+    setViewCentered(center, Math.max(state.map.getZoom(), 5));
   }
 }
 
@@ -1047,6 +1260,7 @@ async function bootstrapMapView() {
     setTileLayer(state.layerType);
   }
   refreshMapLayout();
+  restoreMapView();
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
@@ -1133,6 +1347,7 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   if (state.locationLayer) state.locationLayer.clearLayers();
   clearRadiationLayers();
   if (state.roadLayer) state.roadLayer.clearLayers();
+  setDrawMode(null);
 
   showLogin();
 });
@@ -1228,6 +1443,12 @@ document.getElementById("filter-roads")?.addEventListener("change", (e) => {
   saveFilterPrefs();
   applyRoadsVisibility();
 });
+
+document.getElementById("draw-point-btn")?.addEventListener("click", () => setDrawMode("point"));
+document.getElementById("draw-circle-btn")?.addEventListener("click", () => setDrawMode("circle"));
+document.getElementById("draw-line-btn")?.addEventListener("click", () => setDrawMode("line"));
+document.getElementById("draw-cancel-btn")?.addEventListener("click", () => setDrawMode(null));
+document.getElementById("draw-finish-btn")?.addEventListener("click", finishLineDrawing);
 
 
 

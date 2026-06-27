@@ -631,6 +631,40 @@ button.secondary.small {
   overflow-y: auto;
 }
 
+.draw-tools {
+  margin-bottom: 1rem;
+  padding: 0.55rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: rgba(15, 20, 25, 0.5);
+}
+
+.draw-tool-row {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+}
+
+.draw-tool-row:last-child {
+  margin-bottom: 0;
+}
+
+.draw-tool-row button {
+  flex: 1;
+}
+
+.draw-tool-row button.active {
+  border-color: var(--accent);
+  background: rgba(61, 158, 229, 0.18);
+  color: #fff;
+}
+
+.draw-hint {
+  margin-top: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
 .sidebar-row {
   display: flex;
   justify-content: space-between;
