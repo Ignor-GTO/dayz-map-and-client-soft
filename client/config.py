@@ -30,6 +30,7 @@ DEFAULT_CONFIG = {
     "hotkey_close_map": ["esc"],
     "hotkey_zoom_in": ["page up"],
     "hotkey_zoom_out": ["page down"],
+    "hotkey_focus_me": ["end"],
     "ocr_preprocess_mode": "auto",
 }
 

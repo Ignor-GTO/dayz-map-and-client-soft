@@ -1090,6 +1090,34 @@ function focusOnMarker(markerId) {
   }
 }
 
+function focusMe() {
+  if (!state.map || !state.me) return;
+  const marker = state.liveMarkers.get(state.me.user_id);
+  if (marker) {
+    const target = marker.getLatLng();
+    rememberCommandZoomAnchor(target);
+    setViewCentered(target, Math.max(state.map.getZoom(), 5));
+    return;
+  }
+
+  let fallbackLatLng = null;
+  state.pinMarkers.forEach((m) => {
+    const popup = m.getPopup();
+    if (popup && typeof popup.getContent === "function") {
+      const content = popup.getContent();
+      const normContent = content ? content.toLowerCase().trim() : "";
+      const normNick = state.me.nickname ? state.me.nickname.toLowerCase().trim() : "";
+      if (normContent && normNick && normContent.includes(`<b>${normNick}</b>`)) {
+        fallbackLatLng = m.getLatLng();
+      }
+    }
+  });
+  if (fallbackLatLng) {
+    rememberCommandZoomAnchor(fallbackLatLng);
+    setViewCentered(fallbackLatLng, Math.max(state.map.getZoom(), 5));
+  }
+}
+
 function switchLegendTab(tabId) {
   const groupBtn = document.getElementById("tab-btn-group");
   const filtersBtn = document.getElementById("tab-btn-filters");
@@ -1337,7 +1365,8 @@ function connectWebSocket() {
     if (msg.type === "map_command") {
       const action = msg.data?.action;
       console.log("Executing map command:", action);
-      applyCommandZoom(action);
+      if (action === "focus_me") focusMe();
+      else applyCommandZoom(action);
     }
   };
 
@@ -1732,32 +1761,7 @@ document.getElementById("marker-image-modal")?.addEventListener("click", (e) => 
 document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTileLayer("satellite"));
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
-document.getElementById("btn-focus-me")?.addEventListener("click", () => {
-  if (!state.map || !state.me) return;
-  const marker = state.liveMarkers.get(state.me.user_id);
-  if (marker) {
-    const target = marker.getLatLng();
-    rememberCommandZoomAnchor(target);
-    setViewCentered(target, Math.max(state.map.getZoom(), 5));
-  } else {
-    let fallbackLatLng = null;
-    state.pinMarkers.forEach((m) => {
-      const popup = m.getPopup();
-      if (popup && typeof popup.getContent === "function") {
-        const content = popup.getContent();
-        const normContent = content ? content.toLowerCase().trim() : "";
-        const normNick = state.me.nickname ? state.me.nickname.toLowerCase().trim() : "";
-        if (normContent && normNick && normContent.includes(`<b>${normNick}</b>`)) {
-          fallbackLatLng = m.getLatLng();
-        }
-      }
-    });
-    if (fallbackLatLng) {
-      rememberCommandZoomAnchor(fallbackLatLng);
-      setViewCentered(fallbackLatLng, Math.max(state.map.getZoom(), 5));
-    }
-  }
-});
+document.getElementById("btn-focus-me")?.addEventListener("click", focusMe);
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {

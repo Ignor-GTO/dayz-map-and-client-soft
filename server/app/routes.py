@@ -352,7 +352,7 @@ async def create_marker(
     return resp
 
 
-ALLOWED_COMMANDS = {"zoom_in", "zoom_out", "zoom_reset"}
+ALLOWED_COMMANDS = {"zoom_in", "zoom_out", "zoom_reset", "focus_me"}
 
 
 @router.post("/client/command")
@@ -360,7 +360,7 @@ async def send_map_command(
     payload: dict,
     user: Annotated[User, Depends(authenticate_client)],
 ):
-    """Send a UI command (zoom_in/zoom_out) only to the requesting user's own browser."""
+    """Send a UI command to the requesting user's own browser."""
     action = str(payload.get("action", "")).strip().lower()
     if action not in ALLOWED_COMMANDS:
         raise HTTPException(status_code=400, detail=f"Unknown action '{action}'")

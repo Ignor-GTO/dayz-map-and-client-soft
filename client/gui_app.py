@@ -691,12 +691,20 @@ class ClientApp(tk.Tk):
         self.btn_rec_zoom_out.grid(row=10, column=2, sticky="w", padx=2, pady=4)
         self.btn_rec_zoom_out.configure(command=lambda: self._record_hotkey(self.hotkey_zoom_out_var, self.btn_rec_zoom_out))
 
+        ttk.Label(hotkey_lf, text="Переместиться на себя (веб-карта):", style="Card.TLabel").grid(row=11, column=0, sticky="w", pady=4)
+        self.hotkey_focus_me_var = tk.StringVar()
+        self.hotkey_focus_me_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_focus_me_var, width=28)
+        self.hotkey_focus_me_entry.grid(row=11, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_focus_me = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_focus_me.grid(row=11, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_focus_me.configure(command=lambda: self._record_hotkey(self.hotkey_focus_me_var, self.btn_rec_focus_me))
+
         ttk.Label(
             hotkey_lf,
             text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: Page Up / Page Down.",
             style="CardMuted.TLabel",
             wraplength=400
-        ).grid(row=11, column=0, columnspan=3, sticky="w", pady=(4, 2))
+        ).grid(row=12, column=0, columnspan=3, sticky="w", pady=(4, 2))
 
         hotkey_lf.columnconfigure(1, weight=1)
 
@@ -768,6 +776,7 @@ class ClientApp(tk.Tk):
             self.hotkey_close_map_entry,
             self.hotkey_zoom_in_entry,
             self.hotkey_zoom_out_entry,
+            self.hotkey_focus_me_entry,
             self.mouse_nudge_delay_entry,
             self.mouse_nudge_offset_entry
         ]:
@@ -1026,6 +1035,7 @@ class ClientApp(tk.Tk):
         self.hotkey_close_map_var.set(", ".join(self.cfg.get("hotkey_close_map", ["esc"])))
         self.hotkey_zoom_in_var.set(", ".join(self.cfg.get("hotkey_zoom_in", ["page up"])))
         self.hotkey_zoom_out_var.set(", ".join(self.cfg.get("hotkey_zoom_out", ["page down"])))
+        self.hotkey_focus_me_var.set(", ".join(self.cfg.get("hotkey_focus_me", ["end"])))
         
         # Mouse nudge settings
         self.mouse_nudge_var.set(self.cfg.get("mouse_nudge_before_ocr", True))
@@ -1252,6 +1262,7 @@ class ClientApp(tk.Tk):
             "Закрыть карту": (self.hotkey_close_map_var.get(), "hotkey_close_map"),
             "Приблизить (веб-карта)": (self.hotkey_zoom_in_var.get(), "hotkey_zoom_in"),
             "Отдалить (веб-карта)": (self.hotkey_zoom_out_var.get(), "hotkey_zoom_out"),
+            "Переместиться на себя (веб-карта)": (self.hotkey_focus_me_var.get(), "hotkey_focus_me"),
         }
         
         parsed_hotkeys = {}
@@ -1308,6 +1319,7 @@ class ClientApp(tk.Tk):
                 "hotkey_close_map": parsed_hotkeys["hotkey_close_map"],
                 "hotkey_zoom_in": parsed_hotkeys["hotkey_zoom_in"],
                 "hotkey_zoom_out": parsed_hotkeys["hotkey_zoom_out"],
+                "hotkey_focus_me": parsed_hotkeys["hotkey_focus_me"],
                 "mouse_nudge_before_ocr": self.mouse_nudge_var.get(),
                 "mouse_nudge_side": nudge_side,
                 "mouse_nudge_delay_ms": delay,
@@ -1784,6 +1796,10 @@ class ClientApp(tk.Tk):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_out_hotkey), suppress=False)
 
+        for hk in self.cfg.get("hotkey_focus_me", ["end"]):
+            if hk.strip():
+                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_focus_me_hotkey), suppress=False)
+
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         self.log_line(
@@ -1793,7 +1809,8 @@ class ClientApp(tk.Tk):
             f"снимок: {', '.join(self.cfg.get('hotkey_snip_coords', ['ctrl+shift+s', 'ctrl+shift+c'])).upper()}, "
             f"закрыть: {', '.join(self.cfg.get('hotkey_close_map', ['esc'])).upper()}, "
             f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
-            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}; "
+            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}, "
+            f"на себя: {', '.join(self.cfg.get('hotkey_focus_me', ['end'])).upper()}; "
             f"Win+Shift+S — авто из буфера"
         )
 
@@ -2072,6 +2089,19 @@ class ClientApp(tk.Tk):
                 self.after(0, lambda: self.log_line("[Масштаб] Отдаление отправлено"))
             else:
                 self.after(0, lambda t=err_msg: self.log_line(f"[Масштаб] Ошибка отдаления: {t}"))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _handle_focus_me_hotkey(self) -> None:
+        if not self.hotkeys_active or not self.map_client:
+            return
+
+        def work() -> None:
+            ok, err_msg = self.map_client.send_command("focus_me")
+            if ok:
+                self.after(0, lambda: self.log_line("[Карта] Центрирование на себе отправлено"))
+            else:
+                self.after(0, lambda t=err_msg: self.log_line(f"[Карта] Ошибка центрирования: {t}"))
 
         threading.Thread(target=work, daemon=True).start()
 
