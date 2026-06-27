@@ -14,7 +14,7 @@ from PIL import Image, ImageDraw
 from api_client import MapClient
 from capture import grab_region, list_monitors
 from clipboard_util import grab_clipboard_image, grab_clipboard_text, prepare_coord_image
-from config import load_config, save_config
+from config import load_config, normalize_hotkey_token, save_config
 from ocr import extract_coordinates, extract_coordinates_with_text, parse_coordinates
 from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
@@ -1267,7 +1267,7 @@ class ClientApp(tk.Tk):
         
         parsed_hotkeys = {}
         for label, (value_str, config_key) in hotkey_fields.items():
-            parts = [p.strip().lower() for p in value_str.split(",") if p.strip()]
+            parts = [normalize_hotkey_token(p) for p in value_str.split(",") if p.strip()]
             for p in parts:
                 try:
                     keyboard.parse_hotkey(p)
@@ -1276,7 +1276,7 @@ class ClientApp(tk.Tk):
                     return
             parsed_hotkeys[config_key] = parts
 
-        game_key_str = self.game_map_key_var.get().strip().lower()
+        game_key_str = normalize_hotkey_token(self.game_map_key_var.get())
         if game_key_str:
             try:
                 keyboard.parse_hotkey(game_key_str)
@@ -1364,8 +1364,9 @@ class ClientApp(tk.Tk):
             self.log_line(f"[Ошибка] Ошибка записи: {err}")
             return
         if hk:
-            entry_var.set(hk.strip().lower())
-            self.log_line(f"[Hotkeys] Успешно записано: {hk.upper()}")
+            normalized = normalize_hotkey_token(hk)
+            entry_var.set(normalized)
+            self.log_line(f"[Hotkeys] Успешно записано: {normalized.upper()}")
 
     def check_for_updates(self, manual: bool = False) -> None:
         def worker():

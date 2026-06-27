@@ -13,6 +13,25 @@ else:
 CONFIG_PATH = BASE_DIR / "config.json"
 
 
+def normalize_hotkey_token(token: str) -> str:
+    t = (token or "").strip().lower()
+    if t in {"*", "multiply", "kp multiply", "numpad multiply"}:
+        return "num *"
+    if t in {"/", "divide", "kp divide", "numpad divide"}:
+        return "num /"
+    if t in {"+", "add", "kp add", "numpad add"}:
+        return "num +"
+    if t in {"-", "subtract", "kp subtract", "numpad subtract"}:
+        return "num -"
+    return t
+
+
+def normalize_hotkey_list(values: list[str]) -> list[str]:
+    normalized = [normalize_hotkey_token(v) for v in values if str(v).strip()]
+    # Keep order, remove duplicates
+    return list(dict.fromkeys(normalized))
+
+
 DEFAULT_CONFIG = {
     "server_url": DEFAULT_SERVER,
     "client_key": "",
@@ -45,11 +64,32 @@ def load_config() -> dict:
                     # Migration: if hotkey_toggle_map contains both "m" and "num lock" (old behavior),
                     # split them by removing "m" from toggle keys and setting game_map_key to "m"
                     if "hotkey_toggle_map" in loaded and isinstance(loaded["hotkey_toggle_map"], list):
-                        toggle_list = [k.strip().lower() for k in loaded["hotkey_toggle_map"]]
+                        toggle_list = normalize_hotkey_list(loaded["hotkey_toggle_map"])
                         if "m" in toggle_list and len(toggle_list) > 1:
                             loaded["hotkey_toggle_map"] = [k for k in toggle_list if k != "m"]
                             if "game_map_key" not in loaded:
                                 loaded["game_map_key"] = "m"
+                        # Migration: on some keyboards NumLock can be recorded as plain "8".
+                        # This causes accidental triggering when pressing digit 8.
+                        if "8" in toggle_list:
+                            fixed_toggle = [
+                                "num lock" if k == "8" else k for k in toggle_list
+                            ]
+                            loaded["hotkey_toggle_map"] = list(dict.fromkeys(fixed_toggle))
+                    # Normalize all stored hotkey lists so numpad symbols are unambiguous.
+                    for key in (
+                        "hotkey_toggle_map",
+                        "hotkey_send_marker",
+                        "hotkey_snip_coords",
+                        "hotkey_close_map",
+                        "hotkey_zoom_in",
+                        "hotkey_zoom_out",
+                        "hotkey_focus_me",
+                    ):
+                        if key in loaded and isinstance(loaded[key], list):
+                            loaded[key] = normalize_hotkey_list(loaded[key])
+                    if "game_map_key" in loaded and isinstance(loaded["game_map_key"], str):
+                        loaded["game_map_key"] = normalize_hotkey_token(loaded["game_map_key"])
                     # Migration: old defaults Num+/Num- are unreliable on some layouts.
                     # If user still has untouched defaults, switch to PageUp/PageDown.
                     if (
