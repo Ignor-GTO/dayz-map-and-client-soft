@@ -812,14 +812,21 @@ function applyCommandZoom(action) {
   const zoomToAnchor = (targetZoom) => {
     state.commandZoomApplying = true;
     state.map.once("moveend", () => {
-      state.commandZoomApplying = false;
+      // Keep the flag true for the current moveend dispatch cycle
+      // so global move handlers won't overwrite the saved anchor.
+      setTimeout(() => {
+        state.commandZoomApplying = false;
+      }, 0);
     });
     state.map.setView(anchor, targetZoom, { animate: true });
   };
 
   if (action === "zoom_out") {
-    // Save current viewport focus once and preserve it through zoom cycle.
-    rememberCommandZoomAnchor(state.map.getCenter());
+    // Save viewport focus only once; do not overwrite it on repeated zoom-out,
+    // otherwise at min zoom it gets replaced by map center.
+    if (!state.commandZoomAnchor) {
+      rememberCommandZoomAnchor(state.map.getCenter());
+    }
     const targetZoom = Math.max(minZoom, currentZoom - 1);
     zoomToAnchor(targetZoom);
     return;
