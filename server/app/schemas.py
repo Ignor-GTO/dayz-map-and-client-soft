@@ -34,14 +34,40 @@ class MarkerResponse(BaseModel):
     title: str | None = None
     description: str | None = None
     image_url: str | None = None
+    geometry_kind: str = "point"
+    points: list[list[float]] | None = None
+    radius: float | None = None
+    stroke_color: str | None = None
+    fill_color: str | None = None
     created_at: datetime
 
 
+class MarkerCreateRequest(BaseModel):
+    x: float | None = None
+    y: float | None = None
+    type: str = "marker"
+    title: str | None = Field(default=None, max_length=128)
+    description: str | None = None
+    image_url: str | None = None
+    geometry_kind: str = "point"
+    points: list[list[float]] | None = None
+    radius: float | None = None
+    stroke_color: str | None = None
+    fill_color: str | None = None
+
+
 class MarkerUpdateRequest(BaseModel):
+    x: float | None = None
+    y: float | None = None
     type: str | None = None
     title: str | None = Field(default=None, max_length=128)
     description: str | None = None
     image_url: str | None = None
+    geometry_kind: str | None = None
+    points: list[list[float]] | None = None
+    radius: float | None = None
+    stroke_color: str | None = None
+    fill_color: str | None = None
 
 
 class PoiResponse(BaseModel):

@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
@@ -31,6 +32,7 @@ from app.schemas import (
     MapListItem,
     MapLocationsResponse,
     MapRadiationResponse,
+    MarkerCreateRequest,
     MarkerResponse,
     MarkerUpdateRequest,
     NavigateRequest,
@@ -47,7 +49,40 @@ from app.websocket import manager
 router = APIRouter(prefix="/api")
 
 
+def _load_marker_points(marker: Marker) -> list[list[float]] | None:
+    if not marker.points_json:
+        return None
+    try:
+        parsed = json.loads(marker.points_json)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, list):
+        return None
+    points: list[list[float]] = []
+    for point in parsed:
+        if (
+            isinstance(point, list)
+            and len(point) >= 2
+            and isinstance(point[0], (int, float))
+            and isinstance(point[1], (int, float))
+        ):
+            points.append([float(point[0]), float(point[1])])
+    return points or None
+
+
+def _normalize_points(points: list[list[float]] | None) -> list[list[float]] | None:
+    if not points:
+        return None
+    normalized: list[list[float]] = []
+    for point in points:
+        if len(point) < 2:
+            continue
+        normalized.append([float(point[0]), float(point[1])])
+    return normalized or None
+
+
 def _marker_response(marker: Marker, nickname: str) -> MarkerResponse:
+    points = _load_marker_points(marker)
     return MarkerResponse(
         id=marker.id,
         user_id=marker.user_id,
@@ -58,6 +93,11 @@ def _marker_response(marker: Marker, nickname: str) -> MarkerResponse:
         title=marker.title,
         description=marker.description,
         image_url=marker.image_url,
+        geometry_kind=marker.geometry_kind or "point",
+        points=points,
+        radius=marker.radius,
+        stroke_color=marker.stroke_color,
+        fill_color=marker.fill_color,
         created_at=marker.created_at,
     )
 
@@ -241,7 +281,67 @@ async def add_marker(
     user: Annotated[User, Depends(authenticate_client)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    marker = Marker(user_id=user.id, x=payload.x, y=payload.y, type=payload.type or "marker")
+    marker = Marker(
+        user_id=user.id,
+        x=payload.x,
+        y=payload.y,
+        type=payload.type or "marker",
+        geometry_kind="point",
+    )
+    db.add(marker)
+    await db.commit()
+    await db.refresh(marker)
+
+    ch = channel_key(user.room.map_id, user.room_id)
+    resp = _marker_response(marker, user.nickname)
+    await manager.broadcast(ch, {"type": "marker_added", "data": resp.model_dump(mode="json")})
+    return resp
+
+
+@router.post("/markers", response_model=MarkerResponse)
+async def create_marker(
+    payload: MarkerCreateRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    kind = (payload.geometry_kind or "point").strip().lower()
+    if kind not in {"point", "circle", "line"}:
+        raise HTTPException(status_code=400, detail="Unsupported geometry_kind")
+
+    points = _normalize_points(payload.points)
+    x = payload.x
+    y = payload.y
+    if kind == "line":
+        if not points or len(points) < 2:
+            raise HTTPException(status_code=400, detail="Line requires at least 2 points")
+        x = points[0][0]
+        y = points[0][1]
+    else:
+        if x is None or y is None:
+            raise HTTPException(status_code=400, detail="Point and circle require x/y coordinates")
+
+    radius = payload.radius
+    if kind == "circle":
+        radius = float(radius or 300.0)
+        if radius <= 0:
+            raise HTTPException(status_code=400, detail="Circle radius must be greater than zero")
+    else:
+        radius = None
+
+    marker = Marker(
+        user_id=user.id,
+        x=float(x),
+        y=float(y),
+        type=(payload.type or "marker").strip() or "marker",
+        title=payload.title,
+        description=payload.description,
+        image_url=payload.image_url,
+        geometry_kind=kind,
+        points_json=json.dumps(points, ensure_ascii=False) if points else None,
+        radius=radius,
+        stroke_color=payload.stroke_color,
+        fill_color=payload.fill_color,
+    )
     db.add(marker)
     await db.commit()
     await db.refresh(marker)
@@ -287,12 +387,46 @@ async def update_marker(
 
     if payload.type is not None:
         marker.type = payload.type
+    if payload.x is not None:
+        marker.x = payload.x
+    if payload.y is not None:
+        marker.y = payload.y
     if payload.title is not None:
         marker.title = payload.title
     if payload.description is not None:
         marker.description = payload.description
     if payload.image_url is not None:
         marker.image_url = payload.image_url
+    if payload.geometry_kind is not None:
+        kind = payload.geometry_kind.strip().lower()
+        if kind not in {"point", "circle", "line"}:
+            raise HTTPException(status_code=400, detail="Unsupported geometry_kind")
+        marker.geometry_kind = kind
+        if kind != "line":
+            marker.points_json = None
+        if kind != "circle":
+            marker.radius = None
+    if payload.points is not None:
+        points = _normalize_points(payload.points)
+        if marker.geometry_kind == "line":
+            if not points or len(points) < 2:
+                raise HTTPException(status_code=400, detail="Line requires at least 2 points")
+            marker.points_json = json.dumps(points, ensure_ascii=False)
+            marker.x = points[0][0]
+            marker.y = points[0][1]
+        else:
+            marker.points_json = None
+    if payload.radius is not None:
+        if marker.geometry_kind != "circle":
+            marker.radius = None
+        else:
+            if payload.radius <= 0:
+                raise HTTPException(status_code=400, detail="Circle radius must be greater than zero")
+            marker.radius = payload.radius
+    if payload.stroke_color is not None:
+        marker.stroke_color = payload.stroke_color
+    if payload.fill_color is not None:
+        marker.fill_color = payload.fill_color
 
     await db.commit()
     await db.refresh(marker)

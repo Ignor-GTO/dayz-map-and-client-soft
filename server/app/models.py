@@ -125,6 +125,11 @@ class Marker(Base):
     title: Mapped[str | None] = mapped_column(String(128), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    geometry_kind: Mapped[str] = mapped_column(String(16), default="point", server_default="point")
+    points_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    radius: Mapped[float | None] = mapped_column(Float, nullable=True)
+    stroke_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    fill_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="markers")

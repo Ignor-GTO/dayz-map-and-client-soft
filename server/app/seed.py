@@ -66,6 +66,16 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("ALTER TABLE markers ADD COLUMN description TEXT"))
     if marker_cols and "image_url" not in marker_cols:
         conn.execute(text("ALTER TABLE markers ADD COLUMN image_url TEXT"))
+    if marker_cols and "geometry_kind" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN geometry_kind VARCHAR(16) DEFAULT 'point'"))
+    if marker_cols and "points_json" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN points_json TEXT"))
+    if marker_cols and "radius" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN radius FLOAT"))
+    if marker_cols and "stroke_color" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN stroke_color VARCHAR(16)"))
+    if marker_cols and "fill_color" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN fill_color VARCHAR(16)"))
 
     # road_segments table (created by SQLAlchemy create_all but add for existing DBs)
     road_tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}

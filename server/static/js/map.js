@@ -42,10 +42,45 @@ const state = {
     markers: true,
     poi: true,
     radiation: true,
-    roads: true,
+    roads: false,
   },
   ws: null,
 };
+
+const FILTER_PREFS_KEY = "dayz_map_filters_v1";
+
+function loadFilterPrefs() {
+  try {
+    const raw = localStorage.getItem(FILTER_PREFS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveFilterPrefs() {
+  try {
+    localStorage.setItem(
+      FILTER_PREFS_KEY,
+      JSON.stringify({
+        roads: !!state.filters.roads,
+      }),
+    );
+  } catch {
+    // ignore storage failures (private mode / quota)
+  }
+}
+
+function hydrateFilterPrefs() {
+  const prefs = loadFilterPrefs();
+  if (typeof prefs.roads === "boolean") {
+    state.filters.roads = prefs.roads;
+  }
+}
+
+hydrateFilterPrefs();
 
 
 const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
@@ -1015,6 +1050,8 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
+  const roadsFilter = document.getElementById("filter-roads");
+  if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
   await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation(), loadRoads()]);
   connectWebSocket();
   initNavigatorButton();
@@ -1188,6 +1225,7 @@ window.addEventListener("resize", () => {
 // Roads filter toggle
 document.getElementById("filter-roads")?.addEventListener("change", (e) => {
   state.filters.roads = e.target.checked;
+  saveFilterPrefs();
   applyRoadsVisibility();
 });
 
