@@ -671,6 +671,9 @@ document.getElementById("marker-edit-modal").addEventListener("click", (e) => {
 document.getElementById("marker-edit-save").addEventListener("click", async () => {
   if (!_editMarkerId) return;
 
+  const markerId = Number(_editMarkerId);
+  const existingMarker = state.pinMarkers.get(markerId);
+  const existingMeta = existingMarker?._markerMeta || null;
   const selectedTypeBtn = document.querySelector(".marker-icon-btn.selected");
   const saveBtn = document.getElementById("marker-edit-save");
   saveBtn.disabled = true;
@@ -684,16 +687,18 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
     };
     if (_editClearImage) patchBody.image_url = null;
 
-    await api(`/api/markers/${_editMarkerId}`, {
+    const patched = await api(`/api/markers/${markerId}`, {
       method: "PATCH",
       body: JSON.stringify(patchBody),
     });
+    // Apply immediately in current tab (websocket can lag or reconnect).
+    upsertPin(existingMeta ? { ...existingMeta, ...patched } : patched);
 
     // Upload image if selected
     if (_editImageFile) {
       const fd = new FormData();
       fd.append("file", _editImageFile);
-      const res = await fetch(`/api/markers/${_editMarkerId}/image`, {
+      const res = await fetch(`/api/markers/${markerId}/image`, {
         method: "POST",
         credentials: "same-origin",
         body: fd,
@@ -701,6 +706,10 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+      const withImage = await res.json().catch(() => null);
+      if (withImage) {
+        upsertPin(existingMeta ? { ...existingMeta, ...withImage } : withImage);
       }
     }
 
