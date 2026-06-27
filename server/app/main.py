@@ -55,7 +55,7 @@ async def map_websocket(websocket: WebSocket):
 
     # Subscribe to room channel (shared events) AND personal channel (user-only events)
     await manager.connect(ch, websocket)
-    await manager.connect(user_ch, websocket)
+    await manager.subscribe(user_ch, websocket)
     try:
         while True:
             await websocket.receive_text()

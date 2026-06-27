@@ -14,6 +14,11 @@ class ConnectionManager:
         async with self._lock:
             self._channels[channel].add(websocket)
 
+    async def subscribe(self, channel: str, websocket: WebSocket) -> None:
+        """Subscribe an already-accepted websocket to an additional channel."""
+        async with self._lock:
+            self._channels[channel].add(websocket)
+
     async def disconnect(self, channel: str, websocket: WebSocket) -> None:
         async with self._lock:
             self._channels[channel].discard(websocket)
