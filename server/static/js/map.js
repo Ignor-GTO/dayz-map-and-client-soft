@@ -459,11 +459,11 @@ function drawCircleRadius() {
 }
 
 function drawCircleStrokeColor() {
-  return normalizeHexColor(document.getElementById("draw-circle-stroke")?.value, "#ff9800");
+  return normalizeHexColor(document.getElementById("draw-circle-stroke")?.value, "#ffffff");
 }
 
 function drawCircleFillColor() {
-  return normalizeHexColor(document.getElementById("draw-circle-fill")?.value, "#ff9800");
+  return normalizeHexColor(document.getElementById("draw-circle-fill")?.value, "#ffffff");
 }
 
 function drawLineStrokeColor() {
@@ -652,8 +652,8 @@ function startGeometryEdit(markerId) {
   if (kind === "circle") {
     const circle = L.circle(gameToLatLng(state.geoEdit.center.x, state.geoEdit.center.y), {
       radius: gameRadiusToLeaflet(state.geoEdit.radius),
-      color: m.stroke_color || "#ff9800",
-      fillColor: m.fill_color || "#ff9800",
+      color: m.stroke_color || "#ffffff",
+      fillColor: m.fill_color || "#ffffff",
       fillOpacity: 0.22,
       weight: 2,
     }).addTo(state.map);
@@ -803,8 +803,8 @@ function upsertPin(m) {
     const center = gameToLatLng(m.x, m.y);
     layer = L.circle(center, {
       radius: gameRadiusToLeaflet(m.radius || 300),
-      color: m.stroke_color || m.fill_color || "#ff9800",
-      fillColor: m.fill_color || "#ff9800",
+      color: m.stroke_color || m.fill_color || "#ffffff",
+      fillColor: m.fill_color || "#ffffff",
       fillOpacity: 0.2,
       weight: 2,
     }).addTo(state.map);
@@ -1073,9 +1073,9 @@ function openMarkerEditModal(markerId) {
   const radiusInput = document.getElementById("marker-edit-radius");
   if (radiusInput) radiusInput.value = String(Math.max(10, Number(m.radius || 300)));
   const strokeInput = document.getElementById("marker-edit-stroke-color");
-  if (strokeInput) strokeInput.value = normalizeHexColor(m.stroke_color, "#ff9800");
+  if (strokeInput) strokeInput.value = normalizeHexColor(m.stroke_color, "#ffffff");
   const fillInput = document.getElementById("marker-edit-fill-color");
-  if (fillInput) fillInput.value = normalizeHexColor(m.fill_color, "#ff9800");
+  if (fillInput) fillInput.value = normalizeHexColor(m.fill_color, "#ffffff");
   const lineInput = document.getElementById("marker-edit-line-color");
   if (lineInput) lineInput.value = normalizeHexColor(m.stroke_color, "#00e5ff");
   updateMarkerEditGeometryFields(kind);
@@ -1181,8 +1181,8 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
   try {
     const markerKind = existingMeta?.geometry_kind || "point";
     const circleRadius = Number(document.getElementById("marker-edit-radius")?.value || 300);
-    const circleStroke = normalizeHexColor(document.getElementById("marker-edit-stroke-color")?.value, "#ff9800");
-    const circleFill = normalizeHexColor(document.getElementById("marker-edit-fill-color")?.value, "#ff9800");
+    const circleStroke = normalizeHexColor(document.getElementById("marker-edit-stroke-color")?.value, "#ffffff");
+    const circleFill = normalizeHexColor(document.getElementById("marker-edit-fill-color")?.value, "#ffffff");
     const lineStroke = normalizeHexColor(document.getElementById("marker-edit-line-color")?.value, "#00e5ff");
     const patchBody = {
       title: document.getElementById("marker-edit-title").value.trim() || null,

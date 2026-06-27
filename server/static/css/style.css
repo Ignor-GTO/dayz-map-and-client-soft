@@ -704,6 +704,15 @@ button.secondary.small {
   padding: 0;
 }
 
+.draw-tool-settings select {
+  min-width: 118px;
+  padding: 0.22rem 0.35rem;
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
 .sidebar-row {
   display: flex;
   justify-content: space-between;
@@ -1043,4 +1052,13 @@ button.secondary.small {
   border-radius: 6px;
   background: transparent;
   padding: 0;
+}
+
+.marker-color-grid select {
+  min-width: 116px;
+  padding: 0.22rem 0.35rem;
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
 }

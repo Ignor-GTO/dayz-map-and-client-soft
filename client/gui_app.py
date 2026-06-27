@@ -125,6 +125,7 @@ class ClientApp(tk.Tk):
         self.protocol("WM_DELETE_WINDOW", self._minimize_to_tray)
         self.bind_all("<Control-Key>", self._handle_global_shortcuts)
         self.bind_all("<Shift-Insert>", self._handle_shift_insert)
+        self.bind_all("<<Paste>>", self._handle_virtual_paste, add="+")
 
     def _build_ui(self) -> None:
         self.status_var = tk.StringVar(value="Остановлено")
@@ -1172,14 +1173,29 @@ class ClientApp(tk.Tk):
     def _paste_into_widget(self, widget) -> bool:
         """Paste helper that works for Entry/Text even under non-ENG layouts."""
         try:
-            widget.event_generate("<<Paste>>")
-            return True
-        except Exception:
-            pass
-        try:
-            text = widget.clipboard_get()
+            text = self.clipboard_get()
         except tk.TclError:
+            try:
+                text = widget.clipboard_get()
+            except tk.TclError:
+                return False
+
+        if text is None:
             return False
+        text = str(text)
+        # Client key is copied from web modal and may include trailing newlines/spaces.
+        if hasattr(self, "key_entry") and widget is self.key_entry:
+            text = text.replace("\r", "").replace("\n", "").strip()
+        if text == "":
+            return False
+
+        try:
+            state = widget.cget("state")
+            if state != "normal":
+                return False
+        except Exception:
+            state = "normal"
+
         if isinstance(widget, (tk.Entry, ttk.Entry)):
             try:
                 if widget.selection_present():
@@ -1195,6 +1211,12 @@ class ClientApp(tk.Tk):
             pass
         widget.insert(tk.INSERT, text)
         return True
+
+    def _handle_virtual_paste(self, event) -> str | None:
+        widget = event.widget
+        if not isinstance(widget, (tk.Entry, ttk.Entry, tk.Text, scrolledtext.ScrolledText)):
+            return None
+        return "break" if self._paste_into_widget(widget) else None
 
     def _handle_shift_insert(self, event) -> str | None:
         widget = event.widget
