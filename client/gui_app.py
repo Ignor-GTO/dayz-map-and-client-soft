@@ -114,6 +114,7 @@ class ClientApp(tk.Tk):
         self.after(400, self._startup_ocr_check)
         self.protocol("WM_DELETE_WINDOW", self._minimize_to_tray)
         self.bind_all("<Control-Key>", self._handle_global_shortcuts)
+        self.bind_all("<Shift-Insert>", self._handle_shift_insert)
 
     def _build_ui(self) -> None:
         self.status_var = tk.StringVar(value="Остановлено")
@@ -678,7 +679,7 @@ class ClientApp(tk.Tk):
 
         ttk.Label(
             hotkey_lf,
-            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: page up / page down.",
+            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: num+ / num-.",
             style="CardMuted.TLabel",
             wraplength=400
         ).grid(row=11, column=0, columnspan=3, sticky="w", pady=(4, 2))
@@ -975,8 +976,8 @@ class ClientApp(tk.Tk):
         self.hotkey_send_marker_var.set(", ".join(self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])))
         self.hotkey_snip_coords_var.set(", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])))
         self.hotkey_close_map_var.set(", ".join(self.cfg.get("hotkey_close_map", ["esc"])))
-        self.hotkey_zoom_in_var.set(", ".join(self.cfg.get("hotkey_zoom_in", ["page up"])))
-        self.hotkey_zoom_out_var.set(", ".join(self.cfg.get("hotkey_zoom_out", ["page down"])))
+        self.hotkey_zoom_in_var.set(", ".join(self.cfg.get("hotkey_zoom_in", ["num +"])))
+        self.hotkey_zoom_out_var.set(", ".join(self.cfg.get("hotkey_zoom_out", ["num -"])))
         
         # Mouse nudge settings
         self.mouse_nudge_var.set(self.cfg.get("mouse_nudge_before_ocr", True))
@@ -1081,24 +1082,11 @@ class ClientApp(tk.Tk):
                 state = "normal"
             if state == "normal":
                 try:
-                    text = widget.clipboard_get()
-                    if isinstance(widget, (tk.Entry, ttk.Entry)):
-                        try:
-                            if widget.selection_present():
-                                widget.delete("sel.first", "sel.last")
-                        except tk.TclError:
-                            pass
-                        widget.insert(tk.INSERT, text)
-                    else:
-                        try:
-                            if widget.tag_ranges("sel"):
-                                widget.delete("sel.first", "sel.last")
-                        except tk.TclError:
-                            pass
-                        widget.insert(tk.INSERT, text)
+                    if self._paste_into_widget(widget):
+                        return "break"
                 except tk.TclError:
-                    pass
-            return "break"
+                    return None
+            return None
         elif is_c:
             try:
                 if isinstance(widget, (tk.Entry, ttk.Entry)):
@@ -1136,6 +1124,45 @@ class ClientApp(tk.Tk):
                 widget.tag_add("sel", "1.0", "end")
             return "break"
         return None
+
+    def _paste_into_widget(self, widget) -> bool:
+        """Paste helper that works for Entry/Text even under non-ENG layouts."""
+        try:
+            widget.event_generate("<<Paste>>")
+            return True
+        except Exception:
+            pass
+        try:
+            text = widget.clipboard_get()
+        except tk.TclError:
+            return False
+        if isinstance(widget, (tk.Entry, ttk.Entry)):
+            try:
+                if widget.selection_present():
+                    widget.delete("sel.first", "sel.last")
+            except tk.TclError:
+                pass
+            widget.insert(tk.INSERT, text)
+            return True
+        try:
+            if widget.tag_ranges("sel"):
+                widget.delete("sel.first", "sel.last")
+        except tk.TclError:
+            pass
+        widget.insert(tk.INSERT, text)
+        return True
+
+    def _handle_shift_insert(self, event) -> str | None:
+        widget = event.widget
+        if not isinstance(widget, (tk.Entry, ttk.Entry, tk.Text, scrolledtext.ScrolledText)):
+            return None
+        try:
+            state = widget.cget("state")
+        except (tk.TclError, AttributeError):
+            state = "normal"
+        if state != "normal":
+            return "break"
+        return "break" if self._paste_into_widget(widget) else None
 
     def save_settings(self) -> None:
         if not self.key_var.get().strip():
@@ -1669,11 +1696,11 @@ class ClientApp(tk.Tk):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_esc_hotkey), suppress=False)
                 
-        for hk in self.cfg.get("hotkey_zoom_in", ["page up"]):
+        for hk in self.cfg.get("hotkey_zoom_in", ["num +"]):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_in_hotkey), suppress=False)
 
-        for hk in self.cfg.get("hotkey_zoom_out", ["page down"]):
+        for hk in self.cfg.get("hotkey_zoom_out", ["num -"]):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_out_hotkey), suppress=False)
 
@@ -1685,8 +1712,8 @@ class ClientApp(tk.Tk):
             f"метка: {', '.join(self.cfg.get('hotkey_send_marker', ['ctrl+shift+d'])).upper()}, "
             f"снимок: {', '.join(self.cfg.get('hotkey_snip_coords', ['ctrl+shift+s', 'ctrl+shift+c'])).upper()}, "
             f"закрыть: {', '.join(self.cfg.get('hotkey_close_map', ['esc'])).upper()}, "
-            f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
-            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}; "
+            f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['num +'])).upper()}, "
+            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['num -'])).upper()}; "
             f"Win+Shift+S — авто из буфера"
         )
 

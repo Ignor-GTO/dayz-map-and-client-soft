@@ -28,8 +28,8 @@ DEFAULT_CONFIG = {
     "hotkey_send_marker": ["ctrl+shift+d"],
     "hotkey_snip_coords": ["ctrl+shift+s", "ctrl+shift+c"],
     "hotkey_close_map": ["esc"],
-    "hotkey_zoom_in": ["page up"],
-    "hotkey_zoom_out": ["page down"],
+    "hotkey_zoom_in": ["num +"],
+    "hotkey_zoom_out": ["num -"],
     "ocr_preprocess_mode": "auto",
 }
 
@@ -49,6 +49,17 @@ def load_config() -> dict:
                             loaded["hotkey_toggle_map"] = [k for k in toggle_list if k != "m"]
                             if "game_map_key" not in loaded:
                                 loaded["game_map_key"] = "m"
+                    # Migration: release with PageUp/PageDown defaults blocked game controls.
+                    # If user still has untouched defaults, switch back to Num+/Num-.
+                    if (
+                        isinstance(loaded.get("hotkey_zoom_in"), list)
+                        and isinstance(loaded.get("hotkey_zoom_out"), list)
+                    ):
+                        zoom_in = [k.strip().lower() for k in loaded.get("hotkey_zoom_in", []) if k.strip()]
+                        zoom_out = [k.strip().lower() for k in loaded.get("hotkey_zoom_out", []) if k.strip()]
+                        if zoom_in == ["page up"] and zoom_out == ["page down"]:
+                            loaded["hotkey_zoom_in"] = ["num +"]
+                            loaded["hotkey_zoom_out"] = ["num -"]
                     cfg.update(loaded)
         except Exception:
             pass
