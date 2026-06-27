@@ -99,8 +99,34 @@
                 <span class="icon-emoji">⚠️</span><span>Опасность</span>
               </button>
               <button type="button" class="marker-icon-btn" data-type="screenshot">
-                <span class="icon-emoji">📷</span><span>Снимок</span>
+                <span class="icon-emoji">❓</span><span>Снимок</span>
               </button>
+            </div>
+          </div>
+
+          <div class="marker-edit-field marker-geo-field">
+            <label>Тип фигуры</label>
+            <input type="text" id="marker-edit-geometry-kind" readonly>
+          </div>
+
+          <div id="marker-edit-circle-fields" class="marker-edit-field marker-geo-field hidden">
+            <label for="marker-edit-radius">Радиус круга (игровые метры)</label>
+            <input type="number" id="marker-edit-radius" min="10" step="10" value="300">
+            <div class="marker-color-grid">
+              <label>Контур
+                <input type="color" id="marker-edit-stroke-color" value="#ff9800">
+              </label>
+              <label>Заливка
+                <input type="color" id="marker-edit-fill-color" value="#ff9800">
+              </label>
+            </div>
+          </div>
+
+          <div id="marker-edit-line-fields" class="marker-edit-field marker-geo-field hidden">
+            <div class="marker-color-grid">
+              <label>Цвет линии
+                <input type="color" id="marker-edit-line-color" value="#00e5ff">
+              </label>
             </div>
           </div>
 
@@ -171,14 +197,34 @@
                 <button type="button" id="draw-circle-btn" class="secondary small">⭕ Круг</button>
                 <button type="button" id="draw-line-btn" class="secondary small">📏 Линия</button>
               </div>
+              <div class="draw-tool-settings hidden" id="draw-circle-settings">
+                <label>Радиус
+                  <input type="number" id="draw-circle-radius" min="10" step="10" value="300">
+                </label>
+                <label>Контур
+                  <input type="color" id="draw-circle-stroke" value="#ff9800">
+                </label>
+                <label>Заливка
+                  <input type="color" id="draw-circle-fill" value="#ff9800">
+                </label>
+              </div>
+              <div class="draw-tool-settings hidden" id="draw-line-settings">
+                <label>Цвет линии
+                  <input type="color" id="draw-line-stroke" value="#00e5ff">
+                </label>
+              </div>
               <div class="draw-tool-row">
                 <button type="button" id="draw-finish-btn" class="secondary small hidden">💾 Сохранить линию</button>
                 <button type="button" id="draw-cancel-btn" class="secondary small hidden">✖ Отмена</button>
               </div>
+              <div class="draw-tool-row">
+                <button type="button" id="geo-edit-save-btn" class="secondary small hidden">💾 Сохранить фигуру</button>
+                <button type="button" id="geo-edit-cancel-btn" class="secondary small hidden">✖ Отменить правки</button>
+              </div>
               <div id="draw-hint" class="draw-hint">Выберите инструмент и кликните по карте</div>
             </div>
 
-            <h3>Метки игроков</h3>
+            <h3>Метки и фигуры группы</h3>
             <div id="web-markers-list" class="sidebar-list">
               <div class="list-empty">Нет меток</div>
             </div>

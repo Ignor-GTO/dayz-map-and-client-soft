@@ -46,9 +46,17 @@ const state = {
   },
   draw: {
     mode: null, // null | "point" | "circle" | "line"
-    circleCenter: null, // {x,y}
     linePoints: [],
     tempLayer: null,
+  },
+  geoEdit: {
+    markerId: null,
+    kind: null, // null | "circle" | "line"
+    center: null, // {x, y}
+    radius: null,
+    points: [],
+    handles: [],
+    previewLayer: null,
   },
   ws: null,
 };
@@ -323,6 +331,14 @@ function initLeaflet(config) {
       };
     }
 
+    const geoEditBtn = container.querySelector(".marker-geo-edit-btn");
+    if (geoEditBtn) {
+      geoEditBtn.onclick = () => {
+        e.popup.close();
+        startGeometryEdit(Number(geoEditBtn.dataset.id));
+      };
+    }
+
     const routeBtn = container.querySelector(".marker-route");
     if (routeBtn) {
       routeBtn.onclick = () => {
@@ -404,7 +420,7 @@ const MARKER_ICON_DEFS = {
   point: { emoji: "🔵", label: "Точка" },
   camp: { emoji: "🏕", label: "Лагерь" },
   danger: { emoji: "⚠️", label: "Опасность" },
-  screenshot: { emoji: "📷", label: "Снимок" },
+  screenshot: { emoji: "❓", label: "Снимок" },
 };
 
 function markerTypeLabel(type) {
@@ -431,6 +447,34 @@ function drawHint(text) {
   if (el) el.textContent = text;
 }
 
+function normalizeHexColor(value, fallback) {
+  const v = String(value || "").trim();
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : fallback;
+}
+
+function drawCircleRadius() {
+  const el = document.getElementById("draw-circle-radius");
+  const radius = Number(el?.value || 300);
+  return Number.isFinite(radius) ? Math.max(10, radius) : 300;
+}
+
+function drawCircleStrokeColor() {
+  return normalizeHexColor(document.getElementById("draw-circle-stroke")?.value, "#ff9800");
+}
+
+function drawCircleFillColor() {
+  return normalizeHexColor(document.getElementById("draw-circle-fill")?.value, "#ff9800");
+}
+
+function drawLineStrokeColor() {
+  return normalizeHexColor(document.getElementById("draw-line-stroke")?.value, "#00e5ff");
+}
+
+function toggleDrawModeSettings(mode) {
+  document.getElementById("draw-circle-settings")?.classList.toggle("hidden", mode !== "circle");
+  document.getElementById("draw-line-settings")?.classList.toggle("hidden", mode !== "line");
+}
+
 function clearDrawTemp() {
   if (state.draw.tempLayer && state.map) {
     state.map.removeLayer(state.draw.tempLayer);
@@ -439,10 +483,13 @@ function clearDrawTemp() {
 }
 
 function setDrawMode(mode) {
+  if (state.geoEdit.markerId !== null) {
+    stopGeometryEdit({ restoreMarker: true, silent: true });
+  }
   state.draw.mode = mode;
-  state.draw.circleCenter = null;
   state.draw.linePoints = [];
   clearDrawTemp();
+  toggleDrawModeSettings(mode);
   document.querySelectorAll(".draw-tool-row button").forEach((btn) => btn.classList.remove("active"));
   if (mode === "point") document.getElementById("draw-point-btn")?.classList.add("active");
   if (mode === "circle") document.getElementById("draw-circle-btn")?.classList.add("active");
@@ -451,14 +498,8 @@ function setDrawMode(mode) {
   document.getElementById("draw-finish-btn")?.classList.toggle("hidden", mode !== "line");
   if (!mode) drawHint("Выберите инструмент и кликните по карте");
   else if (mode === "point") drawHint("Кликните по карте для установки метки");
-  else if (mode === "circle") drawHint("1-й клик: центр круга, 2-й клик: радиус");
+  else if (mode === "circle") drawHint("Кликните центр круга. Радиус и цвет берутся из панели.");
   else drawHint("Кликайте точки линии, затем нажмите 'Сохранить линию'");
-}
-
-function distanceGame(a, b) {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return Math.sqrt(dx * dx + dy * dy);
 }
 
 async function createUserShape(payload) {
@@ -486,22 +527,15 @@ async function handleDrawMapClick(x, y) {
       return;
     }
     if (mode === "circle") {
-      if (!state.draw.circleCenter) {
-        state.draw.circleCenter = { x, y };
-        clearDrawTemp();
-        state.draw.tempLayer = L.marker(gameToLatLng(x, y)).addTo(state.map);
-        drawHint("Выберите вторую точку, чтобы задать радиус");
-        return;
-      }
-      const radius = Math.max(30, distanceGame(state.draw.circleCenter, { x, y }));
+      const radius = drawCircleRadius();
       await createUserShape({
-        x: state.draw.circleCenter.x,
-        y: state.draw.circleCenter.y,
+        x,
+        y,
         type: "danger",
         geometry_kind: "circle",
         radius,
-        stroke_color: "#ff9800",
-        fill_color: "#ff9800",
+        stroke_color: drawCircleStrokeColor(),
+        fill_color: drawCircleFillColor(),
       });
       setDrawMode(null);
       drawHint("Круг добавлен");
@@ -513,7 +547,7 @@ async function handleDrawMapClick(x, y) {
       if (state.draw.linePoints.length >= 2) {
         state.draw.tempLayer = L.polyline(
           state.draw.linePoints.map(([px, py]) => gameToLatLng(px, py)),
-          { color: "#00e5ff", weight: 3, dashArray: "6,4" },
+          { color: drawLineStrokeColor(), weight: 3, dashArray: "6,4" },
         ).addTo(state.map);
       } else {
         state.draw.tempLayer = L.marker(gameToLatLng(x, y)).addTo(state.map);
@@ -537,12 +571,185 @@ async function finishLineDrawing() {
       points: state.draw.linePoints,
       type: "point",
       geometry_kind: "line",
-      stroke_color: "#00e5ff",
+      stroke_color: drawLineStrokeColor(),
     });
     setDrawMode(null);
     drawHint("Линия добавлена");
   } catch (e) {
     alert(e.message || "Не удалось сохранить линию");
+  }
+}
+
+function setGeometryEditButtonsVisible(visible) {
+  document.getElementById("geo-edit-save-btn")?.classList.toggle("hidden", !visible);
+  document.getElementById("geo-edit-cancel-btn")?.classList.toggle("hidden", !visible);
+}
+
+function editHandleIcon(text = "●", color = "#3d9ee5") {
+  return L.divIcon({
+    className: "geo-edit-handle",
+    html: `<div style="width:18px;height:18px;border-radius:50%;background:${color};border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:11px;font-weight:700;box-shadow:0 0 4px rgba(0,0,0,0.8);">${text}</div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+  });
+}
+
+function clearGeometryEditorLayers() {
+  if (!state.map) return;
+  if (state.geoEdit.previewLayer) {
+    state.map.removeLayer(state.geoEdit.previewLayer);
+    state.geoEdit.previewLayer = null;
+  }
+  state.geoEdit.handles.forEach((h) => state.map.removeLayer(h));
+  state.geoEdit.handles = [];
+}
+
+function stopGeometryEdit({ restoreMarker = false, silent = false } = {}) {
+  const markerId = state.geoEdit.markerId;
+  const layer = markerId != null ? state.pinMarkers.get(markerId) : null;
+  const markerMeta = layer?._markerMeta || null;
+
+  clearGeometryEditorLayers();
+  setGeometryEditButtonsVisible(false);
+
+  state.geoEdit.markerId = null;
+  state.geoEdit.kind = null;
+  state.geoEdit.center = null;
+  state.geoEdit.radius = null;
+  state.geoEdit.points = [];
+
+  if (restoreMarker && markerMeta) {
+    upsertPin(markerMeta);
+  }
+  if (!silent) {
+    drawHint("Выберите инструмент и кликните по карте");
+  }
+}
+
+function startGeometryEdit(markerId) {
+  const layer = state.pinMarkers.get(markerId);
+  const m = layer?._markerMeta;
+  if (!m) return;
+  const kind = m.geometry_kind || "point";
+  if (kind !== "circle" && kind !== "line") return;
+
+  stopGeometryEdit({ restoreMarker: true, silent: true });
+  setDrawMode(null);
+
+  const target = state.pinMarkers.get(markerId);
+  if (target && state.map?.hasLayer(target)) {
+    state.map.removeLayer(target);
+  }
+
+  state.geoEdit.markerId = markerId;
+  state.geoEdit.kind = kind;
+  state.geoEdit.center = { x: Number(m.x || 0), y: Number(m.y || 0) };
+  state.geoEdit.radius = Math.max(10, Number(m.radius || 300));
+  state.geoEdit.points = Array.isArray(m.points) ? m.points.map(([x, y]) => [Number(x), Number(y)]) : [];
+
+  setGeometryEditButtonsVisible(true);
+
+  if (kind === "circle") {
+    const circle = L.circle(gameToLatLng(state.geoEdit.center.x, state.geoEdit.center.y), {
+      radius: gameRadiusToLeaflet(state.geoEdit.radius),
+      color: m.stroke_color || "#ff9800",
+      fillColor: m.fill_color || "#ff9800",
+      fillOpacity: 0.22,
+      weight: 2,
+    }).addTo(state.map);
+    state.geoEdit.previewLayer = circle;
+
+    const centerHandle = L.marker(gameToLatLng(state.geoEdit.center.x, state.geoEdit.center.y), {
+      icon: editHandleIcon("C", "#3d9ee5"),
+      draggable: true,
+    }).addTo(state.map);
+    const edgeHandle = L.marker(gameToLatLng(state.geoEdit.center.x + state.geoEdit.radius, state.geoEdit.center.y), {
+      icon: editHandleIcon("R", "#e67e22"),
+      draggable: true,
+    }).addTo(state.map);
+
+    const syncCircleVisuals = () => {
+      circle.setLatLng(gameToLatLng(state.geoEdit.center.x, state.geoEdit.center.y));
+      circle.setRadius(gameRadiusToLeaflet(state.geoEdit.radius));
+      centerHandle.setLatLng(gameToLatLng(state.geoEdit.center.x, state.geoEdit.center.y));
+      edgeHandle.setLatLng(gameToLatLng(state.geoEdit.center.x + state.geoEdit.radius, state.geoEdit.center.y));
+      drawHint(`Редактирование круга: R=${Math.round(state.geoEdit.radius)}. Перетащите C и R, затем сохраните.`);
+    };
+
+    centerHandle.on("drag", () => {
+      const g = latLngToGame(centerHandle.getLatLng());
+      state.geoEdit.center = { x: g.x, y: g.y };
+      syncCircleVisuals();
+    });
+    edgeHandle.on("drag", () => {
+      const g = latLngToGame(edgeHandle.getLatLng());
+      const dx = g.x - state.geoEdit.center.x;
+      const dy = g.y - state.geoEdit.center.y;
+      state.geoEdit.radius = Math.max(10, Math.sqrt(dx * dx + dy * dy));
+      syncCircleVisuals();
+    });
+    state.geoEdit.handles = [centerHandle, edgeHandle];
+    syncCircleVisuals();
+    return;
+  }
+
+  // line editor
+  if (state.geoEdit.points.length < 2) {
+    stopGeometryEdit({ restoreMarker: true });
+    return;
+  }
+  const line = L.polyline(
+    state.geoEdit.points.map(([x, y]) => gameToLatLng(x, y)),
+    {
+      color: m.stroke_color || "#00e5ff",
+      weight: 3.5,
+      opacity: 0.95,
+    },
+  ).addTo(state.map);
+  state.geoEdit.previewLayer = line;
+
+  state.geoEdit.points.forEach((pt, idx) => {
+    const handle = L.marker(gameToLatLng(pt[0], pt[1]), {
+      icon: editHandleIcon(String(idx + 1), "#3d9ee5"),
+      draggable: true,
+    }).addTo(state.map);
+    handle.on("drag", () => {
+      const g = latLngToGame(handle.getLatLng());
+      state.geoEdit.points[idx] = [g.x, g.y];
+      line.setLatLngs(state.geoEdit.points.map(([x, y]) => gameToLatLng(x, y)));
+      drawHint(`Редактирование линии: ${state.geoEdit.points.length} точек. Перетащите маркеры и сохраните.`);
+    });
+    state.geoEdit.handles.push(handle);
+  });
+  drawHint(`Редактирование линии: ${state.geoEdit.points.length} точек. Перетащите маркеры и сохраните.`);
+}
+
+async function saveGeometryEdit() {
+  const markerId = state.geoEdit.markerId;
+  if (markerId == null) return;
+  const sourceMeta = state.pinMarkers.get(markerId)?._markerMeta || null;
+  const kind = state.geoEdit.kind;
+  try {
+    const payload = kind === "circle"
+      ? {
+          geometry_kind: "circle",
+          x: state.geoEdit.center.x,
+          y: state.geoEdit.center.y,
+          radius: Math.max(10, Number(state.geoEdit.radius || 10)),
+        }
+      : {
+          geometry_kind: "line",
+          points: state.geoEdit.points,
+        };
+    const patched = await api(`/api/markers/${markerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    stopGeometryEdit({ restoreMarker: false, silent: true });
+    upsertPin(sourceMeta ? { ...sourceMeta, ...patched } : patched);
+    drawHint("Геометрия сохранена");
+  } catch (e) {
+    alert("Ошибка сохранения геометрии: " + (e.message || e));
   }
 }
 
@@ -559,6 +766,7 @@ function upsertPin(m) {
 
   const inGroup = true; // any group member can edit
   const kind = m.geometry_kind || "point";
+  const canGeoEdit = inGroup && (kind === "circle" || kind === "line");
   const title = m.title || markerTypeLabel(m.type || "marker");
   const roundedX = Math.round(m.x || 0);
   const roundedY = Math.round(m.y || 0);
@@ -568,15 +776,22 @@ function upsertPin(m) {
   const descHtml = m.description
     ? `<div style="margin:4px 0;font-size:0.88rem;color:#333;white-space:pre-wrap;max-width:220px;">${m.description.replace(/</g, "&lt;")}</div>`
     : "";
+  const shapeInfo = kind === "circle"
+    ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Радиус: ${Math.round(m.radius || 0)}</div>`
+    : (kind === "line"
+      ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Точек: ${Array.isArray(m.points) ? m.points.length : 0}</div>`
+      : "");
 
   const popupHtml = `
     <b>${title}</b><br>
     <span style="color:#555;font-size:0.82rem">${m.nickname} · ${roundedX} / ${roundedY}</span>
+    ${shapeInfo}
     ${descHtml}
     ${imgHtml}
     <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
       <button class="marker-route" data-x="${m.x}" data-y="${m.y}">Маршрут</button>
       ${inGroup ? `<button class="marker-edit-btn" data-id="${m.id}">✏️ Изменить</button>` : ""}
+      ${canGeoEdit ? `<button class="marker-geo-edit-btn" data-id="${m.id}">🧩 Геометрия</button>` : ""}
       ${state.me && m.user_id === state.me.user_id ? `<button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
     </div>
   `;
@@ -652,6 +867,9 @@ function upsertPoi(p) {
 }
 
 function removePin(id) {
+  if (state.geoEdit.markerId === id || state.geoEdit.markerId === Number(id)) {
+    stopGeometryEdit({ restoreMarker: false, silent: true });
+  }
   const marker = state.pinMarkers.get(id);
   if (marker) {
     state.map.removeLayer(marker);
@@ -713,7 +931,12 @@ function updateMarkersList() {
       ? "⭕"
       : (m.geometry_kind === "line" ? "📏" : def.emoji);
     const label = m.title ? `${shapePrefix} ${m.title}` : `${shapePrefix} ${def.label}`;
-    const subLabel = m.nickname;
+    const extra = m.geometry_kind === "circle"
+      ? ` · R:${Math.round(m.radius || 0)}`
+      : (m.geometry_kind === "line"
+        ? ` · pts:${Array.isArray(m.points) ? m.points.length : 0}`
+        : "");
+    const subLabel = `${m.nickname}${extra}`;
 
     rows.push(`
       <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
@@ -815,7 +1038,23 @@ let _editMarkerId = null;
 let _editImageFile = null;
 let _editClearImage = false;
 
+function markerKindLabel(kind) {
+  if (kind === "circle") return "Круг";
+  if (kind === "line") return "Линия";
+  return "Точка";
+}
+
+function updateMarkerEditGeometryFields(kind) {
+  const isCircle = kind === "circle";
+  const isLine = kind === "line";
+  document.getElementById("marker-edit-circle-fields")?.classList.toggle("hidden", !isCircle);
+  document.getElementById("marker-edit-line-fields")?.classList.toggle("hidden", !isLine);
+}
+
 function openMarkerEditModal(markerId) {
+  if (state.geoEdit.markerId !== null) {
+    stopGeometryEdit({ restoreMarker: true, silent: true });
+  }
   const leafletMarker = state.pinMarkers.get(markerId);
   if (!leafletMarker) return;
   const m = leafletMarker._markerMeta;
@@ -828,6 +1067,18 @@ function openMarkerEditModal(markerId) {
   // Fill form fields
   document.getElementById("marker-edit-title").value = m.title || "";
   document.getElementById("marker-edit-desc").value = m.description || "";
+  const kind = m.geometry_kind || "point";
+  const geometryKind = document.getElementById("marker-edit-geometry-kind");
+  if (geometryKind) geometryKind.value = markerKindLabel(kind);
+  const radiusInput = document.getElementById("marker-edit-radius");
+  if (radiusInput) radiusInput.value = String(Math.max(10, Number(m.radius || 300)));
+  const strokeInput = document.getElementById("marker-edit-stroke-color");
+  if (strokeInput) strokeInput.value = normalizeHexColor(m.stroke_color, "#ff9800");
+  const fillInput = document.getElementById("marker-edit-fill-color");
+  if (fillInput) fillInput.value = normalizeHexColor(m.fill_color, "#ff9800");
+  const lineInput = document.getElementById("marker-edit-line-color");
+  if (lineInput) lineInput.value = normalizeHexColor(m.stroke_color, "#00e5ff");
+  updateMarkerEditGeometryFields(kind);
 
   // Set icon selection
   document.querySelectorAll(".marker-icon-btn").forEach((btn) => {
@@ -928,11 +1179,23 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
   saveBtn.textContent = "⏳ Сохраняю…";
 
   try {
+    const markerKind = existingMeta?.geometry_kind || "point";
+    const circleRadius = Number(document.getElementById("marker-edit-radius")?.value || 300);
+    const circleStroke = normalizeHexColor(document.getElementById("marker-edit-stroke-color")?.value, "#ff9800");
+    const circleFill = normalizeHexColor(document.getElementById("marker-edit-fill-color")?.value, "#ff9800");
+    const lineStroke = normalizeHexColor(document.getElementById("marker-edit-line-color")?.value, "#00e5ff");
     const patchBody = {
       title: document.getElementById("marker-edit-title").value.trim() || null,
       description: document.getElementById("marker-edit-desc").value.trim() || null,
       type: selectedTypeBtn ? selectedTypeBtn.dataset.type : "marker",
     };
+    if (markerKind === "circle") {
+      patchBody.radius = Math.max(10, Number.isFinite(circleRadius) ? circleRadius : 300);
+      patchBody.stroke_color = circleStroke;
+      patchBody.fill_color = circleFill;
+    } else if (markerKind === "line") {
+      patchBody.stroke_color = lineStroke;
+    }
     if (_editClearImage) patchBody.image_url = null;
 
     const patched = await api(`/api/markers/${markerId}`, {
@@ -1347,6 +1610,7 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   if (state.locationLayer) state.locationLayer.clearLayers();
   clearRadiationLayers();
   if (state.roadLayer) state.roadLayer.clearLayers();
+  stopGeometryEdit({ restoreMarker: false, silent: true });
   setDrawMode(null);
 
   showLogin();
@@ -1449,6 +1713,10 @@ document.getElementById("draw-circle-btn")?.addEventListener("click", () => setD
 document.getElementById("draw-line-btn")?.addEventListener("click", () => setDrawMode("line"));
 document.getElementById("draw-cancel-btn")?.addEventListener("click", () => setDrawMode(null));
 document.getElementById("draw-finish-btn")?.addEventListener("click", finishLineDrawing);
+document.getElementById("geo-edit-save-btn")?.addEventListener("click", saveGeometryEdit);
+document.getElementById("geo-edit-cancel-btn")?.addEventListener("click", () => {
+  stopGeometryEdit({ restoreMarker: true });
+});
 
 
 
