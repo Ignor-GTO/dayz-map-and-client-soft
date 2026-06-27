@@ -302,13 +302,13 @@ function upsertLive(pos) {
 }
 
 const MARKER_ICON_DEFS = {
-  marker:     { emoji: "📌", label: "Метка" },
-  chest:      { emoji: "📦", label: "Сундук" },
-  loot:       { emoji: "🔫", label: "Лут" },
-  death:      { emoji: "💀", label: "Смерть" },
-  point:      { emoji: "🔵", label: "Точка" },
-  camp:       { emoji: "🏕", label: "Лагерь" },
-  danger:     { emoji: "⚠️", label: "Опасность" },
+  marker: { emoji: "📌", label: "Метка" },
+  chest: { emoji: "📦", label: "Сундук" },
+  loot: { emoji: "🔫", label: "Лут" },
+  death: { emoji: "💀", label: "Смерть" },
+  point: { emoji: "🔵", label: "Точка" },
+  camp: { emoji: "🏕", label: "Лагерь" },
+  danger: { emoji: "⚠️", label: "Опасность" },
   screenshot: { emoji: "📷", label: "Снимок" },
 };
 
@@ -343,7 +343,7 @@ function upsertPin(m) {
     ? `<img class="marker-popup-img" src="${m.image_url}" alt="Скриншот" onclick="window.open('${m.image_url}','_blank')">`
     : "";
   const descHtml = m.description
-    ? `<div style="margin:4px 0;font-size:0.88rem;color:#333;white-space:pre-wrap;max-width:220px;">${m.description.replace(/</g,"&lt;")}</div>`
+    ? `<div style="margin:4px 0;font-size:0.88rem;color:#333;white-space:pre-wrap;max-width:220px;">${m.description.replace(/</g, "&lt;")}</div>`
     : "";
 
   const popupHtml = `
@@ -429,16 +429,16 @@ async function deleteMarker(id) {
 function updatePlayersList() {
   const el = document.getElementById("web-players-list");
   if (!el) return;
-  
+
   const rows = [];
   state.liveMarkers.forEach((marker) => {
     const pos = marker._playerMeta;
     if (!pos) return;
-    
+
     const color = colorForUser(pos.user_id);
     const isMe = state.me && pos.user_id === state.me.user_id;
     const nameLabel = isMe ? `${pos.nickname} (Вы)` : pos.nickname;
-    
+
     rows.push(`
       <div class="sidebar-row" onclick="focusOnPlayer(${pos.user_id})">
         <div class="sidebar-row-left">
@@ -449,7 +449,7 @@ function updatePlayersList() {
       </div>
     `);
   });
-  
+
   el.innerHTML = rows.length
     ? rows.join("")
     : `<div class="list-empty">Никого онлайн</div>`;
@@ -458,17 +458,17 @@ function updatePlayersList() {
 function updateMarkersList() {
   const el = document.getElementById("web-markers-list");
   if (!el) return;
-  
+
   const rows = [];
   state.pinMarkers.forEach((marker) => {
     const m = marker._markerMeta;
     if (!m) return;
-    
+
     const isMine = state.me && m.user_id === state.me.user_id;
     const def = MARKER_ICON_DEFS[m.type] || MARKER_ICON_DEFS.marker;
     const label = m.title ? `${def.emoji} ${m.title}` : `${def.emoji} ${def.label}`;
     const subLabel = m.nickname;
-    
+
     rows.push(`
       <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
         <div class="sidebar-row-left">
@@ -485,7 +485,7 @@ function updateMarkersList() {
       </div>
     `);
   });
-  
+
   el.innerHTML = rows.length
     ? rows.join("")
     : `<div class="list-empty">Нет меток</div>`;
@@ -535,7 +535,7 @@ function switchLegendTab(tabId) {
   const filtersBtn = document.getElementById("tab-btn-filters");
   const groupContent = document.getElementById("tab-content-group");
   const filtersContent = document.getElementById("tab-content-filters");
-  
+
   if (!groupBtn || !filtersBtn || !groupContent || !filtersContent) return;
 
   if (tabId === "group") {
@@ -729,12 +729,14 @@ function connectWebSocket() {
 
   state.ws.onmessage = (event) => {
     const msg = JSON.parse(event.data);
+    console.log("WS received:", msg);
     if (msg.type === "position") upsertLive(msg.data);
     if (msg.type === "marker_added") upsertPin(msg.data);
     if (msg.type === "marker_updated") upsertPin(msg.data);
     if (msg.type === "marker_deleted") removePin(msg.data.id);
     if (msg.type === "map_command") {
       const action = msg.data?.action;
+      console.log("Executing map command:", action);
       if (action === "zoom_in" && state.map) {
         state.map.zoomIn();
       } else if (action === "zoom_out" && state.map) {
@@ -1338,7 +1340,7 @@ function navClearRoute() {
 
 function navClearMarkers() {
   if (state.navFromMarker) { state.map.removeLayer(state.navFromMarker); state.navFromMarker = null; }
-  if (state.navToMarker)   { state.map.removeLayer(state.navToMarker);   state.navToMarker = null; }
+  if (state.navToMarker) { state.map.removeLayer(state.navToMarker); state.navToMarker = null; }
 }
 
 function getPlayerLocation() {
@@ -1364,7 +1366,7 @@ function navReset() {
     state.navFrom = pLoc;
     state.navStep = "to";
   }
-  
+
   updateNavUI();
 }
 
@@ -1414,7 +1416,7 @@ function navSetPoint(x, y) {
     state.navTo = { x, y };
     if (state.navToMarker) state.map.removeLayer(state.navToMarker);
     state.navToMarker = navMakeMarker(x, y, "🔴 Финиш", "#ff1744");
-    
+
     if (pLoc) {
       state.navStep = "to"; // click again to choose a new destination
       updateNavUI("Прокладываю маршрут…");
@@ -1587,7 +1589,7 @@ function speak(text) {
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = "ru-RU";
-  
+
   if (!selectedVoice) loadVoice();
   if (selectedVoice) utterance.voice = selectedVoice;
 
@@ -1613,7 +1615,7 @@ function trackPlayerOnRoute(x, y) {
 
   // 1. Check arrival
   const dest = state.navRoutePoints[state.navRoutePoints.length - 1];
-  const distToDest = Math.sqrt((x - dest[0])**2 + (y - dest[1])**2);
+  const distToDest = Math.sqrt((x - dest[0]) ** 2 + (y - dest[1]) ** 2);
   if (distToDest < 25) {
     if (state.navLastAnnouncedIndex !== 9999) {
       state.navLastAnnouncedIndex = 9999;
@@ -1656,11 +1658,11 @@ function trackPlayerOnRoute(x, y) {
 
     let distToManeuver = 0;
     const pNextNode = state.navRoutePoints[closestSegIdx + 1];
-    distToManeuver += Math.sqrt((x - pNextNode[0])**2 + (y - pNextNode[1])**2);
+    distToManeuver += Math.sqrt((x - pNextNode[0]) ** 2 + (y - pNextNode[1]) ** 2);
     for (let j = closestSegIdx + 1; j < m.index; j++) {
       const p1 = state.navRoutePoints[j];
       const p2 = state.navRoutePoints[j + 1];
-      distToManeuver += Math.sqrt((p2[0] - p1[0])**2 + (p2[1] - p1[1])**2);
+      distToManeuver += Math.sqrt((p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2);
     }
 
     if (distToManeuver < 180 && distToManeuver > 80 && !m.announcedPrep) {
@@ -1695,13 +1697,13 @@ function trackPlayerOnRoute(x, y) {
 }
 
 function distanceToSegment(P, A, B) {
-  const l2 = (B[0] - A[0])**2 + (B[1] - A[1])**2;
-  if (l2 === 0) return Math.sqrt((P[0] - A[0])**2 + (P[1] - A[1])**2);
+  const l2 = (B[0] - A[0]) ** 2 + (B[1] - A[1]) ** 2;
+  if (l2 === 0) return Math.sqrt((P[0] - A[0]) ** 2 + (P[1] - A[1]) ** 2);
   let t = ((P[0] - A[0]) * (B[0] - A[0]) + (P[1] - A[1]) * (B[1] - A[1])) / l2;
   t = Math.max(0, Math.min(1, t));
   const projX = A[0] + t * (B[0] - A[0]);
   const projY = A[1] + t * (B[1] - A[1]);
-  return Math.sqrt((P[0] - projX)**2 + (P[1] - projY)**2);
+  return Math.sqrt((P[0] - projX) ** 2 + (P[1] - projY) ** 2);
 }
 
 function getDistanceToCircularZoneAlongRoute(x, y, closestSegIdx, zone) {
