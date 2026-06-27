@@ -3,6 +3,7 @@ import json
 import threading
 import time
 import tkinter as tk
+import webbrowser
 from tkinter import messagebox, scrolledtext, ttk
 from typing import Callable
 
@@ -925,9 +926,43 @@ class ClientApp(tk.Tk):
         update_btn = ttk.Button(about_card, text="Проверить обновление", command=lambda: self.check_for_updates(manual=True), width=24)
         update_btn.pack(pady=15)
         
-        # Developer info
-        dev_lbl = ttk.Label(about_card, text="Разработчик: GTO Team\nGitHub: https://github.com/Ignor-GTO/dayz-map-and-client-soft", style="CardMuted.TLabel", justify="center")
-        dev_lbl.pack(side="bottom", pady=10)
+        # Developer info / links
+        links_wrap = ttk.Frame(about_card, style="CardSub.TFrame")
+        links_wrap.pack(side="bottom", pady=10)
+        ttk.Label(links_wrap, text="Разработчик: GTO Team", style="CardMuted.TLabel", justify="center").pack()
+
+        discord_lbl = tk.Label(
+            links_wrap,
+            text="Discord: https://discord.gg/JpDJyRAchg",
+            fg=self.accent_color,
+            bg=self.card_bg,
+            cursor="hand2",
+            font=("Segoe UI", 9, "underline"),
+        )
+        discord_lbl.pack()
+        discord_lbl.bind("<Button-1>", lambda _e: webbrowser.open("https://discord.gg/JpDJyRAchg"))
+
+        site_lbl = tk.Label(
+            links_wrap,
+            text="Сайт: https://gto-team.uz",
+            fg=self.accent_color,
+            bg=self.card_bg,
+            cursor="hand2",
+            font=("Segoe UI", 9, "underline"),
+        )
+        site_lbl.pack()
+        site_lbl.bind("<Button-1>", lambda _e: webbrowser.open("https://gto-team.uz"))
+
+        map_lbl = tk.Label(
+            links_wrap,
+            text="Веб-карта: https://dayz-map.gto-team.uz/",
+            fg=self.accent_color,
+            bg=self.card_bg,
+            cursor="hand2",
+            font=("Segoe UI", 9, "underline"),
+        )
+        map_lbl.pack()
+        map_lbl.bind("<Button-1>", lambda _e: webbrowser.open("https://dayz-map.gto-team.uz/"))
 
     def _create_tray_icon(self) -> None:
         self.tray_image = create_tray_image()
