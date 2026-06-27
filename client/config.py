@@ -28,8 +28,8 @@ DEFAULT_CONFIG = {
     "hotkey_send_marker": ["ctrl+shift+d"],
     "hotkey_snip_coords": ["ctrl+shift+s", "ctrl+shift+c"],
     "hotkey_close_map": ["esc"],
-    "hotkey_zoom_in": ["num +"],
-    "hotkey_zoom_out": ["num -"],
+    "hotkey_zoom_in": ["page up"],
+    "hotkey_zoom_out": ["page down"],
     "ocr_preprocess_mode": "auto",
 }
 

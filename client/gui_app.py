@@ -678,7 +678,7 @@ class ClientApp(tk.Tk):
 
         ttk.Label(
             hotkey_lf,
-            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: num+ / num−.",
+            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: page up / page down.",
             style="CardMuted.TLabel",
             wraplength=400
         ).grid(row=11, column=0, columnspan=3, sticky="w", pady=(4, 2))
@@ -975,6 +975,8 @@ class ClientApp(tk.Tk):
         self.hotkey_send_marker_var.set(", ".join(self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])))
         self.hotkey_snip_coords_var.set(", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])))
         self.hotkey_close_map_var.set(", ".join(self.cfg.get("hotkey_close_map", ["esc"])))
+        self.hotkey_zoom_in_var.set(", ".join(self.cfg.get("hotkey_zoom_in", ["page up"])))
+        self.hotkey_zoom_out_var.set(", ".join(self.cfg.get("hotkey_zoom_out", ["page down"])))
         
         # Mouse nudge settings
         self.mouse_nudge_var.set(self.cfg.get("mouse_nudge_before_ocr", True))
@@ -1146,6 +1148,8 @@ class ClientApp(tk.Tk):
             "Отправить метку": (self.hotkey_send_marker_var.get(), "hotkey_send_marker"),
             "Снимок координат": (self.hotkey_snip_coords_var.get(), "hotkey_snip_coords"),
             "Закрыть карту": (self.hotkey_close_map_var.get(), "hotkey_close_map"),
+            "Приблизить (веб-карта)": (self.hotkey_zoom_in_var.get(), "hotkey_zoom_in"),
+            "Отдалить (веб-карта)": (self.hotkey_zoom_out_var.get(), "hotkey_zoom_out"),
         }
         
         parsed_hotkeys = {}
@@ -1200,6 +1204,8 @@ class ClientApp(tk.Tk):
                 "hotkey_send_marker": parsed_hotkeys["hotkey_send_marker"],
                 "hotkey_snip_coords": parsed_hotkeys["hotkey_snip_coords"],
                 "hotkey_close_map": parsed_hotkeys["hotkey_close_map"],
+                "hotkey_zoom_in": parsed_hotkeys["hotkey_zoom_in"],
+                "hotkey_zoom_out": parsed_hotkeys["hotkey_zoom_out"],
                 "mouse_nudge_before_ocr": self.mouse_nudge_var.get(),
                 "mouse_nudge_side": nudge_side,
                 "mouse_nudge_delay_ms": delay,
@@ -1655,6 +1661,14 @@ class ClientApp(tk.Tk):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_esc_hotkey), suppress=False)
                 
+        for hk in self.cfg.get("hotkey_zoom_in", ["page up"]):
+            if hk.strip():
+                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_in_hotkey), suppress=False)
+
+        for hk in self.cfg.get("hotkey_zoom_out", ["page down"]):
+            if hk.strip():
+                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_out_hotkey), suppress=False)
+
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         self.log_line(
@@ -1662,7 +1676,9 @@ class ClientApp(tk.Tk):
             f"карта: {game_map_key.upper()} (ручн) / {', '.join(toggle_keys).upper()} (авто), "
             f"метка: {', '.join(self.cfg.get('hotkey_send_marker', ['ctrl+shift+d'])).upper()}, "
             f"снимок: {', '.join(self.cfg.get('hotkey_snip_coords', ['ctrl+shift+s', 'ctrl+shift+c'])).upper()}, "
-            f"закрыть: {', '.join(self.cfg.get('hotkey_close_map', ['esc'])).upper()}; "
+            f"закрыть: {', '.join(self.cfg.get('hotkey_close_map', ['esc'])).upper()}, "
+            f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
+            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}; "
             f"Win+Shift+S — авто из буфера"
         )
 
@@ -1917,6 +1933,32 @@ class ClientApp(tk.Tk):
             return
         if self._map_session_active:
             self._end_map_session()
+
+    def _handle_zoom_in_hotkey(self) -> None:
+        if not self.hotkeys_active or not self.map_client:
+            return
+
+        def work() -> None:
+            ok, err_msg = self.map_client.send_command("zoom_in")
+            if ok:
+                self.after(0, lambda: self.log_line("[Масштаб] Приближение отправлено"))
+            else:
+                self.after(0, lambda t=err_msg: self.log_line(f"[Масштаб] Ошибка приближения: {t}"))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _handle_zoom_out_hotkey(self) -> None:
+        if not self.hotkeys_active or not self.map_client:
+            return
+
+        def work() -> None:
+            ok, err_msg = self.map_client.send_command("zoom_out")
+            if ok:
+                self.after(0, lambda: self.log_line("[Масштаб] Отдаление отправлено"))
+            else:
+                self.after(0, lambda t=err_msg: self.log_line(f"[Масштаб] Ошибка отдаления: {t}"))
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _clipboard_image(self):
         return grab_clipboard_image(retries=8, delay=0.1)

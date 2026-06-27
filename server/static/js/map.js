@@ -733,6 +733,16 @@ function connectWebSocket() {
     if (msg.type === "marker_added") upsertPin(msg.data);
     if (msg.type === "marker_updated") upsertPin(msg.data);
     if (msg.type === "marker_deleted") removePin(msg.data.id);
+    if (msg.type === "map_command") {
+      const action = msg.data?.action;
+      if (action === "zoom_in" && state.map) {
+        state.map.zoomIn();
+      } else if (action === "zoom_out" && state.map) {
+        state.map.zoomOut();
+      } else if (action === "zoom_reset" && state.map) {
+        state.map.setZoom(state.map.getMinZoom() || 3);
+      }
+    }
   };
 
   state.ws.onclose = () => {
