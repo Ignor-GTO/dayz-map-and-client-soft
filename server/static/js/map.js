@@ -274,6 +274,10 @@ function initMapPanes(map) {
     map.createPane("radiationPane");
     map.getPane("radiationPane").style.zIndex = 340;
   }
+  if (!map.getPane("userShapesPane")) {
+    map.createPane("userShapesPane");
+    map.getPane("userShapesPane").style.zIndex = 430;
+  }
   if (!map.getPane("labelsPane")) {
     map.createPane("labelsPane");
     map.getPane("labelsPane").style.zIndex = 480;
@@ -346,6 +350,14 @@ function initLeaflet(config) {
         const y = Number(routeBtn.dataset.y);
         navRouteTo(x, y);
         e.popup.close();
+      };
+    }
+
+    const popupImg = container.querySelector(".marker-popup-img");
+    if (popupImg) {
+      popupImg.onclick = () => {
+        const full = popupImg.getAttribute("data-full") || popupImg.getAttribute("src");
+        openMarkerImageModal(full);
       };
     }
   });
@@ -445,6 +457,22 @@ function markerIconHtml(type, color) {
 function drawHint(text) {
   const el = document.getElementById("draw-hint");
   if (el) el.textContent = text;
+}
+
+function openMarkerImageModal(src) {
+  const modal = document.getElementById("marker-image-modal");
+  const img = document.getElementById("marker-image-full");
+  if (!modal || !img || !src) return;
+  img.src = src;
+  modal.classList.remove("hidden");
+}
+
+function closeMarkerImageModal() {
+  const modal = document.getElementById("marker-image-modal");
+  const img = document.getElementById("marker-image-full");
+  if (!modal || !img) return;
+  img.src = "";
+  modal.classList.add("hidden");
 }
 
 function normalizeHexColor(value, fallback) {
@@ -771,13 +799,13 @@ function upsertPin(m) {
   const roundedX = Math.round(m.x || 0);
   const roundedY = Math.round(m.y || 0);
   const imgHtml = m.image_url
-    ? `<img class="marker-popup-img" src="${m.image_url}" alt="Скриншот" onclick="window.open('${m.image_url}','_blank')">`
+    ? `<img class="marker-popup-img" src="${m.image_url}" data-full="${m.image_url}" alt="Скриншот">`
     : "";
   const descHtml = m.description
     ? `<div style="margin:4px 0;font-size:0.88rem;color:#333;white-space:pre-wrap;max-width:220px;">${m.description.replace(/</g, "&lt;")}</div>`
     : "";
   const shapeInfo = kind === "circle"
-    ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Радиус: ${Math.round(m.radius || 0)}</div>`
+    ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Пользовательский круг · R: ${Math.round(m.radius || 0)}</div>`
     : (kind === "line"
       ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Точек: ${Array.isArray(m.points) ? m.points.length : 0}</div>`
       : "");
@@ -805,8 +833,10 @@ function upsertPin(m) {
       radius: gameRadiusToLeaflet(m.radius || 300),
       color: m.stroke_color || m.fill_color || "#ffffff",
       fillColor: m.fill_color || "#ffffff",
-      fillOpacity: 0.2,
-      weight: 2,
+      fillOpacity: 0.12,
+      weight: 3,
+      dashArray: "8,6",
+      pane: "userShapesPane",
     }).addTo(state.map);
     layer.bindPopup(popupHtml);
   } else if (kind === "line" && Array.isArray(m.points) && m.points.length >= 2) {
@@ -816,6 +846,7 @@ function upsertPin(m) {
         color: m.stroke_color || "#00e5ff",
         weight: 3,
         opacity: 0.95,
+        pane: "userShapesPane",
       },
     ).addTo(state.map);
     layer.bindPopup(popupHtml);
@@ -1639,6 +1670,13 @@ document.getElementById("close-key-modal").addEventListener("click", () => {
   document.getElementById("key-modal").classList.add("hidden");
 });
 
+document.getElementById("marker-image-close")?.addEventListener("click", closeMarkerImageModal);
+document.getElementById("marker-image-modal")?.addEventListener("click", (e) => {
+  if (e.target === document.getElementById("marker-image-modal")) {
+    closeMarkerImageModal();
+  }
+});
+
 document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTileLayer("satellite"));
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
@@ -1667,6 +1705,13 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
 });
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    const imgModal = document.getElementById("marker-image-modal");
+    if (imgModal && !imgModal.classList.contains("hidden")) {
+      closeMarkerImageModal();
+      return;
+    }
+  }
   if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") {
     return;
   }

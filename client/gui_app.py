@@ -126,6 +126,9 @@ class ClientApp(tk.Tk):
         self.bind_all("<Control-Key>", self._handle_global_shortcuts)
         self.bind_all("<Shift-Insert>", self._handle_shift_insert)
         self.bind_all("<<Paste>>", self._handle_virtual_paste, add="+")
+        self.bind_all("<Control-v>", self._handle_virtual_paste, add="+")
+        self.bind_all("<Control-V>", self._handle_virtual_paste, add="+")
+        self.bind_all("<Control-Insert>", self._handle_virtual_paste, add="+")
 
     def _build_ui(self) -> None:
         self.status_var = tk.StringVar(value="Остановлено")
@@ -549,7 +552,7 @@ class ClientApp(tk.Tk):
         )
         self.entry_menu.add_command(
             label="Вставить",
-            command=lambda: self._menu_widget.event_generate("<<Paste>>") if self._menu_widget else None
+            command=self._menu_paste
         )
         self.entry_menu.add_command(
             label="Выделить всё",
@@ -1102,10 +1105,16 @@ class ClientApp(tk.Tk):
         self.entry_menu.entryconfigure("Вставить", state="normal" if (has_clipboard and is_writable) else "disabled")
         self.entry_menu.post(event.x_root, event.y_root)
 
+    def _menu_paste(self) -> None:
+        widget = getattr(self, "_menu_widget", None)
+        if widget is None:
+            widget = self.focus_get()
+        if widget is None:
+            return
+        self._paste_into_widget(widget)
+
     def _handle_global_shortcuts(self, event) -> str | None:
-        ctrl = (event.state & 0x0004) != 0
-        if not ctrl:
-            return None
+        # Binding is already on <Control-Key>; avoid relying on platform-specific state bits.
         widget = event.widget
         if not isinstance(widget, (tk.Entry, ttk.Entry, tk.Text, scrolledtext.ScrolledText)):
             return None
