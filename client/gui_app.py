@@ -83,12 +83,21 @@ class ClientApp(tk.Tk):
         # Clean up old updater files if they exist
         import os
         import sys
+        import subprocess
         try:
             exe_path = sys.executable
             if exe_path.endswith(".exe"):
                 old_exe = exe_path + ".old"
                 if os.path.exists(old_exe):
-                    os.remove(old_exe)
+                    try:
+                        os.remove(old_exe)
+                    except Exception:
+                        # If file is still locked (AV/previous process), retry later in background.
+                        cleanup_cmd = f'timeout /t 2 /nobreak >nul & del /f /q "{old_exe}"'
+                        subprocess.Popen(
+                            ["cmd", "/c", cleanup_cmd],
+                            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                        )
         except Exception:
             pass
 
@@ -1405,12 +1414,17 @@ class ClientApp(tk.Tk):
                 # Strip MEIPASS variables from inherited environment so the child starts fresh
                 env = os.environ.copy()
                 for key in list(env.keys()):
-                    if "MEIPASS" in key:
+                    if "MEIPASS" in key or key.startswith("_PYI_"):
                         env.pop(key, None)
+                # Required for PyInstaller one-file self-restart after update.
+                env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
                 
                 creationflags = 0
                 if sys.platform == "win32":
-                    creationflags = getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                    creationflags = (
+                        getattr(subprocess, "DETACHED_PROCESS", 0x00000008)
+                        | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0x00000200)
+                    )
                 
                 subprocess.Popen([exe_path], env=env, close_fds=True, creationflags=creationflags)
                 self.after(0, lambda: self.on_close())
