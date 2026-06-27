@@ -58,6 +58,7 @@ const state = {
     handles: [],
     previewLayer: null,
   },
+  commandZoomAnchor: null,
   ws: null,
 };
 
@@ -307,6 +308,7 @@ function initLeaflet(config) {
   state.map.on("zoomend", saveMapView);
 
   state.map.on("click", (e) => {
+    rememberCommandZoomAnchor(e.latlng);
     const gameCoords = latLngToGame(e.latlng);
     if (state.draw.mode) {
       handleDrawMapClick(gameCoords.x, gameCoords.y);
@@ -787,6 +789,32 @@ function markerCenterLatLng(layer) {
   return null;
 }
 
+function rememberCommandZoomAnchor(latlng = null) {
+  if (!state.map) return;
+  state.commandZoomAnchor = latlng || state.map.getCenter();
+}
+
+function applyCommandZoom(action) {
+  if (!state.map) return;
+  if (action === "zoom_out") {
+    // Keep current focus before zooming out.
+    rememberCommandZoomAnchor();
+    state.map.zoomOut();
+    return;
+  }
+  if (action === "zoom_in") {
+    const currentZoom = state.map.getZoom();
+    const targetZoom = Math.min(currentZoom + 1, state.map.getMaxZoom());
+    const anchor = state.commandZoomAnchor || state.map.getCenter();
+    // Zoom around the last area user focused, not map bounds center.
+    state.map.setZoomAround(anchor, targetZoom, { animate: true });
+    return;
+  }
+  if (action === "zoom_reset") {
+    state.map.setZoom(state.map.getMinZoom() || 3);
+  }
+}
+
 function upsertPin(m) {
   if (!state.filters.markers) return;
   const color = colorForUser(m.user_id);
@@ -1016,8 +1044,10 @@ function focusOnPlayer(userId) {
   if (marker) {
     // Открываем попап ПОСЛЕ завершения анимации — иначе autoPan Leaflet
     // сдвигает карту обратно и маркер не остаётся в центре.
+    const target = marker.getLatLng();
+    rememberCommandZoomAnchor(target);
     state.map.once("moveend", () => marker.openPopup());
-    setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
+    setViewCentered(target, Math.max(state.map.getZoom(), 5));
   }
 }
 
@@ -1027,6 +1057,7 @@ function focusOnMarker(markerId) {
   if (marker) {
     const center = markerCenterLatLng(marker);
     if (!center) return;
+    rememberCommandZoomAnchor(center);
     state.map.once("moveend", () => marker.openPopup());
     setViewCentered(center, Math.max(state.map.getZoom(), 5));
   }
@@ -1279,13 +1310,7 @@ function connectWebSocket() {
     if (msg.type === "map_command") {
       const action = msg.data?.action;
       console.log("Executing map command:", action);
-      if (action === "zoom_in" && state.map) {
-        state.map.zoomIn();
-      } else if (action === "zoom_out" && state.map) {
-        state.map.zoomOut();
-      } else if (action === "zoom_reset" && state.map) {
-        state.map.setZoom(state.map.getMinZoom() || 3);
-      }
+      applyCommandZoom(action);
     }
   };
 
@@ -1684,7 +1709,9 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
   if (!state.map || !state.me) return;
   const marker = state.liveMarkers.get(state.me.user_id);
   if (marker) {
-    setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
+    const target = marker.getLatLng();
+    rememberCommandZoomAnchor(target);
+    setViewCentered(target, Math.max(state.map.getZoom(), 5));
   } else {
     let fallbackLatLng = null;
     state.pinMarkers.forEach((m) => {
@@ -1699,6 +1726,7 @@ document.getElementById("btn-focus-me")?.addEventListener("click", () => {
       }
     });
     if (fallbackLatLng) {
+      rememberCommandZoomAnchor(fallbackLatLng);
       setViewCentered(fallbackLatLng, Math.max(state.map.getZoom(), 5));
     }
   }
