@@ -1229,7 +1229,15 @@ class ClientApp(tk.Tk):
         def worker() -> None:
             time.sleep(0.25)
             try:
-                hk = keyboard.read_hotkey(suppress=True)
+                # Force release all keys that keyboard module thinks are currently pressed
+                # to clear any "stuck" state from previous runs
+                for event in list(keyboard._pressed_events.values()):
+                    try:
+                        keyboard.release(event.scan_code)
+                    except Exception:
+                        pass
+
+                hk = keyboard.read_hotkey(suppress=False)
                 self.after(0, lambda: self._on_hotkey_recorded(entry_var, btn, hk))
             except Exception as e:
                 self.after(0, lambda: self._on_hotkey_recorded(entry_var, btn, None, err=str(e)))
