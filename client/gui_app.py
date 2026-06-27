@@ -693,7 +693,7 @@ class ClientApp(tk.Tk):
 
         ttk.Label(
             hotkey_lf,
-            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: num+ / num-.",
+            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: Page Up / Page Down.",
             style="CardMuted.TLabel",
             wraplength=400
         ).grid(row=11, column=0, columnspan=3, sticky="w", pady=(4, 2))
@@ -1024,8 +1024,8 @@ class ClientApp(tk.Tk):
         self.hotkey_send_marker_var.set(", ".join(self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"])))
         self.hotkey_snip_coords_var.set(", ".join(self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"])))
         self.hotkey_close_map_var.set(", ".join(self.cfg.get("hotkey_close_map", ["esc"])))
-        self.hotkey_zoom_in_var.set(", ".join(self.cfg.get("hotkey_zoom_in", ["num +"])))
-        self.hotkey_zoom_out_var.set(", ".join(self.cfg.get("hotkey_zoom_out", ["num -"])))
+        self.hotkey_zoom_in_var.set(", ".join(self.cfg.get("hotkey_zoom_in", ["page up"])))
+        self.hotkey_zoom_out_var.set(", ".join(self.cfg.get("hotkey_zoom_out", ["page down"])))
         
         # Mouse nudge settings
         self.mouse_nudge_var.set(self.cfg.get("mouse_nudge_before_ocr", True))
@@ -1776,11 +1776,11 @@ class ClientApp(tk.Tk):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_esc_hotkey), suppress=False)
                 
-        for hk in self.cfg.get("hotkey_zoom_in", ["num +"]):
+        for hk in self.cfg.get("hotkey_zoom_in", ["page up"]):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_in_hotkey), suppress=False)
 
-        for hk in self.cfg.get("hotkey_zoom_out", ["num -"]):
+        for hk in self.cfg.get("hotkey_zoom_out", ["page down"]):
             if hk.strip():
                 keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_out_hotkey), suppress=False)
 
@@ -1792,8 +1792,8 @@ class ClientApp(tk.Tk):
             f"метка: {', '.join(self.cfg.get('hotkey_send_marker', ['ctrl+shift+d'])).upper()}, "
             f"снимок: {', '.join(self.cfg.get('hotkey_snip_coords', ['ctrl+shift+s', 'ctrl+shift+c'])).upper()}, "
             f"закрыть: {', '.join(self.cfg.get('hotkey_close_map', ['esc'])).upper()}, "
-            f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['num +'])).upper()}, "
-            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['num -'])).upper()}; "
+            f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
+            f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}; "
             f"Win+Shift+S — авто из буфера"
         )
 
