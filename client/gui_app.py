@@ -656,7 +656,33 @@ class ClientApp(tk.Tk):
             text="Вы можете ввести клавиши вручную (через запятую) или нажать «Записать» для авто-определения.", 
             style="CardMuted.TLabel"
         ).grid(row=7, column=0, columnspan=3, sticky="w", pady=(6, 2))
-        
+
+        # Group 3: Web-map zoom
+        ttk.Label(hotkey_lf, text="🗺️ Масштаб веб-карты", font=("Segoe UI", 9, "bold"), style="Card.TLabel").grid(row=8, column=0, columnspan=3, sticky="w", pady=(15, 5))
+
+        ttk.Label(hotkey_lf, text="Приблизить (веб-карта):", style="Card.TLabel").grid(row=9, column=0, sticky="w", pady=4)
+        self.hotkey_zoom_in_var = tk.StringVar()
+        self.hotkey_zoom_in_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_zoom_in_var, width=28)
+        self.hotkey_zoom_in_entry.grid(row=9, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_zoom_in = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_zoom_in.grid(row=9, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_zoom_in.configure(command=lambda: self._record_hotkey(self.hotkey_zoom_in_var, self.btn_rec_zoom_in))
+
+        ttk.Label(hotkey_lf, text="Отдалить (веб-карта):", style="Card.TLabel").grid(row=10, column=0, sticky="w", pady=4)
+        self.hotkey_zoom_out_var = tk.StringVar()
+        self.hotkey_zoom_out_entry = ttk.Entry(hotkey_lf, textvariable=self.hotkey_zoom_out_var, width=28)
+        self.hotkey_zoom_out_entry.grid(row=10, column=1, sticky="we", padx=5, pady=4)
+        self.btn_rec_zoom_out = ttk.Button(hotkey_lf, text="Записать", style="Action.TButton", width=10)
+        self.btn_rec_zoom_out.grid(row=10, column=2, sticky="w", padx=2, pady=4)
+        self.btn_rec_zoom_out.configure(command=lambda: self._record_hotkey(self.hotkey_zoom_out_var, self.btn_rec_zoom_out))
+
+        ttk.Label(
+            hotkey_lf,
+            text="Зажимают при активном DayZ (без переключения на браузер). По умолчанию: num+ / num−.",
+            style="CardMuted.TLabel",
+            wraplength=400
+        ).grid(row=11, column=0, columnspan=3, sticky="w", pady=(4, 2))
+
         hotkey_lf.columnconfigure(1, weight=1)
 
         # Mouse Nudge Panel
@@ -725,6 +751,8 @@ class ClientApp(tk.Tk):
             self.hotkey_send_marker_entry, 
             self.hotkey_snip_coords_entry, 
             self.hotkey_close_map_entry,
+            self.hotkey_zoom_in_entry,
+            self.hotkey_zoom_out_entry,
             self.mouse_nudge_delay_entry,
             self.mouse_nudge_offset_entry
         ]:

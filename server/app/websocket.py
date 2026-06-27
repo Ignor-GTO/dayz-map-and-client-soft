@@ -34,5 +34,9 @@ class ConnectionManager:
                 for ws in dead:
                     self._channels[channel].discard(ws)
 
+    async def send_to_user(self, user_id: int, message: dict) -> None:
+        """Send a message only to the specific user's browser tab(s)."""
+        await self.broadcast(f"user:{user_id}", message)
+
 
 manager = ConnectionManager()

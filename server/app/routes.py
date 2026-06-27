@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -20,6 +20,7 @@ from app.database import get_db
 from app.locations_service import get_map_locations
 from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
+from app.marker_upload import delete_marker_image_file, save_marker_image
 from app.models import MapPoi, Marker, Position, Room, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.schemas import (
@@ -31,6 +32,7 @@ from app.schemas import (
     MapLocationsResponse,
     MapRadiationResponse,
     MarkerResponse,
+    MarkerUpdateRequest,
     NavigateRequest,
     NavigateResponse,
     PoiResponse,
@@ -43,6 +45,21 @@ from app.settings_service import is_public_pin_creation
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
+
+
+def _marker_response(marker: Marker, nickname: str) -> MarkerResponse:
+    return MarkerResponse(
+        id=marker.id,
+        user_id=marker.user_id,
+        nickname=nickname,
+        x=marker.x,
+        y=marker.y,
+        type=marker.type,
+        title=marker.title,
+        description=marker.description,
+        image_url=marker.image_url,
+        created_at=marker.created_at,
+    )
 
 
 
@@ -230,29 +247,92 @@ async def add_marker(
     await db.refresh(marker)
 
     ch = channel_key(user.room.map_id, user.room_id)
-    event = {
-        "type": "marker_added",
-        "data": {
-            "id": marker.id,
-            "user_id": user.id,
-            "nickname": user.nickname,
-            "x": marker.x,
-            "y": marker.y,
-            "type": marker.type,
-            "created_at": marker.created_at.isoformat(),
-        },
-    }
-    await manager.broadcast(ch, event)
+    resp = _marker_response(marker, user.nickname)
+    await manager.broadcast(ch, {"type": "marker_added", "data": resp.model_dump(mode="json")})
+    return resp
 
-    return MarkerResponse(
-        id=marker.id,
-        user_id=user.id,
-        nickname=user.nickname,
-        x=marker.x,
-        y=marker.y,
-        type=marker.type,
-        created_at=marker.created_at,
+
+ALLOWED_COMMANDS = {"zoom_in", "zoom_out", "zoom_reset"}
+
+
+@router.post("/client/command")
+async def send_map_command(
+    payload: dict,
+    user: Annotated[User, Depends(authenticate_client)],
+):
+    """Send a UI command (zoom_in/zoom_out) only to the requesting user's own browser."""
+    action = str(payload.get("action", "")).strip().lower()
+    if action not in ALLOWED_COMMANDS:
+        raise HTTPException(status_code=400, detail=f"Unknown action '{action}'")
+
+    await manager.send_to_user(user.id, {"type": "map_command", "data": {"action": action}})
+    return {"ok": True}
+
+
+@router.patch("/markers/{marker_id}", response_model=MarkerResponse)
+async def update_marker(
+    marker_id: int,
+    payload: MarkerUpdateRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(
+        select(Marker).options(selectinload(Marker.user)).where(Marker.id == marker_id)
     )
+    marker = result.scalar_one_or_none()
+    if not marker:
+        raise HTTPException(status_code=404, detail="Marker not found")
+    if marker.user.room_id != user.room_id:
+        raise HTTPException(status_code=403, detail="Marker not in your group")
+
+    if payload.type is not None:
+        marker.type = payload.type
+    if payload.title is not None:
+        marker.title = payload.title
+    if payload.description is not None:
+        marker.description = payload.description
+    if payload.image_url is not None:
+        marker.image_url = payload.image_url
+
+    await db.commit()
+    await db.refresh(marker)
+
+    resp = _marker_response(marker, marker.user.nickname)
+    ch = channel_key(user.room.map_id, user.room_id)
+    await manager.broadcast(ch, {"type": "marker_updated", "data": resp.model_dump(mode="json")})
+    return resp
+
+
+@router.post("/markers/{marker_id}/image", response_model=MarkerResponse)
+async def upload_marker_image(
+    marker_id: int,
+    file: Annotated[UploadFile, File()],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    result = await db.execute(
+        select(Marker).options(selectinload(Marker.user)).where(Marker.id == marker_id)
+    )
+    marker = result.scalar_one_or_none()
+    if not marker:
+        raise HTTPException(status_code=404, detail="Marker not found")
+    if marker.user.room_id != user.room_id:
+        raise HTTPException(status_code=403, detail="Marker not in your group")
+
+    old_url = marker.image_url
+    image_url = await save_marker_image(marker_id, file)
+    marker.image_url = image_url
+    await db.commit()
+    await db.refresh(marker)
+
+    # delete old file after successful save
+    if old_url:
+        delete_marker_image_file(old_url)
+
+    resp = _marker_response(marker, marker.user.nickname)
+    ch = channel_key(user.room.map_id, user.room_id)
+    await manager.broadcast(ch, {"type": "marker_updated", "data": resp.model_dump(mode="json")})
+    return resp
 
 
 @router.delete("/markers/{marker_id}")
@@ -268,9 +348,12 @@ async def delete_marker(
     if marker.user_id != user.id:
         raise HTTPException(status_code=403, detail="Can only delete own markers")
 
+    old_url = marker.image_url
     ch = channel_key(user.room.map_id, user.room_id)
     await db.delete(marker)
     await db.commit()
+    if old_url:
+        delete_marker_image_file(old_url)
     await manager.broadcast(ch, {"type": "marker_deleted", "data": {"id": marker_id}})
     return {"ok": True}
 
@@ -304,17 +387,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                 )
             )
         for m in u.markers:
-            markers.append(
-                MarkerResponse(
-                    id=m.id,
-                    user_id=u.id,
-                    nickname=u.nickname,
-                    x=m.x,
-                    y=m.y,
-                    type=m.type,
-                    created_at=m.created_at,
-                )
-            )
+            markers.append(_marker_response(m, u.nickname))
 
     game_map = user.room.map
     return RoomStateResponse(

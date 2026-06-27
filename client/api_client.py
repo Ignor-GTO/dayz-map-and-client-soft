@@ -35,3 +35,17 @@ class MapClient:
             return False, f"HTTP {r.status_code}"
         except httpx.HTTPError as e:
             return False, f"Ошибка сети: {e}"
+
+    def send_command(self, action: str) -> tuple[bool, str]:
+        try:
+            r = httpx.post(
+                f"{self.base}/api/client/command",
+                json={"action": action},
+                headers=self.headers,
+                timeout=5,
+            )
+            if r.status_code == 200:
+                return True, ""
+            return False, f"HTTP {r.status_code}"
+        except httpx.HTTPError as e:
+            return False, f"Ошибка сети: {e}"

@@ -221,6 +221,14 @@ function initLeaflet(config) {
       deleteBtn.onclick = () => deleteMarker(Number(deleteBtn.dataset.id));
     }
 
+    const editBtn = container.querySelector(".marker-edit-btn");
+    if (editBtn) {
+      editBtn.onclick = () => {
+        e.popup.close();
+        openMarkerEditModal(Number(editBtn.dataset.id));
+      };
+    }
+
     const routeBtn = container.querySelector(".marker-route");
     if (routeBtn) {
       routeBtn.onclick = () => {
@@ -293,47 +301,70 @@ function upsertLive(pos) {
   updatePlayersList();
 }
 
-function upsertPin(m) {
-  if (!state.filters.markers) return;
-  const latlng = gameToLatLng(m.x, m.y);
-  const color = colorForUser(m.user_id);
-  let marker = state.pinMarkers.get(m.id);
+const MARKER_ICON_DEFS = {
+  marker:     { emoji: "📌", label: "Метка" },
+  chest:      { emoji: "📦", label: "Сундук" },
+  loot:       { emoji: "🔫", label: "Лут" },
+  death:      { emoji: "💀", label: "Смерть" },
+  point:      { emoji: "🔵", label: "Точка" },
+  camp:       { emoji: "🏕", label: "Лагерь" },
+  danger:     { emoji: "⚠️", label: "Опасность" },
+  screenshot: { emoji: "📷", label: "Снимок" },
+};
 
-  const isMine = state.me && m.user_id === state.me.user_id;
-  const popupHtml = `
-    <b>${m.nickname}</b> — метка<br>
-    ${Math.round(m.x)} / ${Math.round(m.y)}<br>
-    <div style="display: flex; gap: 6px; margin-top: 8px;">
-      <button class="marker-route" data-x="${m.x}" data-y="${m.y}">Маршрут</button>
-      ${isMine ? `<button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
-    </div>
-  `;
+function markerTypeLabel(type) {
+  return (MARKER_ICON_DEFS[type] || MARKER_ICON_DEFS.marker).label;
+}
 
-  let iconHtml = "";
-  let size = [14, 14];
-  let anchor = [7, 7];
-
-  if (m.type === "screenshot") {
-    iconHtml = `<div style="background:${color};width:20px;height:20px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 4px #000;display:flex;align-items:center;justify-content:center;color:#f1c40f;font-weight:bold;font-size:14px;font-family:sans-serif;line-height:20px;">?</div>`;
-    size = [20, 20];
-    anchor = [10, 10];
-  } else {
-    iconHtml = `
+function markerIconHtml(type, color) {
+  const def = MARKER_ICON_DEFS[type] || MARKER_ICON_DEFS.marker;
+  if (type === "marker") {
+    // classic crosshair for default marker
+    return `
       <div style="width:24px;height:24px;position:relative;display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 0 3px rgba(0,0,0,0.95));">
         <div style="position:absolute;width:24px;height:3px;background:#ff2e44;border:0.75px solid #fff;"></div>
         <div style="position:absolute;width:3px;height:24px;background:#ff2e44;border:0.75px solid #fff;"></div>
         <div style="width:10px;height:10px;border-radius:50%;border:2.5px solid #ff2e44;background:#fff;z-index:2;box-shadow:0 0 2px #000;"></div>
       </div>
     `;
-    size = [24, 24];
-    anchor = [12, 12];
   }
+  return `<div style="font-size:22px;line-height:1;filter:drop-shadow(0 0 3px rgba(0,0,0,0.9));">${def.emoji}</div>`;
+}
 
+function upsertPin(m) {
+  if (!state.filters.markers) return;
+  const latlng = gameToLatLng(m.x, m.y);
+  const color = colorForUser(m.user_id);
+  let marker = state.pinMarkers.get(m.id);
+
+  const inGroup = true; // any group member can edit
+  const title = m.title || markerTypeLabel(m.type || "marker");
+  const imgHtml = m.image_url
+    ? `<img class="marker-popup-img" src="${m.image_url}" alt="Скриншот" onclick="window.open('${m.image_url}','_blank')">`
+    : "";
+  const descHtml = m.description
+    ? `<div style="margin:4px 0;font-size:0.88rem;color:#333;white-space:pre-wrap;max-width:220px;">${m.description.replace(/</g,"&lt;")}</div>`
+    : "";
+
+  const popupHtml = `
+    <b>${title}</b><br>
+    <span style="color:#555;font-size:0.82rem">${m.nickname} · ${Math.round(m.x)} / ${Math.round(m.y)}</span>
+    ${descHtml}
+    ${imgHtml}
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+      <button class="marker-route" data-x="${m.x}" data-y="${m.y}">Маршрут</button>
+      ${inGroup ? `<button class="marker-edit-btn" data-id="${m.id}">✏️ Изменить</button>` : ""}
+      ${state.me && m.user_id === state.me.user_id ? `<button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
+    </div>
+  `;
+
+  const iconHtml = markerIconHtml(m.type || "marker", color);
+  const isEmoji = m.type && m.type !== "marker";
   const icon = L.divIcon({
-    className: m.type === "screenshot" ? "pin-icon-screenshot" : "pin-icon-crosshair",
+    className: `pin-icon-${m.type || "marker"}`,
     html: iconHtml,
-    iconSize: size,
-    iconAnchor: anchor,
+    iconSize: isEmoji ? [28, 28] : [24, 24],
+    iconAnchor: isEmoji ? [14, 14] : [12, 12],
   });
 
   if (marker) {
@@ -348,7 +379,7 @@ function upsertPin(m) {
     state.pinMarkers.set(m.id, marker);
   }
 
-  if (isMine && state.map) {
+  if (state.me && m.user_id === state.me.user_id && state.map) {
     state.map.panTo(latlng, { animate: true, duration: 0.6 });
   }
   updateMarkersList();
@@ -434,14 +465,18 @@ function updateMarkersList() {
     if (!m) return;
     
     const isMine = state.me && m.user_id === state.me.user_id;
-    const typeLabel = m.type === "screenshot" ? "📷 Снимок" : "📍 Метка";
-    const label = `${m.nickname}: ${typeLabel}`;
+    const def = MARKER_ICON_DEFS[m.type] || MARKER_ICON_DEFS.marker;
+    const label = m.title ? `${def.emoji} ${m.title}` : `${def.emoji} ${def.label}`;
+    const subLabel = m.nickname;
     
     rows.push(`
       <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
         <div class="sidebar-row-left">
           <span class="sidebar-dot" style="background: ${colorForUser(m.user_id)}"></span>
-          <span class="sidebar-name" title="${label}">${label}</span>
+          <div style="min-width:0">
+            <div class="sidebar-name" title="${label}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${label}</div>
+            <div class="sidebar-info">${subLabel}</div>
+          </div>
         </div>
         <div style="display: flex; align-items: center; gap: 4px;">
           <span class="sidebar-info" style="margin-right: 4px;">${Math.round(m.x)}/${Math.round(m.y)}</span>
@@ -470,25 +505,19 @@ function getSidebarOffset() {
  * right-hand sidebar.
  */
 function setViewCentered(latlng, zoom, opts = { animate: true }) {
-  const sidebarPx = getSidebarOffset();
-  if (sidebarPx === 0) {
-    state.map.setView(latlng, zoom, opts);
-    return;
-  }
-  // Convert target to pixel, shift right by half the sidebar width,
-  // then convert back to LatLng so the target ends up in the visible centre.
-  const targetPoint = state.map.project(latlng, zoom);
-  const offsetPoint = L.point(targetPoint.x + sidebarPx / 2, targetPoint.y);
-  const adjusted = state.map.unproject(offsetPoint, zoom);
-  state.map.setView(adjusted, zoom, opts);
+  // Сайдбар — flex-элемент рядом с картой, Leaflet сам знает реальные размеры.
+  // Дополнительная компенсация не нужна.
+  state.map.setView(latlng, zoom, opts);
 }
 
 function focusOnPlayer(userId) {
   if (!state.map) return;
   const marker = state.liveMarkers.get(userId);
   if (marker) {
+    // Открываем попап ПОСЛЕ завершения анимации — иначе autoPan Leaflet
+    // сдвигает карту обратно и маркер не остаётся в центре.
+    state.map.once("moveend", () => marker.openPopup());
     setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
-    marker.openPopup();
   }
 }
 
@@ -496,8 +525,8 @@ function focusOnMarker(markerId) {
   if (!state.map) return;
   let marker = state.pinMarkers.get(markerId) || state.pinMarkers.get(Number(markerId));
   if (marker) {
+    state.map.once("moveend", () => marker.openPopup());
     setViewCentered(marker.getLatLng(), Math.max(state.map.getZoom(), 5));
-    marker.openPopup();
   }
 }
 
@@ -528,8 +557,164 @@ window.focusOnMarker = focusOnMarker;
 window.deleteMarker = deleteMarker;
 window.switchLegendTab = switchLegendTab;
 window.navRouteTo = navRouteTo;
+window.openMarkerEditModal = openMarkerEditModal;
+
+// ============================================================
+//  MARKER EDIT MODAL
+// ============================================================
+
+let _editMarkerId = null;
+let _editImageFile = null;
+let _editClearImage = false;
+
+function openMarkerEditModal(markerId) {
+  const leafletMarker = state.pinMarkers.get(markerId);
+  if (!leafletMarker) return;
+  const m = leafletMarker._markerMeta;
+  if (!m) return;
+
+  _editMarkerId = markerId;
+  _editImageFile = null;
+  _editClearImage = false;
+
+  // Fill form fields
+  document.getElementById("marker-edit-title").value = m.title || "";
+  document.getElementById("marker-edit-desc").value = m.description || "";
+
+  // Set icon selection
+  document.querySelectorAll(".marker-icon-btn").forEach((btn) => {
+    btn.classList.toggle("selected", btn.dataset.type === (m.type || "marker"));
+  });
+
+  // Image preview
+  const previewWrap = document.getElementById("marker-img-preview");
+  const previewImg = document.getElementById("marker-img-preview-img");
+  const fileInput = document.getElementById("marker-img-file");
+  fileInput.value = "";
+
+  if (m.image_url) {
+    previewImg.src = m.image_url;
+    previewWrap.style.display = "block";
+  } else {
+    previewImg.src = "";
+    previewWrap.style.display = "none";
+  }
+
+  document.getElementById("marker-edit-modal").classList.remove("hidden");
+  document.getElementById("marker-edit-title").focus();
+}
+
+function closeMarkerEditModal() {
+  document.getElementById("marker-edit-modal").classList.add("hidden");
+  _editMarkerId = null;
+  _editImageFile = null;
+  _editClearImage = false;
+}
+
+// Icon buttons
+document.getElementById("marker-icon-grid").addEventListener("click", (e) => {
+  const btn = e.target.closest(".marker-icon-btn");
+  if (!btn) return;
+  document.querySelectorAll(".marker-icon-btn").forEach((b) => b.classList.remove("selected"));
+  btn.classList.add("selected");
+});
+
+// Image file input
+const markerImgFile = document.getElementById("marker-img-file");
+const markerImgDrop = document.getElementById("marker-img-drop");
+const markerImgPreview = document.getElementById("marker-img-preview");
+const markerImgPreviewImg = document.getElementById("marker-img-preview-img");
+
+function _showImgPreview(file) {
+  _editImageFile = file;
+  _editClearImage = false;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    markerImgPreviewImg.src = ev.target.result;
+    markerImgPreview.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+markerImgFile.addEventListener("change", () => {
+  if (markerImgFile.files[0]) _showImgPreview(markerImgFile.files[0]);
+});
+
+// Drag-and-drop
+markerImgDrop.addEventListener("dragover", (e) => { e.preventDefault(); markerImgDrop.classList.add("dragover"); });
+markerImgDrop.addEventListener("dragleave", () => markerImgDrop.classList.remove("dragover"));
+markerImgDrop.addEventListener("drop", (e) => {
+  e.preventDefault();
+  markerImgDrop.classList.remove("dragover");
+  const file = e.dataTransfer?.files?.[0];
+  if (file && file.type.startsWith("image/")) _showImgPreview(file);
+});
+
+// Clear image button
+document.getElementById("marker-img-clear").addEventListener("click", () => {
+  markerImgPreviewImg.src = "";
+  markerImgPreview.style.display = "none";
+  markerImgFile.value = "";
+  _editImageFile = null;
+  _editClearImage = true;
+});
+
+// Cancel
+document.getElementById("marker-edit-cancel").addEventListener("click", closeMarkerEditModal);
+
+// Close on backdrop click
+document.getElementById("marker-edit-modal").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("marker-edit-modal")) closeMarkerEditModal();
+});
+
+// Save
+document.getElementById("marker-edit-save").addEventListener("click", async () => {
+  if (!_editMarkerId) return;
+
+  const selectedTypeBtn = document.querySelector(".marker-icon-btn.selected");
+  const saveBtn = document.getElementById("marker-edit-save");
+  saveBtn.disabled = true;
+  saveBtn.textContent = "⏳ Сохраняю…";
+
+  try {
+    const patchBody = {
+      title: document.getElementById("marker-edit-title").value.trim() || null,
+      description: document.getElementById("marker-edit-desc").value.trim() || null,
+      type: selectedTypeBtn ? selectedTypeBtn.dataset.type : "marker",
+    };
+    if (_editClearImage) patchBody.image_url = null;
+
+    await api(`/api/markers/${_editMarkerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patchBody),
+    });
+
+    // Upload image if selected
+    if (_editImageFile) {
+      const fd = new FormData();
+      fd.append("file", _editImageFile);
+      const res = await fetch(`/api/markers/${_editMarkerId}/image`, {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+    }
+
+    closeMarkerEditModal();
+  } catch (e) {
+    alert("Ошибка при сохранении: " + e.message);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = "💾 Сохранить";
+  }
+});
 
 function connectWebSocket() {
+  state.wsClosing = false;  // сбрасываем флаг при каждом новом подключении
   const proto = location.protocol === "https:" ? "wss" : "ws";
   state.ws = new WebSocket(`${proto}://${location.host}/ws/map`);
 
@@ -537,10 +722,12 @@ function connectWebSocket() {
     const msg = JSON.parse(event.data);
     if (msg.type === "position") upsertLive(msg.data);
     if (msg.type === "marker_added") upsertPin(msg.data);
+    if (msg.type === "marker_updated") upsertPin(msg.data);
     if (msg.type === "marker_deleted") removePin(msg.data.id);
   };
 
   state.ws.onclose = () => {
+    if (state.wsClosing) return;  // намеренный выход — не переподключаемся
     setTimeout(connectWebSocket, 3000);
   };
 }
@@ -866,12 +1053,29 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
 
 document.getElementById("logout-btn").addEventListener("click", async () => {
   await api("/api/auth/logout", { method: "POST" });
+
+  // Закрываем WS без автореконнекта
+  if (state.ws) {
+    state.wsClosing = true;
+    state.ws.close();
+    state.ws = null;
+  }
+
+  // Сбрасываем идентификатор пользователя
+  state.me = null;
+
+  // Очищаем все слои
+  state.liveMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.liveMarkers.clear();
+  state.pinMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.pinMarkers.clear();
+  state.poiMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.poiMarkers.clear();
   state.locationEntries = [];
   if (state.locationLayer) state.locationLayer.clearLayers();
   clearRadiationLayers();
+  if (state.roadLayer) state.roadLayer.clearLayers();
+
   showLogin();
 });
 

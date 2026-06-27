@@ -116,28 +116,30 @@ button.secondary:hover { background: #3a4858; }
 #map {
   flex: 1;
   height: 100%;
-  width: 100%;
+  min-width: 0;
   background: #1a2332;
 }
 
 #legend {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 0;
+  flex-shrink: 0;
   width: 280px;
-  max-height: 100%;
+  height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1rem;
-  background: rgba(26, 35, 50, 0.95);
+  background: rgba(26, 35, 50, 0.97);
   border-left: 1px solid #2a3848;
   font-size: 0.85rem;
-  z-index: 1000;
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 #legend.collapsed {
-  transform: translateX(100%);
+  width: 0;
+  padding: 0;
+  border-left: none;
+  overflow: hidden;
 }
 
 .legend-toggle-btn {
@@ -147,7 +149,7 @@ button.secondary:hover { background: #3a4858; }
   width: 32px;
   height: 38px;
   border-radius: 6px 0 0 6px;
-  background: rgba(26, 35, 50, 0.95);
+  background: rgba(26, 35, 50, 0.97);
   border: 1px solid #2a3848;
   border-right: none;
   color: var(--text);
@@ -510,11 +512,11 @@ select {
 
 @media (max-width: 768px) {
   #legend {
-    width: 240px;
+    width: 220px;
   }
   .legend-toggle-btn {
     top: 10px;
-    right: 240px;
+    right: 220px;
   }
   #legend.collapsed + .legend-toggle-btn {
     right: 0;
@@ -733,3 +735,208 @@ button.secondary.small {
   border-bottom: 2px solid var(--accent);
 }
 
+/* ============================================================
+   Marker Edit Modal
+   ============================================================ */
+
+#marker-edit-modal .modal-content {
+  max-width: 520px;
+  width: 94%;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+#marker-edit-modal h2 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.marker-edit-field {
+  margin-bottom: 1rem;
+}
+
+.marker-edit-field label {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--muted);
+  margin-bottom: 0.35rem;
+}
+
+.marker-edit-field input,
+.marker-edit-field textarea {
+  width: 100%;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.92rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.marker-edit-field input:focus,
+.marker-edit-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Icon type selector */
+.marker-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+}
+
+.marker-icon-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0.55rem 0.25rem;
+  border: 2px solid #2a3848;
+  border-radius: 10px;
+  background: rgba(42, 56, 72, 0.4);
+  color: var(--text);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, transform 0.12s;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.marker-icon-btn .icon-emoji {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.marker-icon-btn:hover {
+  border-color: var(--accent);
+  background: rgba(61, 158, 229, 0.12);
+  transform: translateY(-1px);
+}
+
+.marker-icon-btn.selected {
+  border-color: var(--accent);
+  background: rgba(61, 158, 229, 0.2);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+/* Image upload */
+.marker-img-drop {
+  border: 2px dashed #2a3848;
+  border-radius: 10px;
+  padding: 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+
+.marker-img-drop:hover,
+.marker-img-drop.dragover {
+  border-color: var(--accent);
+  background: rgba(61, 158, 229, 0.06);
+}
+
+.marker-img-drop input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.marker-img-hint {
+  color: var(--muted);
+  font-size: 0.82rem;
+  pointer-events: none;
+}
+
+.marker-img-preview {
+  display: none;
+  margin-top: 0.75rem;
+  position: relative;
+}
+
+.marker-img-preview img {
+  max-width: 100%;
+  max-height: 200px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: block;
+  margin: 0 auto;
+}
+
+.marker-img-clear {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.6);
+  border: none;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.marker-img-clear:hover { background: var(--error); }
+
+/* Modal actions row */
+.marker-edit-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  justify-content: flex-end;
+}
+
+.marker-edit-actions button {
+  padding: 0.5rem 1.2rem;
+  font-size: 0.9rem;
+}
+
+/* In-popup image thumbnail */
+.marker-popup-img {
+  display: block;
+  max-width: 200px;
+  max-height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid rgba(0,0,0,0.15);
+  margin: 0.4rem 0;
+  cursor: zoom-in;
+}
+
+/* Popup edit button */
+.marker-edit-btn {
+  background: #27ae60;
+  color: #fff;
+  margin-top: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.marker-edit-btn:hover { background: #2ecc71; }

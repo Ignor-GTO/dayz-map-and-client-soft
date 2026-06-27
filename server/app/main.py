@@ -10,6 +10,7 @@ from app.auth import channel_key, get_current_user_from_ws
 from app.config import CLIENT_DOWNLOAD_URL
 from app.database import SessionLocal, init_db
 from app.routes import router
+from app.marker_upload import ensure_marker_upload_dir
 from app.poi_upload import ensure_upload_dir
 from app.radiation_upload import ensure_overlay_dir
 from app.websocket import manager
@@ -20,6 +21,7 @@ STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     ensure_upload_dir()
+    ensure_marker_upload_dir()
     ensure_overlay_dir()
     await init_db()
     yield
@@ -49,13 +51,17 @@ async def map_websocket(websocket: WebSocket):
             await websocket.close(code=4401)
             return
         ch = channel_key(user.room.map_id, user.room_id)
+        user_ch = f"user:{user.id}"
 
+    # Subscribe to room channel (shared events) AND personal channel (user-only events)
     await manager.connect(ch, websocket)
+    await manager.connect(user_ch, websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         await manager.disconnect(ch, websocket)
+        await manager.disconnect(user_ch, websocket)
 
 
 app.mount("/uploads", StaticFiles(directory=ensure_upload_dir()), name="uploads")

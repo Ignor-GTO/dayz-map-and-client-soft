@@ -31,7 +31,17 @@ class MarkerResponse(BaseModel):
     x: float
     y: float
     type: str = "marker"
+    title: str | None = None
+    description: str | None = None
+    image_url: str | None = None
     created_at: datetime
+
+
+class MarkerUpdateRequest(BaseModel):
+    type: str | None = None
+    title: str | None = Field(default=None, max_length=128)
+    description: str | None = None
+    image_url: str | None = None
 
 
 class PoiResponse(BaseModel):

@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=11">
+  <link rel="stylesheet" href="/css/style.css?v=13">
 </head>
 <body>
   <div id="app">
@@ -56,6 +56,70 @@
           <code id="client-key-display"></code>
           <button id="copy-key-confirm">Скопировать</button>
           <button id="close-key-modal" class="secondary">Закрыть</button>
+        </div>
+      </div>
+
+      <!-- Marker Edit Modal -->
+      <div id="marker-edit-modal" class="modal hidden">
+        <div class="modal-content">
+          <h2>✏️ Редактировать метку</h2>
+
+          <div class="marker-edit-field">
+            <label for="marker-edit-title">Название</label>
+            <input type="text" id="marker-edit-title" placeholder="Название метки" maxlength="128">
+          </div>
+
+          <div class="marker-edit-field">
+            <label for="marker-edit-desc">Описание</label>
+            <textarea id="marker-edit-desc" rows="3" placeholder="Дополнительная информация…"></textarea>
+          </div>
+
+          <div class="marker-edit-field">
+            <label>Тип иконки</label>
+            <div class="marker-icon-grid" id="marker-icon-grid">
+              <button type="button" class="marker-icon-btn" data-type="marker">
+                <span class="icon-emoji">📌</span><span>Метка</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="chest">
+                <span class="icon-emoji">📦</span><span>Сундук</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="loot">
+                <span class="icon-emoji">🔫</span><span>Лут</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="death">
+                <span class="icon-emoji">💀</span><span>Смерть</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="point">
+                <span class="icon-emoji">🔵</span><span>Точка</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="camp">
+                <span class="icon-emoji">🏕</span><span>Лагерь</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="danger">
+                <span class="icon-emoji">⚠️</span><span>Опасность</span>
+              </button>
+              <button type="button" class="marker-icon-btn" data-type="screenshot">
+                <span class="icon-emoji">📷</span><span>Снимок</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="marker-edit-field">
+            <label>Скриншот</label>
+            <div class="marker-img-drop" id="marker-img-drop">
+              <input type="file" id="marker-img-file" accept="image/*">
+              <span class="marker-img-hint">📷 Перетащите или кликните для загрузки скриншота</span>
+            </div>
+            <div class="marker-img-preview" id="marker-img-preview">
+              <img id="marker-img-preview-img" src="" alt="Превью">
+              <button type="button" class="marker-img-clear" id="marker-img-clear" title="Удалить изображение">✕</button>
+            </div>
+          </div>
+
+          <div class="marker-edit-actions">
+            <button type="button" class="secondary" id="marker-edit-cancel">Отмена</button>
+            <button type="button" id="marker-edit-save">💾 Сохранить</button>
+          </div>
         </div>
       </div>
 
@@ -144,6 +208,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js"></script>
-  <script src="/js/map.js?v=29"></script>
+  <script src="/js/map.js?v=32"></script>
 </body>
 </html>
