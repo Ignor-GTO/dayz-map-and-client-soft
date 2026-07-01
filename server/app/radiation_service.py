@@ -30,6 +30,7 @@ DEFAULT_LEGEND = [
     {"color": "#ff9800", "label": "350 мЗв/ч"},
     {"color": "#f44336", "label": "530 мЗв/ч"},
 ]
+DEFAULT_PSI_COLOR = "#6b102e"
 
 
 def radiation_config_path(slug: str) -> Path:
@@ -80,12 +81,14 @@ async def save_radiation_config(game_map: DayZMap, db: AsyncSession, raw: dict) 
     path.parent.mkdir(parents=True, exist_ok=True)
 
     zones = _normalize_zones(raw.get("zones") or [])
+    psi_zones = _normalize_psi_zones(raw.get("psi_zones") or [])
     legend = raw.get("legend") or list(DEFAULT_LEGEND)
     overlay = raw.get("overlay")
 
     payload = {
         "overlay": overlay,
         "zones": zones,
+        "psi_zones": psi_zones,
         "legend": legend,
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -137,6 +140,7 @@ def _normalize_payload(raw: dict, map_size: float) -> dict:
         }
 
     zones = _normalize_zones(raw.get("zones") or [])
+    psi_zones = _normalize_psi_zones(raw.get("psi_zones") or [])
 
     legend = []
     for item in raw.get("legend") or []:
@@ -145,7 +149,7 @@ def _normalize_payload(raw: dict, map_size: float) -> dict:
 
     polygons = _normalize_polygons(raw.get("polygons") or [])
 
-    return {"overlay": overlay, "polygons": polygons, "zones": zones, "legend": legend}
+    return {"overlay": overlay, "polygons": polygons, "zones": zones, "psi_zones": psi_zones, "legend": legend}
 
 
 def _normalize_zones(items: list) -> list[dict]:
@@ -163,6 +167,27 @@ def _normalize_zones(items: list) -> list[dict]:
                 "color": str(z.get("color", "#ff9800")),
                 "fillOpacity": float(z.get("fillOpacity", 0.18)),
                 "strokeOpacity": float(z.get("strokeOpacity", 0.9)),
+                "weight": int(z.get("weight", 2)),
+            }
+        )
+    return zones
+
+
+def _normalize_psi_zones(items: list) -> list[dict]:
+    zones = []
+    for z in items:
+        if not isinstance(z, dict):
+            continue
+        zones.append(
+            {
+                "id": str(z.get("id", "")),
+                "label": str(z.get("label", "")),
+                "x": float(z["x"]),
+                "y": float(z["y"]),
+                "radius": float(z["radius"]),
+                "color": str(z.get("color", DEFAULT_PSI_COLOR)) or DEFAULT_PSI_COLOR,
+                "fillOpacity": float(z.get("fillOpacity", 0.2)),
+                "strokeOpacity": float(z.get("strokeOpacity", 0.95)),
                 "weight": int(z.get("weight", 2)),
             }
         )
@@ -274,9 +299,10 @@ async def get_map_radiation(db: AsyncSession, game_map: DayZMap) -> dict:
         polygons = await _load_polygons(raw) if not zones else []
         data = _normalize_payload(raw, game_map.map_size)
         data["zones"] = zones or data.get("zones") or []
+        data["psi_zones"] = data.get("psi_zones") or []
         data["polygons"] = polygons if not data["zones"] else []
         _cache[cache_key] = data
         return data
     except Exception as exc:
         logger.warning("radiation load failed for %s: %s", game_map.slug, exc)
-        return {"overlay": None, "polygons": [], "zones": [], "legend": []}
+        return {"overlay": None, "polygons": [], "zones": [], "psi_zones": [], "legend": []}

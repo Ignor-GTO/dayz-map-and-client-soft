@@ -182,6 +182,7 @@ class MapRadiationResponse(BaseModel):
     overlay: RadiationOverlay | None = None
     polygons: list[RadiationPolygon] = []
     zones: list[RadiationZone] = []
+    psi_zones: list[RadiationZone] = []
     legend: list[RadiationLegendItem] = []
 
 
@@ -266,6 +267,7 @@ class RadiationOverlayInput(BaseModel):
 class RadiationSaveRequest(BaseModel):
     map_slug: str
     zones: list[RadiationZone]
+    psi_zones: list[RadiationZone] = []
     legend: list[RadiationLegendItem] = []
     overlay: RadiationOverlayInput | None = None
 

@@ -130,6 +130,13 @@
             <select id="rad-map-select"></select>
           </label>
           <label>
+            Тип зон
+            <select id="rad-mode-select">
+              <option value="radiation" selected>Радиация</option>
+              <option value="psi">Пси</option>
+            </select>
+          </label>
+          <label id="rad-tier-toolbar-group">
             Уровень
             <select id="rad-tier-select">
               <option value="t-green">250 мЗв/ч</option>
@@ -183,7 +190,7 @@
 
           <aside class="rad-sidebar">
             <div class="rad-sidebar-head">
-              <h3>Зоны (<span id="rad-zones-count">0</span>)</h3>
+              <h3><span id="rad-zones-title">Зоны радиации</span> (<span id="rad-zones-count">0</span>)</h3>
               <button type="button" class="secondary" id="rad-add-zone-btn">+ Зона</button>
             </div>
             <label>
@@ -191,15 +198,17 @@
               <select id="rad-zone-select" size="8" class="rad-zone-select"></select>
             </label>
             <div class="rad-zone-edit">
-              <label>Уровень
-                <select id="rad-zone-tier" class="rad-zone-tier-select">
-                  <option value="t-green">250 мЗв/ч</option>
-                  <option value="t-yellow">280 мЗв/ч</option>
-                  <option value="t-orange">350 мЗв/ч</option>
-                  <option value="t-red">530 мЗв/ч</option>
-                </select>
-              </label>
-              <button type="button" class="secondary" id="rad-zone-tier-add">+ Уровень</button>
+              <div id="rad-zone-tier-group">
+                <label>Уровень
+                  <select id="rad-zone-tier" class="rad-zone-tier-select">
+                    <option value="t-green">250 мЗв/ч</option>
+                    <option value="t-yellow">280 мЗв/ч</option>
+                    <option value="t-orange">350 мЗв/ч</option>
+                    <option value="t-red">530 мЗв/ч</option>
+                  </select>
+                </label>
+                <button type="button" class="secondary" id="rad-zone-tier-add">+ Уровень</button>
+              </div>
               <div class="form-grid">
                 <label>X <input type="number" id="rad-zone-x" step="any"></label>
                 <label>Y <input type="number" id="rad-zone-y" step="any"></label>
@@ -317,7 +326,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=2"></script>
   <script src="/js/admin.js?v=5"></script>
-  <script src="/js/admin-radiation.js?v=7"></script>
+  <script src="/js/admin-radiation.js?v=8"></script>
   <script src="/js/admin-roads.js?v=7"></script>
 </body>
 </html>

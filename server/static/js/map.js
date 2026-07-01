@@ -11,6 +11,7 @@ const state = {
   locationLayer: null,
   locationEntries: [],
   radiationLayer: null,
+  psiLayer: null,
   radiationOverlay: null,
   // Roads & Navigator
   roadLayer: null,          // L.layerGroup for road polylines
@@ -42,6 +43,7 @@ const state = {
     markers: true,
     poi: true,
     radiation: true,
+    psi: false,
     roads: false,
   },
   draw: {
@@ -303,6 +305,7 @@ function initLeaflet(config) {
   initMapPanes(state.map);
   state.locationLayer = L.layerGroup().addTo(state.map);
   state.radiationLayer = L.layerGroup().addTo(state.map);
+  state.psiLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
   state.map.on("moveend", () => {
@@ -1432,81 +1435,106 @@ function updateLocationVisibility() {
 function clearRadiationLayers() {
   state.radiationOverlay = null;
   if (state.radiationLayer) state.radiationLayer.clearLayers();
+  if (state.psiLayer) state.psiLayer.clearLayers();
 }
 
 function renderRadiationLayer(data) {
-  if (!state.map || !state.radiationLayer) return;
+  if (!state.map || !state.radiationLayer || !state.psiLayer) return;
   clearRadiationLayers();
 
-  if (!state.filters.radiation) {
-    applyRadiationVisibility();
-    renderRadiationLegend(data?.legend || []);
-    return;
+  if (state.filters.radiation) {
+    const overlay = data?.overlay;
+    // Полноэкранный JPG поверх тайлов даёт «двоение» и перекрывает подписи — только по явному флагу.
+    if (overlay?.url && overlay?.enabled && !(data?.zones?.length) && !(data?.polygons?.length)) {
+      const bounds = gameBoundsToLatLng(overlay.bounds || {});
+      state.radiationOverlay = L.imageOverlay(overlay.url, bounds, {
+        opacity: Math.min(overlay.opacity ?? 0.55, 0.85),
+        interactive: false,
+        pane: "radiationPane",
+      });
+      state.radiationLayer.addLayer(state.radiationOverlay);
+    }
+
+    (data?.polygons || []).forEach((poly) => {
+      if ((data?.zones || []).length) return;
+      const rings = (poly.rings || [])
+        .map((ring) => ring.map(([x, y]) => gameToLatLng(x, y)))
+        .filter((ring) => ring.length >= 3);
+      if (!rings.length) return;
+      const polygon = L.polygon(rings, {
+        color: poly.color || "#ff9800",
+        weight: poly.weight ?? 2,
+        opacity: poly.strokeOpacity ?? 0.95,
+        fillColor: poly.color || "#ff9800",
+        fillOpacity: poly.fillOpacity ?? 0.42,
+        interactive: false,
+        pane: "radiationPane",
+      });
+      if (poly.label) {
+        polygon.bindTooltip(poly.label, { permanent: false, direction: "top" });
+      }
+      state.radiationLayer.addLayer(polygon);
+    });
+
+    (data?.zones || []).forEach((zone) => {
+      const latlng = gameToLatLng(zone.x, zone.y);
+      const circle = L.circle(latlng, {
+        radius: gameRadiusToLeaflet(zone.radius),
+        color: zone.color || "#ff9800",
+        weight: zone.weight ?? 2,
+        opacity: zone.strokeOpacity ?? 0.9,
+        fillColor: zone.color || "#ff9800",
+        fillOpacity: zone.fillOpacity ?? 0.35,
+        interactive: false,
+        pane: "radiationPane",
+      });
+      if (zone.label) {
+        circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
+      }
+      state.radiationLayer.addLayer(circle);
+    });
   }
 
-  const overlay = data?.overlay;
-  // Полноэкранный JPG поверх тайлов даёт «двоение» и перекрывает подписи — только по явному флагу.
-  if (overlay?.url && overlay?.enabled && !(data?.zones?.length) && !(data?.polygons?.length)) {
-    const bounds = gameBoundsToLatLng(overlay.bounds || {});
-    state.radiationOverlay = L.imageOverlay(overlay.url, bounds, {
-      opacity: Math.min(overlay.opacity ?? 0.55, 0.85),
-      interactive: false,
-      pane: "radiationPane",
+  if (state.filters.psi) {
+    (data?.psi_zones || []).forEach((zone) => {
+      const latlng = gameToLatLng(zone.x, zone.y);
+      const color = zone.color || "#6b102e";
+      const circle = L.circle(latlng, {
+        radius: gameRadiusToLeaflet(zone.radius),
+        color,
+        weight: zone.weight ?? 2,
+        opacity: zone.strokeOpacity ?? 0.95,
+        fillColor: color,
+        fillOpacity: zone.fillOpacity ?? 0.2,
+        interactive: false,
+        pane: "radiationPane",
+      });
+      if (zone.label) {
+        circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
+      }
+      state.psiLayer.addLayer(circle);
     });
-    state.radiationLayer.addLayer(state.radiationOverlay);
   }
-
-  (data?.polygons || []).forEach((poly) => {
-    if ((data?.zones || []).length) return;
-    const rings = (poly.rings || [])
-      .map((ring) => ring.map(([x, y]) => gameToLatLng(x, y)))
-      .filter((ring) => ring.length >= 3);
-    if (!rings.length) return;
-    const polygon = L.polygon(rings, {
-      color: poly.color || "#ff9800",
-      weight: poly.weight ?? 2,
-      opacity: poly.strokeOpacity ?? 0.95,
-      fillColor: poly.color || "#ff9800",
-      fillOpacity: poly.fillOpacity ?? 0.42,
-      interactive: false,
-      pane: "radiationPane",
-    });
-    if (poly.label) {
-      polygon.bindTooltip(poly.label, { permanent: false, direction: "top" });
-    }
-    state.radiationLayer.addLayer(polygon);
-  });
-
-  (data?.zones || []).forEach((zone) => {
-    const latlng = gameToLatLng(zone.x, zone.y);
-    const circle = L.circle(latlng, {
-      radius: gameRadiusToLeaflet(zone.radius),
-      color: zone.color || "#ff9800",
-      weight: zone.weight ?? 2,
-      opacity: zone.strokeOpacity ?? 0.9,
-      fillColor: zone.color || "#ff9800",
-      fillOpacity: zone.fillOpacity ?? 0.35,
-      interactive: false,
-      pane: "radiationPane",
-    });
-    if (zone.label) {
-      circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
-    }
-    state.radiationLayer.addLayer(circle);
-  });
 
   applyRadiationVisibility();
   renderRadiationLegend(data?.legend || []);
 }
 
 function applyRadiationVisibility() {
-  if (!state.radiationLayer || !state.map) return;
+  if (!state.radiationLayer || !state.psiLayer || !state.map) return;
   if (state.filters.radiation) {
     if (!state.map.hasLayer(state.radiationLayer)) {
       state.radiationLayer.addTo(state.map);
     }
   } else {
     state.map.removeLayer(state.radiationLayer);
+  }
+  if (state.filters.psi) {
+    if (!state.map.hasLayer(state.psiLayer)) {
+      state.psiLayer.addTo(state.map);
+    }
+  } else {
+    state.map.removeLayer(state.psiLayer);
   }
 }
 
@@ -1539,6 +1567,7 @@ function renderFilterPanel(categories) {
     { id: "markers", label: "Метки группы" },
     { id: "poi", label: "Метки сервера" },
     { id: "radiation", label: "Радиационные зоны" },
+    { id: "psi", label: "Пси-зоны" },
   ];
 
   const dynamic = (categories || []).map((c) => ({
@@ -1562,7 +1591,11 @@ function renderFilterPanel(categories) {
       state.filters[input.dataset.filter] = input.checked;
       applyLocationFilters();
       refreshDynamicLayers();
-      applyRadiationVisibility();
+      if ((input.dataset.filter === "radiation" || input.dataset.filter === "psi") && state.radiationData) {
+        renderRadiationLayer(state.radiationData);
+      } else {
+        applyRadiationVisibility();
+      }
     });
   });
 }

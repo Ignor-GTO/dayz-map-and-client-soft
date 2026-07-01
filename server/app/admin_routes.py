@@ -395,6 +395,7 @@ async def admin_get_radiation(
         "max_native_zoom": game_map.max_native_zoom,
         "extra_zoom": game_map.extra_zoom,
         "zones": data.get("zones") or [],
+        "psi_zones": data.get("psi_zones") or [],
         "legend": data.get("legend") or [],
         "overlay": overlay,
     }
@@ -422,6 +423,18 @@ async def admin_save_radiation(
                 detail=f"Радиус зоны #{i+1} ({z.radius}) должен быть положительным и не превышать размер карты {map_size}"
             )
 
+    for i, z in enumerate(payload.psi_zones):
+        if z.x < 0 or z.x > map_size or z.y < 0 or z.y > map_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Центр пси-зоны #{i+1} ({z.x}, {z.y}) выходит за границы карты [0, {map_size}]"
+            )
+        if z.radius <= 0 or z.radius > map_size:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Радиус пси-зоны #{i+1} ({z.radius}) должен быть положительным и не превышать размер карты {map_size}"
+            )
+
     if payload.overlay and payload.overlay.url:
         ob = payload.overlay.bounds
         min_allowed = -map_size
@@ -440,6 +453,7 @@ async def admin_save_radiation(
 
     raw: dict = {
         "zones": [z.model_dump() for z in payload.zones],
+        "psi_zones": [z.model_dump() for z in payload.psi_zones],
         "legend": [item.model_dump() for item in payload.legend],
         "overlay": None,
     }
@@ -484,6 +498,7 @@ async def admin_upload_radiation_overlay(
             db,
             {
                 "zones": zones,
+                "psi_zones": raw.get("psi_zones") or [],
                 "legend": raw.get("legend") or [],
                 "overlay": {
                     "url": url,
@@ -514,6 +529,7 @@ async def admin_delete_radiation_overlay(
         db,
         {
             "zones": data.get("zones") or [],
+            "psi_zones": data.get("psi_zones") or [],
             "legend": data.get("legend") or raw.get("legend") or [],
             "overlay": None,
         },

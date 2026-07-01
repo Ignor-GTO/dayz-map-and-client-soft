@@ -6,6 +6,8 @@ const RAD_DEFAULT_TIERS = [
   { id: "t-orange", color: "#ff9800", label: "350 мЗв/ч", radius: 500 },
   { id: "t-red", color: "#f44336", label: "530 мЗв/ч", radius: 300 },
 ];
+const PSI_ZONE_COLOR = "#6b102e";
+const PSI_ZONE_LABEL = "Пси-зона";
 
 const radState = {
   map: null,
@@ -13,6 +15,7 @@ const radState = {
   overlayLayer: null,
   config: null,
   zones: [],
+  psiZones: [],
   tiers: [],
   legend: [],
   overlay: null,
@@ -23,6 +26,7 @@ const radState = {
   loadedSlug: null,
   addZoneMode: false,
   overlayHandles: [],
+  editMode: "radiation",
 };
 
 function radApplySatelliteVisibility() {
@@ -73,6 +77,23 @@ function radGameBoundsToLatLng(bounds, config = radState.config) {
 
 function radNewZoneId() {
   return `zone-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function radIsPsiMode() {
+  return radState.editMode === "psi";
+}
+
+function radCurrentZones() {
+  return radIsPsiMode() ? radState.psiZones : radState.zones;
+}
+
+function radSetCurrentZones(next) {
+  if (radIsPsiMode()) radState.psiZones = next;
+  else radState.zones = next;
+}
+
+function radZoneKey(mode, id) {
+  return `${mode}:${id}`;
 }
 
 function radActiveTier() {
@@ -166,8 +187,13 @@ function radTiersForZone(zone) {
 function radRenderZoneTierSelect() {
   const sel = document.getElementById("rad-zone-tier");
   if (!sel) return;
+  if (radIsPsiMode()) {
+    sel.innerHTML = `<option value="psi">${PSI_ZONE_LABEL}</option>`;
+    sel.value = "psi";
+    return;
+  }
   radEnsureTiers();
-  const zone = radState.zones.find((z) => z.id === radState.selectedId);
+  const zone = radCurrentZones().find((z) => z.id === radState.selectedId);
   const tiers = zone ? radTiersForZone(zone) : radState.tiers;
   sel.innerHTML = tiers
     .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.label)}</option>`)
@@ -181,6 +207,18 @@ function radRenderZoneTierSelect() {
   } else {
     sel.value = radState.activeTierId;
   }
+}
+
+function radApplyModeUi() {
+  const isPsi = radIsPsiMode();
+  document.getElementById("rad-tier-toolbar-group")?.classList.toggle("hidden", isPsi);
+  document.getElementById("rad-tier-add")?.classList.toggle("hidden", isPsi);
+  document.getElementById("rad-zone-tier-group")?.classList.toggle("hidden", isPsi);
+  document.getElementById("rad-zone-tier-add")?.classList.toggle("hidden", isPsi);
+  const title = document.getElementById("rad-zones-title");
+  if (title) title.textContent = isPsi ? "Пси-зоны" : "Зоны радиации";
+  const addBtn = document.getElementById("rad-add-zone-btn");
+  if (addBtn) addBtn.textContent = isPsi ? "+ Пси-зона" : "+ Зона";
 }
 
 function radRenderOverlaySelect() {
@@ -206,15 +244,16 @@ function radRenderOverlaySelect() {
 function radRenderZoneSelect() {
   const sel = document.getElementById("rad-zone-select");
   const count = document.getElementById("rad-zones-count");
-  if (count) count.textContent = String(radState.zones.length);
+  const zones = radCurrentZones();
+  if (count) count.textContent = String(zones.length);
   if (!sel) return;
 
-  if (!radState.zones.length) {
-    sel.innerHTML = `<option value="">Нет зон — кликните «+ Зона» и по карте</option>`;
+  if (!zones.length) {
+    sel.innerHTML = `<option value="">Нет зон — кликните «+» и по карте</option>`;
     return;
   }
 
-  sel.innerHTML = radState.zones
+  sel.innerHTML = zones
     .map((z, i) => {
       const label = z.label || `Зона ${i + 1}`;
       return `<option value="${escapeHtml(z.id)}" ${z.id === radState.selectedId ? "selected" : ""}>#${i + 1} ${escapeHtml(label)} · ${Math.round(z.x)}/${Math.round(z.y)} · r${Math.round(z.radius)}</option>`;
@@ -225,14 +264,16 @@ function radRenderZoneSelect() {
 function radSelectZone(id) {
   radState.selectedId = id || null;
   radRenderZoneSelect();
-  const zone = radState.zones.find((z) => z.id === id);
+  const zone = radCurrentZones().find((z) => z.id === id);
   if (!zone) return;
   document.getElementById("rad-zone-x").value = Math.round(zone.x);
   document.getElementById("rad-zone-y").value = Math.round(zone.y);
   document.getElementById("rad-zone-radius").value = Math.round(zone.radius);
-  const tier = radState.tiers.find((t) => t.color === zone.color);
-  if (tier) radState.activeTierId = tier.id;
-  radRenderTierSelect();
+  if (!radIsPsiMode()) {
+    const tier = radState.tiers.find((t) => t.color === zone.color);
+    if (tier) radState.activeTierId = tier.id;
+    radRenderTierSelect();
+  }
   radRenderZoneTierSelect();
   if (radState.map) {
     const latlng = radGameToLatLng(zone.x, zone.y);
@@ -240,8 +281,9 @@ function radSelectZone(id) {
   }
 }
 
-function radUpsertZoneLayer(zone) {
-  const existing = radState.zoneLayers.get(zone.id);
+function radUpsertZoneLayer(zone, mode = "radiation") {
+  const key = radZoneKey(mode, zone.id);
+  const existing = radState.zoneLayers.get(key);
   if (existing) {
     radState.map.removeLayer(existing.circle);
     radState.map.removeLayer(existing.marker);
@@ -287,32 +329,47 @@ function radUpsertZoneLayer(zone) {
 
   circle.addTo(radState.map);
   marker.addTo(radState.map);
-  radState.zoneLayers.set(zone.id, { circle, marker });
+  radState.zoneLayers.set(key, { circle, marker });
 }
 
 function radRenderAllZones() {
   radClearZoneLayers();
-  radState.zones.forEach((z) => radUpsertZoneLayer(z));
+  radState.zones.forEach((z) => radUpsertZoneLayer(z, "radiation"));
+  radState.psiZones.forEach((z) => radUpsertZoneLayer(z, "psi"));
   radBringZonesToFront();
   radRenderZoneSelect();
 }
 
 function radAddZone(x, y) {
-  const tier = radActiveTier();
-  const radius = Number(document.getElementById("rad-default-radius")?.value) || radState.defaultRadius || tier.radius;
-  const zone = {
-    id: radNewZoneId(),
-    label: tier.label,
-    x,
-    y,
-    radius,
-    color: tier.color,
-    fillOpacity: 0.22,
-    strokeOpacity: 0.95,
-    weight: 2,
-  };
-  radState.zones.push(zone);
-  radUpsertZoneLayer(zone);
+  const zone = radIsPsiMode()
+    ? {
+        id: radNewZoneId(),
+        label: PSI_ZONE_LABEL,
+        x,
+        y,
+        radius: Number(document.getElementById("rad-default-radius")?.value) || radState.defaultRadius || 500,
+        color: PSI_ZONE_COLOR,
+        fillOpacity: 0.2,
+        strokeOpacity: 0.95,
+        weight: 2,
+      }
+    : (() => {
+        const tier = radActiveTier();
+        const radius = Number(document.getElementById("rad-default-radius")?.value) || radState.defaultRadius || tier.radius;
+        return {
+          id: radNewZoneId(),
+          label: tier.label,
+          x,
+          y,
+          radius,
+          color: tier.color,
+          fillOpacity: 0.22,
+          strokeOpacity: 0.95,
+          weight: 2,
+        };
+      })();
+  radSetCurrentZones([...radCurrentZones(), zone]);
+  radUpsertZoneLayer(zone, radIsPsiMode() ? "psi" : "radiation");
   radBringZonesToFront();
   radSelectZone(zone.id);
   radState.addZoneMode = false;
@@ -320,13 +377,14 @@ function radAddZone(x, y) {
 }
 
 function radDeleteZone(id) {
-  const layer = radState.zoneLayers.get(id);
+  const key = radZoneKey(radIsPsiMode() ? "psi" : "radiation", id);
+  const layer = radState.zoneLayers.get(key);
   if (layer) {
     radState.map?.removeLayer(layer.circle);
     radState.map?.removeLayer(layer.marker);
-    radState.zoneLayers.delete(id);
+    radState.zoneLayers.delete(key);
   }
-  radState.zones = radState.zones.filter((z) => z.id !== id);
+  radSetCurrentZones(radCurrentZones().filter((z) => z.id !== id));
   if (radState.selectedId === id) radState.selectedId = null;
   radRenderZoneSelect();
 }
@@ -334,17 +392,22 @@ function radDeleteZone(id) {
 function radApplySelectedFields() {
   const id = radState.selectedId;
   if (!id) return;
-  const zone = radState.zones.find((z) => z.id === id);
+  const zone = radCurrentZones().find((z) => z.id === id);
   if (!zone) return;
   zone.x = Number(document.getElementById("rad-zone-x").value);
   zone.y = Number(document.getElementById("rad-zone-y").value);
   zone.radius = Number(document.getElementById("rad-zone-radius").value);
-  const tierId = document.getElementById("rad-zone-tier")?.value;
-  const tiers = radTiersForZone(zone);
-  const tier = tiers.find((t) => t.id === tierId) || radActiveTier();
-  zone.label = tier.label;
-  zone.color = tier.color;
-  radUpsertZoneLayer(zone);
+  if (radIsPsiMode()) {
+    zone.label = PSI_ZONE_LABEL;
+    zone.color = PSI_ZONE_COLOR;
+  } else {
+    const tierId = document.getElementById("rad-zone-tier")?.value;
+    const tiers = radTiersForZone(zone);
+    const tier = tiers.find((t) => t.id === tierId) || radActiveTier();
+    zone.label = tier.label;
+    zone.color = tier.color;
+  }
+  radUpsertZoneLayer(zone, radIsPsiMode() ? "psi" : "radiation");
   radBringZonesToFront();
   radRenderZoneSelect();
 }
@@ -663,6 +726,7 @@ async function radLoadForSlug(slug) {
       extra_zoom: data.extra_zoom,
     };
     radState.zones = (data.zones || []).map((z) => ({ ...z }));
+    radState.psiZones = (data.psi_zones || []).map((z) => ({ ...z, color: z.color || PSI_ZONE_COLOR }));
     radState.legend = data.legend || [];
     radState.overlay = data.overlay || null;
     radState.loadedSlug = slug;
@@ -670,14 +734,16 @@ async function radLoadForSlug(slug) {
     radState.addZoneMode = false;
 
     radInitTiersFromLegend(radState.legend);
+    radApplyModeUi();
     radEnsureMap();
     radSyncOverlayLayer();
     radRenderAllZones();
     radFillBoundsInputs();
-    if (radState.zones.length && !radState.selectedId) {
-      radSelectZone(radState.zones[0].id);
+    const firstZone = radCurrentZones()[0];
+    if (firstZone && !radState.selectedId) {
+      radSelectZone(firstZone.id);
     }
-    radSetStatus(`Зон: ${radState.zones.length}${radState.overlay?.url ? " · подложка загружена" : ""}`);
+    radSetStatus(`Рад: ${radState.zones.length} · Пси: ${radState.psiZones.length}${radState.overlay?.url ? " · подложка загружена" : ""}`);
     setTimeout(() => {
       radState.map?.invalidateSize();
       radUpdateMinZoom();
@@ -699,6 +765,7 @@ async function radSave() {
     const payload = {
       map_slug: slug,
       zones: radState.zones,
+      psi_zones: radState.psiZones,
       legend: radDefaultLegend(),
       overlay: radState.overlay?.url
         ? {
@@ -784,10 +851,20 @@ function radBindUi() {
   document.getElementById("rad-ui-bound").value = "1";
 
   radState.tiers = RAD_DEFAULT_TIERS.map((t) => ({ ...t }));
+  radApplyModeUi();
   radRenderTierSelect();
 
   document.getElementById("rad-map-select")?.addEventListener("change", (e) => {
     radLoadForSlug(e.target.value);
+  });
+
+  document.getElementById("rad-mode-select")?.addEventListener("change", (e) => {
+    radState.editMode = e.target.value === "psi" ? "psi" : "radiation";
+    radState.selectedId = null;
+    radApplyModeUi();
+    radRenderTierSelect();
+    radRenderZoneTierSelect();
+    radRenderZoneSelect();
   });
 
   document.getElementById("rad-tier-select")?.addEventListener("change", (e) => {
@@ -863,7 +940,10 @@ function radBindUi() {
 
   document.getElementById("rad-apply-zone")?.addEventListener("click", radApplySelectedFields);
   document.getElementById("rad-delete-zone")?.addEventListener("click", () => {
-    if (radState.selectedId) radDeleteZone(radState.selectedId);
+    if (radState.selectedId) {
+      radDeleteZone(radState.selectedId);
+      radSave().catch((err) => radSetStatus(err.message, true));
+    }
   });
 
   document.getElementById("rad-default-radius")?.addEventListener("change", (e) => {
@@ -897,7 +977,7 @@ const RadiationEditor = {
       radLoadForSlug(slug);
     } else if (radState.map) {
       setTimeout(() => radState.map.invalidateSize(), 300);
-    } else if (slug && !radState.zones.length) {
+    } else if (slug && !radState.zones.length && !radState.psiZones.length) {
       radLoadForSlug(slug);
     }
   },
