@@ -247,7 +247,13 @@
               <div class="list-empty">Нет меток</div>
             </div>
 
-            <h3>Тайники</h3>
+            <div class="sidebar-section-head">
+              <button type="button" id="stashes-collapse-btn" class="secondary small">▾ Тайники</button>
+              <label class="filter-row" style="margin:0;">
+                <input type="checkbox" id="stashes-visible-toggle">
+                <span class="filter-label">Показывать</span>
+              </label>
+            </div>
             <div id="web-stashes-list" class="sidebar-list">
               <div class="list-empty">Нет тайников</div>
             </div>
@@ -291,6 +297,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js"></script>
-  <script src="/js/map.js?v=34"></script>
+  <script src="/js/map.js?v=35"></script>
 </body>
 </html>

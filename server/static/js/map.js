@@ -41,6 +41,7 @@ const state = {
     terrain: true,
     players: true,
     markers: true,
+    stashes: false,
     poi: true,
     radiation: true,
     psi: false,
@@ -85,6 +86,7 @@ function saveFilterPrefs() {
       FILTER_PREFS_KEY,
       JSON.stringify({
         roads: !!state.filters.roads,
+        stashes: !!state.filters.stashes,
       }),
     );
   } catch {
@@ -96,6 +98,9 @@ function hydrateFilterPrefs() {
   const prefs = loadFilterPrefs();
   if (typeof prefs.roads === "boolean") {
     state.filters.roads = prefs.roads;
+  }
+  if (typeof prefs.stashes === "boolean") {
+    state.filters.stashes = prefs.stashes;
   }
 }
 
@@ -882,7 +887,6 @@ function applyCommandZoom(action) {
 }
 
 function upsertPin(m) {
-  if (!state.filters.markers) return;
   const color = colorForUser(m.user_id);
   let layer = state.pinMarkers.get(m.id);
 
@@ -962,6 +966,13 @@ function upsertPin(m) {
 
   layer._markerMeta = m;
   state.pinMarkers.set(m.id, layer);
+
+  const visibleOnMap = markerCategory === "stash" ? !!state.filters.stashes : !!state.filters.markers;
+  if (visibleOnMap) {
+    if (state.map && !state.map.hasLayer(layer)) layer.addTo(state.map);
+  } else if (state.map && state.map.hasLayer(layer)) {
+    state.map.removeLayer(layer);
+  }
 
   const centerLatLng = markerCenterLatLng(layer);
   if (state.me && m.user_id === state.me.user_id && state.map && centerLatLng) {
@@ -1092,9 +1103,13 @@ function updateMarkersList() {
   groupEl.innerHTML = groupRows.length
     ? groupRows.join("")
     : `<div class="list-empty">Нет меток</div>`;
-  stashEl.innerHTML = stashRows.length
-    ? stashRows.join("")
-    : `<div class="list-empty">Нет тайников</div>`;
+  if (!state.filters.stashes) {
+    stashEl.innerHTML = `<div class="list-empty">Скрыто фильтром</div>`;
+  } else {
+    stashEl.innerHTML = stashRows.length
+      ? stashRows.join("")
+      : `<div class="list-empty">Нет тайников</div>`;
+  }
 }
 
 /** Return the sidebar width in pixels (0 if collapsed). */
@@ -1617,6 +1632,7 @@ function renderFilterPanel(categories) {
     { id: "labels", label: "Названия мест" },
     { id: "players", label: "Игроки (live)" },
     { id: "markers", label: "Метки группы" },
+    { id: "stashes", label: "Тайники" },
     { id: "poi", label: "Метки сервера" },
     { id: "radiation", label: "Радиационные зоны" },
     { id: "psi", label: "Пси-зоны" },
@@ -1641,8 +1657,13 @@ function renderFilterPanel(categories) {
   el.querySelectorAll("input[data-filter]").forEach((input) => {
     input.addEventListener("change", () => {
       state.filters[input.dataset.filter] = input.checked;
+      if (input.dataset.filter === "stashes") {
+        saveFilterPrefs();
+        syncStashVisibilityControls();
+      }
       applyLocationFilters();
       refreshDynamicLayers();
+      updateMarkersList();
       if ((input.dataset.filter === "radiation" || input.dataset.filter === "psi") && state.radiationData) {
         renderRadiationLayer(state.radiationData);
       } else {
@@ -1659,7 +1680,9 @@ function refreshDynamicLayers() {
     else state.map.removeLayer(m);
   });
   state.pinMarkers.forEach((m) => {
-    if (state.filters.markers) m.addTo(state.map);
+    const isStash = (m._markerMeta?.marker_category || "group") === "stash";
+    const shouldShow = isStash ? !!state.filters.stashes : !!state.filters.markers;
+    if (shouldShow) m.addTo(state.map);
     else state.map.removeLayer(m);
   });
   state.poiMarkers.forEach((m) => {
@@ -1667,6 +1690,13 @@ function refreshDynamicLayers() {
     else state.map.removeLayer(m);
   });
   applyRadiationVisibility();
+}
+
+function syncStashVisibilityControls() {
+  const localToggle = document.getElementById("stashes-visible-toggle");
+  if (localToggle) localToggle.checked = !!state.filters.stashes;
+  const filterToggle = document.querySelector('#filter-list input[data-filter="stashes"]');
+  if (filterToggle) filterToggle.checked = !!state.filters.stashes;
 }
 
 async function loadMapLocations() {
@@ -1726,6 +1756,7 @@ async function bootstrapMapView() {
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
   const roadsFilter = document.getElementById("filter-roads");
   if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
+  syncStashVisibilityControls();
   await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation(), loadRoads()]);
   connectWebSocket();
   initNavigatorButton();
@@ -1895,6 +1926,23 @@ document.getElementById("filter-roads")?.addEventListener("change", (e) => {
   state.filters.roads = e.target.checked;
   saveFilterPrefs();
   applyRoadsVisibility();
+});
+
+document.getElementById("stashes-visible-toggle")?.addEventListener("change", (e) => {
+  state.filters.stashes = !!e.target.checked;
+  saveFilterPrefs();
+  syncStashVisibilityControls();
+  refreshDynamicLayers();
+  updateMarkersList();
+});
+
+document.getElementById("stashes-collapse-btn")?.addEventListener("click", () => {
+  const list = document.getElementById("web-stashes-list");
+  const btn = document.getElementById("stashes-collapse-btn");
+  if (!list || !btn) return;
+  const collapsed = !list.classList.contains("hidden");
+  list.classList.toggle("hidden", collapsed);
+  btn.textContent = collapsed ? "▸ Тайники" : "▾ Тайники";
 });
 
 document.getElementById("draw-point-btn")?.addEventListener("click", () => setDrawMode("point"));

@@ -635,6 +635,19 @@ button.secondary.small {
   overflow-y: auto;
 }
 
+.sidebar-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.sidebar-section-head .filter-row {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .draw-tools {
   margin-bottom: 1rem;
   padding: 0.55rem;
