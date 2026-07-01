@@ -60,6 +60,8 @@ def _migrate_sqlite(conn) -> None:
     marker_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(markers)")).fetchall()}
     if marker_cols and "type" not in marker_cols:
         conn.execute(text("ALTER TABLE markers ADD COLUMN type VARCHAR(32) DEFAULT 'marker'"))
+    if marker_cols and "marker_category" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN marker_category VARCHAR(16) DEFAULT 'group'"))
     if marker_cols and "title" not in marker_cols:
         conn.execute(text("ALTER TABLE markers ADD COLUMN title VARCHAR(128)"))
     if marker_cols and "description" not in marker_cols:

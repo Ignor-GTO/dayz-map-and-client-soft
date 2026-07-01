@@ -75,33 +75,16 @@
           </div>
 
           <div class="marker-edit-field">
+            <label for="marker-edit-category">Категория</label>
+            <select id="marker-edit-category">
+              <option value="group" selected>Метка группы</option>
+              <option value="stash">Тайник</option>
+            </select>
+          </div>
+
+          <div class="marker-edit-field">
             <label>Тип иконки</label>
-            <div class="marker-icon-grid" id="marker-icon-grid">
-              <button type="button" class="marker-icon-btn" data-type="marker">
-                <span class="icon-emoji">📌</span><span>Метка</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="chest">
-                <span class="icon-emoji">📦</span><span>Сундук</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="loot">
-                <span class="icon-emoji">🔫</span><span>Лут</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="death">
-                <span class="icon-emoji">💀</span><span>Смерть</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="point">
-                <span class="icon-emoji">🔵</span><span>Точка</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="camp">
-                <span class="icon-emoji">🏕</span><span>Лагерь</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="danger">
-                <span class="icon-emoji">⚠️</span><span>Опасность</span>
-              </button>
-              <button type="button" class="marker-icon-btn" data-type="screenshot">
-                <span class="icon-emoji">❓</span><span>Снимок</span>
-              </button>
-            </div>
+            <div class="marker-icon-grid" id="marker-icon-grid"></div>
           </div>
 
           <div class="marker-edit-field marker-geo-field">
@@ -263,6 +246,11 @@
             <div id="web-markers-list" class="sidebar-list">
               <div class="list-empty">Нет меток</div>
             </div>
+
+            <h3>Тайники</h3>
+            <div id="web-stashes-list" class="sidebar-list">
+              <div class="list-empty">Нет тайников</div>
+            </div>
           </div>
 
           <div id="tab-content-filters" class="hidden">
@@ -303,6 +291,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js"></script>
-  <script src="/js/map.js?v=33"></script>
+  <script src="/js/map.js?v=34"></script>
 </body>
 </html>

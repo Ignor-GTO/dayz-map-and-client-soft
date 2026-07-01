@@ -81,6 +81,13 @@ def _normalize_points(points: list[list[float]] | None) -> list[list[float]] | N
     return normalized or None
 
 
+def _normalize_marker_category(value: str | None) -> str:
+    category = str(value or "group").strip().lower()
+    if category not in {"group", "stash"}:
+        raise HTTPException(status_code=400, detail="Unsupported marker_category")
+    return category
+
+
 def _marker_response(marker: Marker, nickname: str) -> MarkerResponse:
     points = _load_marker_points(marker)
     return MarkerResponse(
@@ -90,6 +97,7 @@ def _marker_response(marker: Marker, nickname: str) -> MarkerResponse:
         x=marker.x,
         y=marker.y,
         type=marker.type,
+        marker_category=marker.marker_category or "group",
         title=marker.title,
         description=marker.description,
         image_url=marker.image_url,
@@ -286,6 +294,7 @@ async def add_marker(
         x=payload.x,
         y=payload.y,
         type=payload.type or "marker",
+        marker_category="group",
         geometry_kind="point",
     )
     db.add(marker)
@@ -333,6 +342,7 @@ async def create_marker(
         x=float(x),
         y=float(y),
         type=(payload.type or "marker").strip() or "marker",
+        marker_category=_normalize_marker_category(payload.marker_category),
         title=payload.title,
         description=payload.description,
         image_url=payload.image_url,
@@ -387,6 +397,8 @@ async def update_marker(
 
     if payload.type is not None:
         marker.type = payload.type
+    if payload.marker_category is not None:
+        marker.marker_category = _normalize_marker_category(payload.marker_category)
     if payload.x is not None:
         marker.x = payload.x
     if payload.y is not None:

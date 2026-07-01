@@ -122,6 +122,7 @@ class Marker(Base):
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
     type: Mapped[str] = mapped_column(String(32), default="marker", server_default="marker")
+    marker_category: Mapped[str] = mapped_column(String(16), default="group", server_default="group")
     title: Mapped[str | None] = mapped_column(String(128), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(Text, nullable=True)

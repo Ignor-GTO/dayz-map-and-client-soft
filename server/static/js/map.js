@@ -437,16 +437,52 @@ function upsertLive(pos) {
   updatePlayersList();
 }
 
-const MARKER_ICON_DEFS = {
-  marker: { emoji: "📌", label: "Метка" },
-  chest: { emoji: "📦", label: "Сундук" },
-  loot: { emoji: "🔫", label: "Лут" },
-  death: { emoji: "💀", label: "Смерть" },
-  point: { emoji: "🔵", label: "Точка" },
-  camp: { emoji: "🏕", label: "Лагерь" },
-  danger: { emoji: "⚠️", label: "Опасность" },
-  screenshot: { emoji: "❓", label: "Снимок" },
-};
+function markerEscapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildMarkerIconDefs() {
+  const defs = {
+    marker: { emoji: "📌", label: "Метка", glyph: "📌" },
+    chest: { emoji: "📦", label: "Сундук", glyph: "📦" },
+    loot: { emoji: "🔫", label: "Лут", glyph: "🔫" },
+    death: { emoji: "💀", label: "Смерть", glyph: "💀" },
+    point: { emoji: "🔵", label: "Точка", glyph: "🔵" },
+    camp: { emoji: "🏕", label: "Лагерь", glyph: "🏕" },
+    danger: { emoji: "⚠️", label: "Опасность", glyph: "⚠️" },
+    screenshot: { emoji: "❓", label: "Снимок", glyph: "❓" },
+  };
+  if (typeof POI_ICONS === "object" && POI_ICONS) {
+    Object.entries(POI_ICONS).forEach(([key, icon]) => {
+      defs[key] = {
+        emoji: icon?.glyph || "📌",
+        glyph: icon?.glyph || "📌",
+        label: icon?.label || key,
+      };
+    });
+  }
+  return defs;
+}
+
+const MARKER_ICON_DEFS = buildMarkerIconDefs();
+
+function renderMarkerIconGrid() {
+  const grid = document.getElementById("marker-icon-grid");
+  if (!grid) return;
+  const options = Object.entries(MARKER_ICON_DEFS)
+    .map(([type, def]) => `
+      <button type="button" class="marker-icon-btn" data-type="${type}">
+        <span class="icon-emoji">${markerEscapeHtml(def.glyph || def.emoji || "📌")}</span>
+        <span>${markerEscapeHtml(def.label)}</span>
+      </button>
+    `)
+    .join("");
+  grid.innerHTML = options;
+}
 
 function markerTypeLabel(type) {
   return (MARKER_ICON_DEFS[type] || MARKER_ICON_DEFS.marker).label;
@@ -464,7 +500,7 @@ function markerIconHtml(type, color) {
       </div>
     `;
   }
-  return `<div style="font-size:22px;line-height:1;filter:drop-shadow(0 0 3px rgba(0,0,0,0.9));">${def.emoji}</div>`;
+  return `<div style="font-size:22px;line-height:1;filter:drop-shadow(0 0 3px rgba(0,0,0,0.9));">${def.glyph || def.emoji || "📌"}</div>`;
 }
 
 function drawHint(text) {
@@ -852,6 +888,7 @@ function upsertPin(m) {
 
   const inGroup = true; // any group member can edit
   const kind = m.geometry_kind || "point";
+  const markerCategory = m.marker_category || "group";
   const canGeoEdit = inGroup && (kind === "circle" || kind === "line");
   const title = m.title || markerTypeLabel(m.type || "marker");
   const roundedX = Math.round(m.x || 0);
@@ -871,6 +908,7 @@ function upsertPin(m) {
   const popupHtml = `
     <b>${title}</b><br>
     <span style="color:#555;font-size:0.82rem">${m.nickname} · ${roundedX} / ${roundedY}</span>
+    ${markerCategory === "stash" ? `<div style="font-size:0.78rem;color:#6b102e;margin-top:3px;">Категория: Тайник</div>` : ""}
     ${shapeInfo}
     ${descHtml}
     ${imgHtml}
@@ -1006,10 +1044,12 @@ function updatePlayersList() {
 }
 
 function updateMarkersList() {
-  const el = document.getElementById("web-markers-list");
-  if (!el) return;
+  const groupEl = document.getElementById("web-markers-list");
+  const stashEl = document.getElementById("web-stashes-list");
+  if (!groupEl || !stashEl) return;
 
-  const rows = [];
+  const groupRows = [];
+  const stashRows = [];
   state.pinMarkers.forEach((marker) => {
     const m = marker._markerMeta;
     if (!m) return;
@@ -1027,7 +1067,7 @@ function updateMarkersList() {
         : "");
     const subLabel = `${m.nickname}${extra}`;
 
-    rows.push(`
+    const rowHtml = `
       <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
         <div class="sidebar-row-left">
           <span class="sidebar-dot" style="background: ${colorForUser(m.user_id)}"></span>
@@ -1041,12 +1081,20 @@ function updateMarkersList() {
           ${isMine ? `<button class="delete-btn-small" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Удалить">✕</button>` : ""}
         </div>
       </div>
-    `);
+    `;
+    if ((m.marker_category || "group") === "stash") {
+      stashRows.push(rowHtml);
+    } else {
+      groupRows.push(rowHtml);
+    }
   });
 
-  el.innerHTML = rows.length
-    ? rows.join("")
+  groupEl.innerHTML = groupRows.length
+    ? groupRows.join("")
     : `<div class="list-empty">Нет меток</div>`;
+  stashEl.innerHTML = stashRows.length
+    ? stashRows.join("")
+    : `<div class="list-empty">Нет тайников</div>`;
 }
 
 /** Return the sidebar width in pixels (0 if collapsed). */
@@ -1187,6 +1235,8 @@ function openMarkerEditModal(markerId) {
   // Fill form fields
   document.getElementById("marker-edit-title").value = m.title || "";
   document.getElementById("marker-edit-desc").value = m.description || "";
+  const categoryInput = document.getElementById("marker-edit-category");
+  if (categoryInput) categoryInput.value = (m.marker_category || "group");
   const kind = m.geometry_kind || "point";
   const geometryKind = document.getElementById("marker-edit-geometry-kind");
   if (geometryKind) geometryKind.value = markerKindLabel(kind);
@@ -1231,6 +1281,7 @@ function closeMarkerEditModal() {
 }
 
 // Icon buttons
+renderMarkerIconGrid();
 document.getElementById("marker-icon-grid").addEventListener("click", (e) => {
   const btn = e.target.closest(".marker-icon-btn");
   if (!btn) return;
@@ -1308,6 +1359,7 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
       title: document.getElementById("marker-edit-title").value.trim() || null,
       description: document.getElementById("marker-edit-desc").value.trim() || null,
       type: selectedTypeBtn ? selectedTypeBtn.dataset.type : "marker",
+      marker_category: document.getElementById("marker-edit-category")?.value || "group",
     };
     if (markerKind === "circle") {
       patchBody.radius = Math.max(10, Number.isFinite(circleRadius) ? circleRadius : 300);

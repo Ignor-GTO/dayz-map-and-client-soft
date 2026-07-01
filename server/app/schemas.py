@@ -31,6 +31,7 @@ class MarkerResponse(BaseModel):
     x: float
     y: float
     type: str = "marker"
+    marker_category: str = "group"
     title: str | None = None
     description: str | None = None
     image_url: str | None = None
@@ -46,6 +47,7 @@ class MarkerCreateRequest(BaseModel):
     x: float | None = None
     y: float | None = None
     type: str = "marker"
+    marker_category: str = "group"
     title: str | None = Field(default=None, max_length=128)
     description: str | None = None
     image_url: str | None = None
@@ -60,6 +62,7 @@ class MarkerUpdateRequest(BaseModel):
     x: float | None = None
     y: float | None = None
     type: str | None = None
+    marker_category: str | None = None
     title: str | None = Field(default=None, max_length=128)
     description: str | None = None
     image_url: str | None = None
