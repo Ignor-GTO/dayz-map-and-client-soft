@@ -450,6 +450,68 @@ function markerEscapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+function zonePopupHtml(kind, zone) {
+  const radius = Math.round(Number(zone?.radius || 0));
+  if (kind === "psi") {
+    return `
+      <b>🧠 Пси-зона</b><br>
+      Воздействие: пси-поле<br>
+      Радиус: ${radius}
+    `;
+  }
+  const doseLabel = String(zone?.label || "").trim();
+  return `
+    <b>☢ Радиация</b><br>
+    ${doseLabel ? `Уровень: ${markerEscapeHtml(doseLabel)}<br>` : "Уровень: не указан<br>"}
+    Радиус: ${radius}
+  `;
+}
+
+function ensurePsiStripePattern() {
+  if (!state.map) return null;
+  const overlayPane = state.map.getPane("overlayPane");
+  const svg = overlayPane?.querySelector("svg");
+  if (!svg) return null;
+  const NS = "http://www.w3.org/2000/svg";
+  let defs = svg.querySelector("defs[data-psi-pattern='1']");
+  if (!defs) {
+    defs = document.createElementNS(NS, "defs");
+    defs.setAttribute("data-psi-pattern", "1");
+    svg.insertBefore(defs, svg.firstChild);
+  }
+  let pattern = defs.querySelector("#psi-stripes-pattern");
+  if (!pattern) {
+    pattern = document.createElementNS(NS, "pattern");
+    pattern.setAttribute("id", "psi-stripes-pattern");
+    pattern.setAttribute("patternUnits", "userSpaceOnUse");
+    pattern.setAttribute("width", "10");
+    pattern.setAttribute("height", "10");
+    pattern.setAttribute("patternTransform", "rotate(45)");
+    const bg = document.createElementNS(NS, "rect");
+    bg.setAttribute("width", "10");
+    bg.setAttribute("height", "10");
+    bg.setAttribute("fill", "rgba(107,16,46,0.14)");
+    const stripe = document.createElementNS(NS, "line");
+    stripe.setAttribute("x1", "0");
+    stripe.setAttribute("y1", "0");
+    stripe.setAttribute("x2", "0");
+    stripe.setAttribute("y2", "10");
+    stripe.setAttribute("stroke", "rgba(107,16,46,0.7)");
+    stripe.setAttribute("stroke-width", "4");
+    pattern.appendChild(bg);
+    pattern.appendChild(stripe);
+    defs.appendChild(pattern);
+  }
+  return "psi-stripes-pattern";
+}
+
+function applyPsiStripedFill(circle) {
+  const patternId = ensurePsiStripePattern();
+  if (!patternId || !circle?._path) return;
+  circle._path.setAttribute("fill", `url(#${patternId})`);
+  circle._path.setAttribute("fill-opacity", "0.7");
+}
+
 function buildMarkerIconDefs() {
   const defs = {
     marker: { emoji: "📌", label: "Метка", glyph: "📌" },
@@ -1550,9 +1612,10 @@ function renderRadiationLayer(data) {
         opacity: zone.strokeOpacity ?? 0.9,
         fillColor: zone.color || "#ff9800",
         fillOpacity: zone.fillOpacity ?? 0.35,
-        interactive: false,
+        interactive: true,
         pane: "radiationPane",
       });
+      circle.bindPopup(zonePopupHtml("radiation", zone));
       if (zone.label) {
         circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
       }
@@ -1571,9 +1634,11 @@ function renderRadiationLayer(data) {
         opacity: zone.strokeOpacity ?? 0.95,
         fillColor: color,
         fillOpacity: zone.fillOpacity ?? 0.2,
-        interactive: false,
+        interactive: true,
         pane: "radiationPane",
       });
+      circle.bindPopup(zonePopupHtml("psi", zone));
+      circle.on("add", () => applyPsiStripedFill(circle));
       if (zone.label) {
         circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
       }
