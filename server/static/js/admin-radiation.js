@@ -221,6 +221,17 @@ function radApplyModeUi() {
   if (addBtn) addBtn.textContent = isPsi ? "+ Пси-зона" : "+ Зона";
 }
 
+function radSetMode(mode) {
+  radState.editMode = mode === "psi" ? "psi" : "radiation";
+  radState.selectedId = null;
+  const modeSelect = document.getElementById("rad-mode-select");
+  if (modeSelect) modeSelect.value = radState.editMode;
+  radApplyModeUi();
+  radRenderTierSelect();
+  radRenderZoneTierSelect();
+  radRenderZoneSelect();
+}
+
 function radRenderOverlaySelect() {
   const sel = document.getElementById("rad-overlay-select");
   if (!sel) return;
@@ -859,12 +870,7 @@ function radBindUi() {
   });
 
   document.getElementById("rad-mode-select")?.addEventListener("change", (e) => {
-    radState.editMode = e.target.value === "psi" ? "psi" : "radiation";
-    radState.selectedId = null;
-    radApplyModeUi();
-    radRenderTierSelect();
-    radRenderZoneTierSelect();
-    radRenderZoneSelect();
+    radSetMode(e.target.value);
   });
 
   document.getElementById("rad-tier-select")?.addEventListener("change", (e) => {
@@ -980,6 +986,9 @@ const RadiationEditor = {
     } else if (slug && !radState.zones.length && !radState.psiZones.length) {
       radLoadForSlug(slug);
     }
+  },
+  setMode(mode) {
+    radSetMode(mode);
   },
   refreshMapSelect() {
     const sel = document.getElementById("rad-map-select");

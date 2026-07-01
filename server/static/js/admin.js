@@ -24,14 +24,16 @@ function showPanel() {
 }
 
 function switchTab(name) {
+  const effectiveName = name === "psi" ? "radiation" : name;
   document.querySelectorAll(".tab").forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
   document.querySelectorAll(".tab-panel").forEach((p) => p.classList.add("hidden"));
-  const panel = document.getElementById(`tab-${name}`);
+  const panel = document.getElementById(`tab-${effectiveName}`);
   if (panel) panel.classList.remove("hidden");
-  document.getElementById("admin-panel")?.classList.toggle("admin-radiation-mode", name === "radiation");
+  document.getElementById("admin-panel")?.classList.toggle("admin-radiation-mode", effectiveName === "radiation");
   localStorage.setItem("admin_active_tab", name);
-  if (name === "radiation" && window.RadiationEditor) {
+  if (effectiveName === "radiation" && window.RadiationEditor) {
     window.RadiationEditor.ensureLoaded();
+    window.RadiationEditor.setMode?.(name === "psi" ? "psi" : "radiation");
   }
 }
 
