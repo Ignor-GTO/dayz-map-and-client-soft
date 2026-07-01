@@ -1105,13 +1105,9 @@ function updateMarkersList() {
     : `<div class="list-empty">Нет меток</div>`;
   const stashCountEl = document.getElementById("stashes-total-count");
   if (stashCountEl) stashCountEl.textContent = String(stashRows.length);
-  if (state.filters.stashes) {
-    stashEl.innerHTML = `<div class="list-empty">Скрыто фильтром</div>`;
-  } else {
-    stashEl.innerHTML = stashRows.length
-      ? stashRows.join("")
-      : `<div class="list-empty">Нет тайников</div>`;
-  }
+  stashEl.innerHTML = stashRows.length
+    ? stashRows.join("")
+    : `<div class="list-empty">Нет тайников</div>`;
 }
 
 /** Return the sidebar width in pixels (0 if collapsed). */
