@@ -967,7 +967,7 @@ function upsertPin(m) {
   layer._markerMeta = m;
   state.pinMarkers.set(m.id, layer);
 
-  const visibleOnMap = markerCategory === "stash" ? !!state.filters.stashes : !!state.filters.markers;
+  const visibleOnMap = markerCategory === "stash" ? !state.filters.stashes : !!state.filters.markers;
   if (visibleOnMap) {
     if (state.map && !state.map.hasLayer(layer)) layer.addTo(state.map);
   } else if (state.map && state.map.hasLayer(layer)) {
@@ -1103,7 +1103,9 @@ function updateMarkersList() {
   groupEl.innerHTML = groupRows.length
     ? groupRows.join("")
     : `<div class="list-empty">Нет меток</div>`;
-  if (!state.filters.stashes) {
+  const stashCountEl = document.getElementById("stashes-total-count");
+  if (stashCountEl) stashCountEl.textContent = String(stashRows.length);
+  if (state.filters.stashes) {
     stashEl.innerHTML = `<div class="list-empty">Скрыто фильтром</div>`;
   } else {
     stashEl.innerHTML = stashRows.length
@@ -1632,7 +1634,7 @@ function renderFilterPanel(categories) {
     { id: "labels", label: "Названия мест" },
     { id: "players", label: "Игроки (live)" },
     { id: "markers", label: "Метки группы" },
-    { id: "stashes", label: "Тайники" },
+    { id: "stashes", label: "Скрыть тайники" },
     { id: "poi", label: "Метки сервера" },
     { id: "radiation", label: "Радиационные зоны" },
     { id: "psi", label: "Пси-зоны" },
@@ -1681,7 +1683,7 @@ function refreshDynamicLayers() {
   });
   state.pinMarkers.forEach((m) => {
     const isStash = (m._markerMeta?.marker_category || "group") === "stash";
-    const shouldShow = isStash ? !!state.filters.stashes : !!state.filters.markers;
+    const shouldShow = isStash ? !state.filters.stashes : !!state.filters.markers;
     if (shouldShow) m.addTo(state.map);
     else state.map.removeLayer(m);
   });
@@ -1939,10 +1941,11 @@ document.getElementById("stashes-visible-toggle")?.addEventListener("change", (e
 document.getElementById("stashes-collapse-btn")?.addEventListener("click", () => {
   const list = document.getElementById("web-stashes-list");
   const btn = document.getElementById("stashes-collapse-btn");
+  const count = document.getElementById("stashes-total-count")?.textContent || "0";
   if (!list || !btn) return;
   const collapsed = !list.classList.contains("hidden");
   list.classList.toggle("hidden", collapsed);
-  btn.textContent = collapsed ? "▸ Тайники" : "▾ Тайники";
+  btn.innerHTML = `${collapsed ? "▸" : "▾"} Тайники (<span id="stashes-total-count">${count}</span>)`;
 });
 
 document.getElementById("draw-point-btn")?.addEventListener("click", () => setDrawMode("point"));
