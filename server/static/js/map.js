@@ -63,6 +63,7 @@ const state = {
   },
   commandZoomAnchor: null,
   commandZoomApplying: false,
+  zoneHoverTooltip: null,
   ws: null,
 };
 
@@ -332,8 +333,24 @@ function initLeaflet(config) {
     }
     if (state.navActive) {
       navSetPoint(gameCoords.x, gameCoords.y);
+      return;
+    }
+    const matches = collectZonesAtGamePoint(gameCoords.x, gameCoords.y);
+    if (matches.radiation.length || matches.psi.length) {
+      L.popup({ maxWidth: 320 })
+        .setLatLng(e.latlng)
+        .setContent(zonesInfoHtml(matches, false))
+        .openOn(state.map);
     }
   });
+  state.map.on("mousemove", (e) => {
+    if (state.draw.mode || state.navActive) {
+      hideZoneHoverTooltip();
+      return;
+    }
+    updateZoneHoverTooltip(e.latlng);
+  });
+  state.map.on("mouseout", hideZoneHoverTooltip);
 
   // Handle popup action button clicks
   state.map.on("popupopen", (e) => {
@@ -450,21 +467,73 @@ function markerEscapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
-function zonePopupHtml(kind, zone) {
-  const radius = Math.round(Number(zone?.radius || 0));
-  if (kind === "psi") {
-    return `
-      <b>🧠 Пси-зона</b><br>
-      Воздействие: пси-поле<br>
-      Радиус: ${radius}
-    `;
+function collectZonesAtGamePoint(x, y) {
+  const out = { radiation: [], psi: [] };
+  const data = state.radiationData || {};
+  (data.zones || []).forEach((zone) => {
+    const dx = Number(x) - Number(zone.x || 0);
+    const dy = Number(y) - Number(zone.y || 0);
+    const radius = Number(zone.radius || 0);
+    if (radius > 0 && dx * dx + dy * dy <= radius * radius) {
+      out.radiation.push(zone);
+    }
+  });
+  (data.psi_zones || []).forEach((zone) => {
+    const dx = Number(x) - Number(zone.x || 0);
+    const dy = Number(y) - Number(zone.y || 0);
+    const radius = Number(zone.radius || 0);
+    if (radius > 0 && dx * dx + dy * dy <= radius * radius) {
+      out.psi.push(zone);
+    }
+  });
+  return out;
+}
+
+function zonesInfoHtml(matches, compact = false) {
+  const parts = [];
+  if (!compact) parts.push("<b>Зоны в этой точке</b>");
+  if (matches.radiation.length) {
+    const radLines = matches.radiation.map((z) => {
+      const dose = String(z.label || "").trim() || "уровень не указан";
+      return `☢ ${markerEscapeHtml(dose)} · R:${Math.round(Number(z.radius || 0))}`;
+    });
+    parts.push(radLines.join("<br>"));
   }
-  const doseLabel = String(zone?.label || "").trim();
-  return `
-    <b>☢ Радиация</b><br>
-    ${doseLabel ? `Уровень: ${markerEscapeHtml(doseLabel)}<br>` : "Уровень: не указан<br>"}
-    Радиус: ${radius}
-  `;
+  if (matches.psi.length) {
+    const psiLines = matches.psi.map((z) => `🧠 Пси-зона · R:${Math.round(Number(z.radius || 0))}`);
+    parts.push(psiLines.join("<br>"));
+  }
+  return parts.join("<br>");
+}
+
+function hideZoneHoverTooltip() {
+  if (!state.map || !state.zoneHoverTooltip) return;
+  state.map.removeLayer(state.zoneHoverTooltip);
+  state.zoneHoverTooltip = null;
+}
+
+function updateZoneHoverTooltip(latlng) {
+  if (!state.map || !latlng) return;
+  const game = latLngToGame(latlng);
+  const matches = collectZonesAtGamePoint(game.x, game.y);
+  if (!matches.radiation.length && !matches.psi.length) {
+    hideZoneHoverTooltip();
+    return;
+  }
+  const html = zonesInfoHtml(matches, true);
+  if (!state.zoneHoverTooltip) {
+    state.zoneHoverTooltip = L.tooltip({
+      permanent: false,
+      direction: "top",
+      offset: [0, -8],
+      opacity: 0.95,
+      className: "zone-hover-tooltip",
+      interactive: false,
+    });
+    state.zoneHoverTooltip.setLatLng(latlng).setContent(html).addTo(state.map);
+  } else {
+    state.zoneHoverTooltip.setLatLng(latlng).setContent(html);
+  }
 }
 
 function ensurePsiStripePattern() {
@@ -1612,13 +1681,9 @@ function renderRadiationLayer(data) {
         opacity: zone.strokeOpacity ?? 0.9,
         fillColor: zone.color || "#ff9800",
         fillOpacity: zone.fillOpacity ?? 0.35,
-        interactive: true,
+        interactive: false,
         pane: "radiationPane",
       });
-      circle.bindPopup(zonePopupHtml("radiation", zone));
-      if (zone.label) {
-        circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
-      }
       state.radiationLayer.addLayer(circle);
     });
   }
@@ -1634,14 +1699,10 @@ function renderRadiationLayer(data) {
         opacity: zone.strokeOpacity ?? 0.95,
         fillColor: color,
         fillOpacity: zone.fillOpacity ?? 0.2,
-        interactive: true,
+        interactive: false,
         pane: "radiationPane",
       });
-      circle.bindPopup(zonePopupHtml("psi", zone));
       circle.on("add", () => applyPsiStripedFill(circle));
-      if (zone.label) {
-        circle.bindTooltip(zone.label, { permanent: false, direction: "top" });
-      }
       state.psiLayer.addLayer(circle);
     });
   }
