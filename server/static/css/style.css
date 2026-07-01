@@ -1032,25 +1032,33 @@ button.secondary.small {
 #marker-image-modal {
   z-index: 2600;
   background: rgba(0, 0, 0, 0.8);
+  padding: 1rem;
+  box-sizing: border-box;
 }
 
 .image-modal-content {
   position: relative;
+  width: min(92vw, 1100px);
   max-width: min(92vw, 1100px);
-  max-height: 88vh;
-  width: auto;
+  max-height: calc(100vh - 2rem);
+  overflow: hidden;
   padding: 0.75rem;
   background: rgba(12, 16, 22, 0.96);
   border: 1px solid #2a3848;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #marker-image-full {
   display: block;
-  max-width: calc(92vw - 2rem);
-  max-height: calc(88vh - 2rem);
+  max-width: 100%;
+  max-height: calc(100vh - 4rem);
   width: auto;
   height: auto;
   border-radius: 8px;
+  object-fit: contain;
 }
 
 .image-modal-close {

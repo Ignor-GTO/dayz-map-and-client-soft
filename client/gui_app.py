@@ -70,6 +70,7 @@ class ClientApp(tk.Tk):
         self.hotkeys_active = False
         self._map_session_active = False
         self._map_session_counter = 0
+        self._map_session_capture_after_id: str | None = None
         self._session_player_coords: tuple[float, float] | None = None
         self._clipboard_hash: str | None = None
         self._stop_clipboard = threading.Event()
@@ -404,8 +405,11 @@ class ClientApp(tk.Tk):
         # Start button row
         btn_subfrm = ttk.Frame(ctrl_card, style="CardSub.TFrame")
         btn_subfrm.pack(fill="x")
-        self.start_btn = ttk.Button(btn_subfrm, text="Запустить hotkeys", command=self.toggle_hotkeys, width=22)
-        self.start_btn.pack(side="left", padx=(0, 10))
+        self.start_btn = ttk.Button(btn_subfrm, text="Запустить hotkeys", command=self.start_hotkeys, width=22)
+        self.start_btn.pack(side="left", padx=(0, 8))
+        self.stop_btn = ttk.Button(btn_subfrm, text="Остановить hotkeys", command=self.stop_hotkeys, width=22)
+        self.stop_btn.pack(side="left")
+        self._sync_hotkey_buttons()
 
         # Instructions / Help
         help_card = ttk.Frame(main_frm, padding=12, style="Card.TFrame")
@@ -1736,7 +1740,20 @@ class ClientApp(tk.Tk):
         else:
             self.start_hotkeys()
 
+    def _sync_hotkey_buttons(self) -> None:
+        if not hasattr(self, "start_btn") or not hasattr(self, "stop_btn"):
+            return
+        if self.hotkeys_active:
+            self.start_btn.configure(state="disabled")
+            self.stop_btn.configure(state="normal")
+        else:
+            self.start_btn.configure(state="normal")
+            self.stop_btn.configure(state="disabled")
+
     def start_hotkeys(self) -> None:
+        if self.hotkeys_active:
+            self._sync_hotkey_buttons()
+            return
         self.save_settings()
         if not self.map_client:
             return
@@ -1757,7 +1774,7 @@ class ClientApp(tk.Tk):
         game_map_key_lower = game_map_key.strip().lower()
 
         self.status_var.set(f"Работает — {game_map_key.upper()} / {', '.join(toggle_keys).upper()} запуск считывания")
-        self.start_btn.configure(text="Остановить hotkeys")
+        self._sync_hotkey_buttons()
         
         for hk in toggle_keys:
             if hk.strip():
@@ -1816,15 +1833,24 @@ class ClientApp(tk.Tk):
         )
 
     def stop_hotkeys(self) -> None:
+        if not self.hotkeys_active:
+            self._sync_hotkey_buttons()
+            return
         self.hotkeys_active = False
         self._end_map_session(silent=True)
         self._stop_clipboard.set()
         keyboard.unhook_all_hotkeys()
         self.status_var.set("Остановлено")
-        self.start_btn.configure(text="Запустить hotkeys")
+        self._sync_hotkey_buttons()
         self.log_line("[Стоп] Hotkeys отключены")
 
     def _end_map_session(self, *, silent: bool = False, keep_hud: bool = False) -> None:
+        if self._map_session_capture_after_id is not None:
+            try:
+                self.after_cancel(self._map_session_capture_after_id)
+            except Exception:
+                pass
+            self._map_session_capture_after_id = None
         if not self._map_session_active:
             return
         self._map_session_active = False
@@ -2010,9 +2036,11 @@ class ClientApp(tk.Tk):
 
         self._ensure_hud().show_busy("Позиция игрока…")
 
+        session_id = self._map_session_counter
+        self._map_session_capture_after_id = None
+
         def work() -> None:
             try:
-                session_id = self._map_session_counter
                 def is_cancelled() -> bool:
                     return not self._map_session_active or self._map_session_counter != session_id
 
@@ -2047,7 +2075,14 @@ class ClientApp(tk.Tk):
                 self.after(0, lambda: self.log_line(f"[M] Ошибка: {exc}"))
                 self.after(0, lambda: self._ensure_hud().show_error(str(exc)[:40]))
 
-        threading.Thread(target=work, daemon=True).start()
+        def start_capture_if_active() -> None:
+            self._map_session_capture_after_id = None
+            if not self._map_session_active or self._map_session_counter != session_id:
+                return
+            threading.Thread(target=work, daemon=True).start()
+
+        # Small arming delay prevents accidental double-M from launching OCR/mouse nudge.
+        self._map_session_capture_after_id = self.after(180, start_capture_if_active)
 
     def _close_map_automatically(self) -> None:
         if not self._map_session_active:

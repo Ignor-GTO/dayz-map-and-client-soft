@@ -1440,6 +1440,19 @@ const markerImgFile = document.getElementById("marker-img-file");
 const markerImgDrop = document.getElementById("marker-img-drop");
 const markerImgPreview = document.getElementById("marker-img-preview");
 const markerImgPreviewImg = document.getElementById("marker-img-preview-img");
+const markerEditModal = document.getElementById("marker-edit-modal");
+
+function _clipboardImageFile(event) {
+  const items = event?.clipboardData?.items;
+  if (!items || !items.length) return null;
+  for (const item of items) {
+    if (item.kind === "file" && item.type && item.type.startsWith("image/")) {
+      const file = item.getAsFile();
+      if (file) return file;
+    }
+  }
+  return null;
+}
 
 function _showImgPreview(file) {
   _editImageFile = file;
@@ -1464,6 +1477,15 @@ markerImgDrop.addEventListener("drop", (e) => {
   markerImgDrop.classList.remove("dragover");
   const file = e.dataTransfer?.files?.[0];
   if (file && file.type.startsWith("image/")) _showImgPreview(file);
+});
+
+// Paste image from clipboard (Ctrl+V) when edit modal is open.
+markerEditModal?.addEventListener("paste", (e) => {
+  if (markerEditModal.classList.contains("hidden")) return;
+  const imageFile = _clipboardImageFile(e);
+  if (!imageFile) return;
+  e.preventDefault();
+  _showImgPreview(imageFile);
 });
 
 // Clear image button
