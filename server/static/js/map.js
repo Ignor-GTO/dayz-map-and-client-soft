@@ -44,7 +44,7 @@ const state = {
     stashes: false,
     poi: true,
     radiation: true,
-    psi: false,
+    psi: true,
     roads: false,
   },
   draw: {
@@ -83,12 +83,15 @@ function loadFilterPrefs() {
 
 function saveFilterPrefs() {
   try {
+    const prefs = {};
+    Object.entries(state.filters).forEach(([key, value]) => {
+      if (typeof value === "boolean") {
+        prefs[key] = value;
+      }
+    });
     localStorage.setItem(
       FILTER_PREFS_KEY,
-      JSON.stringify({
-        roads: !!state.filters.roads,
-        stashes: !!state.filters.stashes,
-      }),
+      JSON.stringify(prefs),
     );
   } catch {
     // ignore storage failures (private mode / quota)
@@ -97,12 +100,11 @@ function saveFilterPrefs() {
 
 function hydrateFilterPrefs() {
   const prefs = loadFilterPrefs();
-  if (typeof prefs.roads === "boolean") {
-    state.filters.roads = prefs.roads;
-  }
-  if (typeof prefs.stashes === "boolean") {
-    state.filters.stashes = prefs.stashes;
-  }
+  Object.entries(prefs).forEach(([key, value]) => {
+    if (typeof value === "boolean") {
+      state.filters[key] = value;
+    }
+  });
 }
 
 hydrateFilterPrefs();
@@ -1781,8 +1783,8 @@ function renderFilterPanel(categories) {
   el.querySelectorAll("input[data-filter]").forEach((input) => {
     input.addEventListener("change", () => {
       state.filters[input.dataset.filter] = input.checked;
+      saveFilterPrefs();
       if (input.dataset.filter === "stashes") {
-        saveFilterPrefs();
         syncStashVisibilityControls();
       }
       applyLocationFilters();
