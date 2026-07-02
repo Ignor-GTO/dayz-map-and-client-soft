@@ -61,7 +61,17 @@
     state.mapSlug = selectedMapSlug();
     if (!state.mapSlug) return;
     state.traders = await api(`/api/admin/traders?map_slug=${encodeURIComponent(state.mapSlug)}`);
-    renderSimpleSelect("trader-list", state.traders, "Нет торговцев");
+    const traderSelect = byId("trader-list");
+    if (traderSelect) {
+      if (!state.traders.length) {
+        traderSelect.innerHTML = `<option value="">Нет торговцев</option>`;
+      } else {
+        traderSelect.innerHTML = state.traders.map((t) => {
+          const loc = (t.x != null && t.y != null) ? ` (${Math.round(t.x)}/${Math.round(t.y)})` : "";
+          return `<option value="${t.id}">${escapeHtml(t.name)}${loc}</option>`;
+        }).join("");
+      }
+    }
     await loadSections();
     await loadItems();
   }
@@ -117,11 +127,47 @@
   async function createTrader() {
     const name = String(byId("trader-name-input")?.value || "").trim();
     if (!name) return alert("Введите название торговца");
+    const xVal = String(byId("trader-x-input")?.value || "").trim();
+    const yVal = String(byId("trader-y-input")?.value || "").trim();
+    const x = xVal === "" ? null : Number(xVal);
+    const y = yVal === "" ? null : Number(yVal);
     await api("/api/admin/traders", {
       method: "POST",
-      body: JSON.stringify({ map_slug: selectedMapSlug(), name }),
+      body: JSON.stringify({
+        map_slug: selectedMapSlug(),
+        name,
+        x: Number.isFinite(x) ? x : null,
+        y: Number.isFinite(y) ? y : null,
+      }),
     });
     byId("trader-name-input").value = "";
+    byId("trader-x-input").value = "";
+    byId("trader-y-input").value = "";
+    await loadTraders();
+  }
+
+  async function updateTrader() {
+    const traderId = selectedNumber("trader-list");
+    if (!traderId) return alert("Сначала выберите торговца");
+    const name = String(byId("trader-name-input")?.value || "").trim();
+    const xVal = String(byId("trader-x-input")?.value || "").trim();
+    const yVal = String(byId("trader-y-input")?.value || "").trim();
+    const payload = {};
+    if (name) payload.name = name;
+    if (xVal !== "") {
+      const x = Number(xVal);
+      if (!Number.isFinite(x)) return alert("Некорректная координата X");
+      payload.x = x;
+    }
+    if (yVal !== "") {
+      const y = Number(yVal);
+      if (!Number.isFinite(y)) return alert("Некорректная координата Y");
+      payload.y = y;
+    }
+    await api(`/api/admin/traders/${traderId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
     await loadTraders();
   }
 
@@ -229,6 +275,7 @@
     byId("trader-item-search-input")?.addEventListener("input", () => loadItems().catch((e) => alert(e.message)));
 
     byId("trader-create-btn")?.addEventListener("click", () => createTrader().catch((e) => alert(e.message)));
+    byId("trader-update-btn")?.addEventListener("click", () => updateTrader().catch((e) => alert(e.message)));
     byId("trader-section-create-btn")?.addEventListener("click", () => createSection().catch((e) => alert(e.message)));
     byId("trader-subsection-create-btn")?.addEventListener("click", () => createSubsection().catch((e) => alert(e.message)));
     byId("trader-item-create-btn")?.addEventListener("click", () => createItem().catch((e) => alert(e.message)));
@@ -261,6 +308,15 @@
       byId("trader-item-name-input").value = item.name;
       byId("trader-item-buy-input").value = String(item.buy_price ?? 0);
       byId("trader-item-sell-input").value = String(item.sell_price ?? 0);
+    });
+
+    byId("trader-list")?.addEventListener("change", () => {
+      const traderId = selectedNumber("trader-list");
+      const trader = state.traders.find((x) => x.id === traderId);
+      if (!trader) return;
+      byId("trader-name-input").value = trader.name || "";
+      byId("trader-x-input").value = trader.x ?? "";
+      byId("trader-y-input").value = trader.y ?? "";
     });
   }
 

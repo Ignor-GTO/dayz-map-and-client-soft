@@ -143,6 +143,8 @@ class Trader(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
     name: Mapped[str] = mapped_column(String(128), index=True)
+    x: Mapped[float | None] = mapped_column(Float, nullable=True)
+    y: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     sections: Mapped[list["TraderSection"]] = relationship(

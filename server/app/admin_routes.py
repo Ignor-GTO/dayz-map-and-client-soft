@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -53,6 +54,7 @@ from app.schemas import (
     TraderSectionResponse,
     TraderSubsectionCreateRequest,
     TraderSubsectionResponse,
+    TraderUpdateRequest,
 )
 from app.seed import ADMIN_PASSWORD_KEY, hash_admin_password, verify_admin_password
 from app.settings_service import is_public_pin_creation, set_public_pin_creation
@@ -86,6 +88,8 @@ def _item_response(item: TraderItem, subsection: TraderSubsection, section: Trad
         trader_id=trader.id,
         map_id=trader.map_id,
         trader=trader.name,
+        trader_x=trader.x,
+        trader_y=trader.y,
         section=section.name,
         subsection=subsection.name,
         name=item.name,
@@ -426,7 +430,7 @@ async def admin_list_traders(
             select(Trader).where(Trader.map_id == game_map.id).order_by(Trader.name.asc())
         )
     ).scalars().all()
-    return [TraderResponse(id=t.id, map_id=t.map_id, name=t.name) for t in traders]
+    return [TraderResponse(id=t.id, map_id=t.map_id, name=t.name, x=t.x, y=t.y) for t in traders]
 
 
 @router.post("/traders", response_model=TraderResponse)
@@ -443,12 +447,44 @@ async def admin_create_trader(
         )
     ).scalar_one_or_none()
     if existing:
-        return TraderResponse(id=existing.id, map_id=existing.map_id, name=existing.name)
-    trader = Trader(map_id=game_map.id, name=name)
+        if payload.x is not None:
+            existing.x = float(payload.x)
+        if payload.y is not None:
+            existing.y = float(payload.y)
+        await db.commit()
+        await db.refresh(existing)
+        return TraderResponse(id=existing.id, map_id=existing.map_id, name=existing.name, x=existing.x, y=existing.y)
+    trader = Trader(
+        map_id=game_map.id,
+        name=name,
+        x=float(payload.x) if payload.x is not None else None,
+        y=float(payload.y) if payload.y is not None else None,
+    )
     db.add(trader)
     await db.commit()
     await db.refresh(trader)
-    return TraderResponse(id=trader.id, map_id=trader.map_id, name=trader.name)
+    return TraderResponse(id=trader.id, map_id=trader.map_id, name=trader.name, x=trader.x, y=trader.y)
+
+
+@router.put("/traders/{trader_id}", response_model=TraderResponse)
+async def admin_update_trader(
+    trader_id: int,
+    payload: TraderUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    trader = await db.get(Trader, trader_id)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    if payload.name is not None:
+        trader.name = _clean_name(payload.name, field="trader", max_len=128)
+    if payload.x is not None:
+        trader.x = float(payload.x)
+    if payload.y is not None:
+        trader.y = float(payload.y)
+    await db.commit()
+    await db.refresh(trader)
+    return TraderResponse(id=trader.id, map_id=trader.map_id, name=trader.name, x=trader.x, y=trader.y)
 
 
 @router.delete("/traders/{trader_id}")
@@ -696,74 +732,105 @@ async def admin_import_trader_items_json(
     _: Annotated[None, Depends(require_admin)],
 ):
     game_map = await _get_map(db, payload.map_slug)
-    created = 0
-    updated = 0
+    if not payload.items:
+        return {"ok": True, "created": 0, "updated": 0, "total": 0}
+
+    # Deduplicate payload by full path+item name (case-insensitive).
+    # Last duplicate entry wins.
+    normalized_entries: dict[tuple[str, str, str, str], tuple[str, str, str, str, int, int]] = {}
     for entry in payload.items:
         trader_name = _clean_name(entry.trader, field="trader", max_len=128)
         section_name = _clean_name(entry.section, field="section", max_len=128)
         subsection_name = _clean_name(entry.subsection, field="subsection", max_len=128)
         item_name = _clean_name(entry.name, field="item", max_len=160)
+        key = (
+            trader_name.lower(),
+            section_name.lower(),
+            subsection_name.lower(),
+            item_name.lower(),
+        )
+        normalized_entries[key] = (
+            trader_name,
+            section_name,
+            subsection_name,
+            item_name,
+            int(entry.buy_price),
+            int(entry.sell_price),
+        )
 
-        trader = (
-            await db.execute(
-                select(Trader).where(Trader.map_id == game_map.id, func.lower(Trader.name) == trader_name.lower())
-            )
-        ).scalar_one_or_none()
-        if not trader:
-            trader = Trader(map_id=game_map.id, name=trader_name)
-            db.add(trader)
-            await db.flush()
+    ordered_entries = list(normalized_entries.values())
+    created = 0
+    updated = 0
+    try:
+        for trader_name, section_name, subsection_name, item_name, buy_price, sell_price in ordered_entries:
+            trader = (
+                await db.execute(
+                    select(Trader).where(Trader.map_id == game_map.id, func.lower(Trader.name) == trader_name.lower())
+                )
+            ).scalar_one_or_none()
+            if not trader:
+                trader = Trader(map_id=game_map.id, name=trader_name)
+                db.add(trader)
+                await db.flush()
 
-        section = (
-            await db.execute(
-                select(TraderSection).where(
-                    TraderSection.trader_id == trader.id,
-                    func.lower(TraderSection.name) == section_name.lower(),
+            section = (
+                await db.execute(
+                    select(TraderSection).where(
+                        TraderSection.trader_id == trader.id,
+                        func.lower(TraderSection.name) == section_name.lower(),
+                    )
                 )
-            )
-        ).scalar_one_or_none()
-        if not section:
-            section = TraderSection(trader_id=trader.id, name=section_name)
-            db.add(section)
-            await db.flush()
+            ).scalar_one_or_none()
+            if not section:
+                section = TraderSection(trader_id=trader.id, name=section_name)
+                db.add(section)
+                await db.flush()
 
-        subsection = (
-            await db.execute(
-                select(TraderSubsection).where(
-                    TraderSubsection.section_id == section.id,
-                    func.lower(TraderSubsection.name) == subsection_name.lower(),
+            subsection = (
+                await db.execute(
+                    select(TraderSubsection).where(
+                        TraderSubsection.section_id == section.id,
+                        func.lower(TraderSubsection.name) == subsection_name.lower(),
+                    )
                 )
-            )
-        ).scalar_one_or_none()
-        if not subsection:
-            subsection = TraderSubsection(section_id=section.id, name=subsection_name)
-            db.add(subsection)
-            await db.flush()
+            ).scalar_one_or_none()
+            if not subsection:
+                subsection = TraderSubsection(section_id=section.id, name=subsection_name)
+                db.add(subsection)
+                await db.flush()
 
-        item = (
-            await db.execute(
-                select(TraderItem).where(
-                    TraderItem.subsection_id == subsection.id,
-                    func.lower(TraderItem.name) == item_name.lower(),
+            item = (
+                await db.execute(
+                    select(TraderItem).where(
+                        TraderItem.subsection_id == subsection.id,
+                        func.lower(TraderItem.name) == item_name.lower(),
+                    )
                 )
-            )
-        ).scalar_one_or_none()
-        if item:
-            item.buy_price = int(entry.buy_price)
-            item.sell_price = int(entry.sell_price)
-            updated += 1
-        else:
-            db.add(
-                TraderItem(
-                    subsection_id=subsection.id,
-                    name=item_name,
-                    buy_price=int(entry.buy_price),
-                    sell_price=int(entry.sell_price),
+            ).scalar_one_or_none()
+            if item:
+                item.buy_price = buy_price
+                item.sell_price = sell_price
+                updated += 1
+            else:
+                db.add(
+                    TraderItem(
+                        subsection_id=subsection.id,
+                        name=item_name,
+                        buy_price=buy_price,
+                        sell_price=sell_price,
+                    )
                 )
-            )
-            created += 1
-    await db.commit()
-    return {"ok": True, "created": created, "updated": updated, "total": len(payload.items)}
+                await db.flush()
+                created += 1
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Конфликт данных при импорте (дубли trader/section/subsection/item). Проверьте JSON.",
+        )
+
+    return {"ok": True, "created": created, "updated": updated, "total": len(ordered_entries)}
 
 
 @router.get("/radiation")

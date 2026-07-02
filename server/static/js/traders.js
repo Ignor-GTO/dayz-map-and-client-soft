@@ -20,13 +20,14 @@ function renderTraderRows(items) {
   const body = document.getElementById("traders-table-body");
   if (!body) return;
   if (!items.length) {
-    body.innerHTML = `<tr><td colspan="6" class="muted">Ничего не найдено</td></tr>`;
+    body.innerHTML = `<tr><td colspan="7" class="muted">Ничего не найдено</td></tr>`;
     return;
   }
   body.innerHTML = items.map((it) => `
     <tr>
       <td><strong>${escapeHtml(it.name)}</strong></td>
       <td>${escapeHtml(it.trader)}</td>
+      <td>${it.trader_x != null && it.trader_y != null ? `${Math.round(it.trader_x)} / ${Math.round(it.trader_y)}` : "—"}</td>
       <td>${escapeHtml(it.section)}</td>
       <td>${escapeHtml(it.subsection)}</td>
       <td>${Number(it.buy_price || 0)}</td>
@@ -77,7 +78,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   } catch (err) {
     const body = document.getElementById("traders-table-body");
     if (body) {
-      body.innerHTML = `<tr><td colspan="6" class="error">${escapeHtml(err.message || String(err))}</td></tr>`;
+      body.innerHTML = `<tr><td colspan="7" class="error">${escapeHtml(err.message || String(err))}</td></tr>`;
     }
   }
 

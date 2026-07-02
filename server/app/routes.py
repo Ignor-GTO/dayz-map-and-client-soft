@@ -160,6 +160,8 @@ async def map_trader_items(
             TraderSection.name.label("section_name"),
             Trader.id.label("trader_id"),
             Trader.name.label("trader_name"),
+            Trader.x.label("trader_x"),
+            Trader.y.label("trader_y"),
         )
         .join(TraderSubsection, TraderSubsection.id == TraderItem.subsection_id)
         .join(TraderSection, TraderSection.id == TraderSubsection.section_id)
@@ -179,6 +181,8 @@ async def map_trader_items(
             trader_id=row.trader_id,
             map_id=game_map.id,
             trader=row.trader_name,
+            trader_x=row.trader_x,
+            trader_y=row.trader_y,
             section=row.section_name,
             subsection=row.subsection_name,
             name=row.item_name,

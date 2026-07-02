@@ -15,6 +15,8 @@ CONFIG_PATH = BASE_DIR / "config.json"
 
 def normalize_hotkey_token(token: str) -> str:
     t = (token or "").strip().lower()
+    if t in {"`", "grave", "backquote", "grave accent"}:
+        return "delete"
     if t in {"*", "multiply", "kp multiply", "numpad multiply"}:
         return "num *"
     if t in {"/", "divide", "kp divide", "numpad divide"}:

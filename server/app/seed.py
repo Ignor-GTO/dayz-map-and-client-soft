@@ -100,6 +100,8 @@ def _migrate_sqlite(conn) -> None:
             "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
             "  map_id INTEGER NOT NULL REFERENCES dayz_maps(id),"
             "  name VARCHAR(128) NOT NULL,"
+            "  x FLOAT,"
+            "  y FLOAT,"
             "  created_at DATETIME,"
             "  CONSTRAINT uq_trader_map_name UNIQUE (map_id, name)"
             ")"
@@ -107,6 +109,12 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_traders_map_id ON traders (map_id)"))
         conn.execute(text("CREATE INDEX ix_traders_name ON traders (name)"))
         logger.info("Created traders table")
+    else:
+        trader_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(traders)")).fetchall()}
+        if trader_cols and "x" not in trader_cols:
+            conn.execute(text("ALTER TABLE traders ADD COLUMN x FLOAT"))
+        if trader_cols and "y" not in trader_cols:
+            conn.execute(text("ALTER TABLE traders ADD COLUMN y FLOAT"))
 
     if "trader_sections" not in road_tables:
         conn.execute(text(

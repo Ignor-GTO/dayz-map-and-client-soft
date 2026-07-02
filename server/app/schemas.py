@@ -316,6 +316,8 @@ class TraderResponse(BaseModel):
     id: int
     map_id: int
     name: str
+    x: float | None = None
+    y: float | None = None
 
 
 class TraderSectionResponse(BaseModel):
@@ -337,6 +339,8 @@ class TraderItemResponse(BaseModel):
     trader_id: int
     map_id: int
     trader: str
+    trader_x: float | None = None
+    trader_y: float | None = None
     section: str
     subsection: str
     name: str
@@ -347,6 +351,14 @@ class TraderItemResponse(BaseModel):
 class TraderCreateRequest(BaseModel):
     map_slug: str = Field(min_length=2, max_length=64)
     name: str = Field(min_length=1, max_length=128)
+    x: float | None = None
+    y: float | None = None
+
+
+class TraderUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=128)
+    x: float | None = None
+    y: float | None = None
 
 
 class TraderSectionCreateRequest(BaseModel):
