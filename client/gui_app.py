@@ -1250,10 +1250,10 @@ class ClientApp(tk.Tk):
             return "break"
         return "break" if self._paste_into_widget(widget) else None
 
-    def save_settings(self) -> None:
+    def save_settings(self) -> bool:
         if not self.key_var.get().strip():
             messagebox.showerror("Ошибка", "Укажите ключ клиента")
-            return
+            return False
             
         # Hotkeys validation
         hotkey_fields = {
@@ -1274,7 +1274,7 @@ class ClientApp(tk.Tk):
                     keyboard.parse_hotkey(p)
                 except Exception:
                     messagebox.showerror("Ошибка", f"Недопустимое сочетание клавиш для '{label}': '{p}'")
-                    return
+                    return False
             parsed_hotkeys[config_key] = parts
 
         game_key_str = normalize_hotkey_token(self.game_map_key_var.get())
@@ -1283,7 +1283,7 @@ class ClientApp(tk.Tk):
                 keyboard.parse_hotkey(game_key_str)
             except Exception:
                 messagebox.showerror("Ошибка", f"Недопустимая клавиша для 'Игровая клавиша карты': '{game_key_str}'")
-                return
+                return False
 
         # Parse and validate numeric settings
         try:
@@ -1292,7 +1292,7 @@ class ClientApp(tk.Tk):
                 raise ValueError()
         except ValueError:
             messagebox.showerror("Ошибка", "Задержка мыши должна быть целым неотрицательным числом")
-            return
+            return False
 
         try:
             offset = int(self.mouse_nudge_offset_var.get())
@@ -1300,7 +1300,7 @@ class ClientApp(tk.Tk):
                 raise ValueError()
         except ValueError:
             messagebox.showerror("Ошибка", "Отступ мыши должен быть целым неотрицательным числом")
-            return
+            return False
 
         monitor_index = self.monitor_combo.current() + 1 if self._monitors else 1
         ocr_mode = self.preprocess_modes_map.get(self.ocr_preprocess_mode_var.get(), "auto")
@@ -1336,6 +1336,7 @@ class ClientApp(tk.Tk):
         if self.hotkeys_active:
             self.stop_hotkeys()
             self.start_hotkeys()
+        return True
 
     def _record_hotkey(self, entry_var, btn) -> None:
         btn.configure(text="⌛ Нажмите...", state="disabled")
@@ -1701,7 +1702,8 @@ class ClientApp(tk.Tk):
         }
 
     def test_ocr(self) -> None:
-        self.save_settings()
+        if not self.save_settings():
+            return
         monitor = self._monitor_index()
         region = self._ocr_region()
         result: dict = {}
@@ -1740,8 +1742,11 @@ class ClientApp(tk.Tk):
     def start_hotkeys(self) -> None:
         if self.hotkeys_active:
             return
-        self.save_settings()
+        if not self.save_settings():
+            self.log_line("[Hotkeys] Запуск отменён: проверьте настройки")
+            return
         if not self.map_client:
+            self.log_line("[Hotkeys] Не удалось запустить: нет подключения к серверу")
             return
         from ocr_engine import ensure_ocr_backend
 
@@ -1762,47 +1767,56 @@ class ClientApp(tk.Tk):
         self.status_var.set(f"Работает — {game_map_key.upper()} / {', '.join(toggle_keys).upper()} запуск считывания")
         self.start_btn.configure(text="Остановить hotkeys")
         
-        for hk in toggle_keys:
-            if hk.strip():
-                key_lower = hk.strip().lower()
-                # Suppress lock keys to prevent side-effects in OS/browser (like opening browser on NumLock)
-                suppress_key = (key_lower in ["num lock", "scroll lock", "caps lock"])
+        try:
+            for hk in toggle_keys:
+                if hk.strip():
+                    key_lower = hk.strip().lower()
+                    # Suppress lock keys to prevent side-effects in OS/browser (like opening browser on NumLock)
+                    suppress_key = (key_lower in ["num lock", "scroll lock", "caps lock"])
+                    keyboard.add_hotkey(
+                        key_lower,
+                        lambda key=hk: self.after(0, lambda: self._handle_m_hotkey(key)),
+                        suppress=suppress_key
+                    )
+
+            if game_map_key.strip() and game_map_key_lower not in toggle_keys_lower:
                 keyboard.add_hotkey(
-                    key_lower, 
-                    lambda key=hk: self.after(0, lambda: self._handle_m_hotkey(key)), 
-                    suppress=suppress_key
+                    game_map_key_lower,
+                    lambda key=game_map_key: self.after(0, lambda: self._handle_m_hotkey(key)),
+                    suppress=False
                 )
 
-        if game_map_key.strip() and game_map_key_lower not in toggle_keys_lower:
-            keyboard.add_hotkey(
-                game_map_key_lower,
-                lambda key=game_map_key: self.after(0, lambda: self._handle_m_hotkey(key)),
-                suppress=False
-            )
-                
-        for hk in self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"]):
-            if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_marker_hotkey), suppress=False)
-                
-        for hk in self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"]):
-            if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_snip_hotkey), suppress=False)
-                
-        for hk in self.cfg.get("hotkey_close_map", ["esc"]):
-            if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_esc_hotkey), suppress=False)
-                
-        for hk in self.cfg.get("hotkey_zoom_in", ["page up"]):
-            if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_in_hotkey), suppress=False)
+            for hk in self.cfg.get("hotkey_send_marker", ["ctrl+shift+d"]):
+                if hk.strip():
+                    keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_marker_hotkey), suppress=False)
 
-        for hk in self.cfg.get("hotkey_zoom_out", ["page down"]):
-            if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_out_hotkey), suppress=False)
+            for hk in self.cfg.get("hotkey_snip_coords", ["ctrl+shift+s", "ctrl+shift+c"]):
+                if hk.strip():
+                    keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_snip_hotkey), suppress=False)
 
-        for hk in self.cfg.get("hotkey_focus_me", ["end"]):
-            if hk.strip():
-                keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_focus_me_hotkey), suppress=False)
+            for hk in self.cfg.get("hotkey_close_map", ["esc"]):
+                if hk.strip():
+                    keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_esc_hotkey), suppress=False)
+
+            for hk in self.cfg.get("hotkey_zoom_in", ["page up"]):
+                if hk.strip():
+                    keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_in_hotkey), suppress=False)
+
+            for hk in self.cfg.get("hotkey_zoom_out", ["page down"]):
+                if hk.strip():
+                    keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_zoom_out_hotkey), suppress=False)
+
+            for hk in self.cfg.get("hotkey_focus_me", ["end"]):
+                if hk.strip():
+                    keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_focus_me_hotkey), suppress=False)
+        except Exception as exc:
+            self.hotkeys_active = False
+            self._stop_clipboard.set()
+            keyboard.unhook_all_hotkeys()
+            self.status_var.set("Остановлено")
+            self.start_btn.configure(text="Запустить hotkeys")
+            self.log_line(f"[Hotkeys] Ошибка запуска: {exc}")
+            return
 
         self._stop_clipboard.clear()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
