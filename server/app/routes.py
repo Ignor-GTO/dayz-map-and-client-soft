@@ -2,7 +2,7 @@ import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -144,7 +144,7 @@ async def map_trader_items(
     limit: int = 250,
 ):
     game_map = await get_map_by_slug(db, slug)
-    needle = q.strip()
+    needle = q.strip().casefold()
     limit = max(1, min(limit, 1000))
 
     stmt = (
@@ -168,29 +168,33 @@ async def map_trader_items(
         .join(Trader, Trader.id == TraderSection.trader_id)
         .where(Trader.map_id == game_map.id)
     )
-    if needle:
-        stmt = stmt.where(func.lower(TraderItem.name).contains(needle.lower()))
-    stmt = stmt.order_by(TraderItem.name.asc(), Trader.name.asc()).limit(limit)
+    stmt = stmt.order_by(TraderItem.name.asc(), Trader.name.asc())
 
     rows = (await db.execute(stmt)).all()
-    return [
-        TraderItemResponse(
-            id=row.item_id,
-            subsection_id=row.subsection_id,
-            section_id=row.section_id,
-            trader_id=row.trader_id,
-            map_id=game_map.id,
-            trader=row.trader_name,
-            trader_x=row.trader_x,
-            trader_y=row.trader_y,
-            section=row.section_name,
-            subsection=row.subsection_name,
-            name=row.item_name,
-            buy_price=int(row.buy_price or 0),
-            sell_price=int(row.sell_price or 0),
+    out: list[TraderItemResponse] = []
+    for row in rows:
+        if needle and needle not in str(row.item_name or "").casefold():
+            continue
+        out.append(
+            TraderItemResponse(
+                id=row.item_id,
+                subsection_id=row.subsection_id,
+                section_id=row.section_id,
+                trader_id=row.trader_id,
+                map_id=game_map.id,
+                trader=row.trader_name,
+                trader_x=row.trader_x,
+                trader_y=row.trader_y,
+                section=row.section_name,
+                subsection=row.subsection_name,
+                name=row.item_name,
+                buy_price=int(row.buy_price or 0),
+                sell_price=int(row.sell_price or 0),
+            )
         )
-        for row in rows
-    ]
+        if len(out) >= limit:
+            break
+    return out
 
 
 @router.get("/map/locations", response_model=MapLocationsResponse)

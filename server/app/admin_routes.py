@@ -648,12 +648,15 @@ async def admin_list_trader_items(
         .join(Trader, Trader.id == TraderSection.trader_id)
         .where(Trader.map_id == game_map.id)
     )
-    needle = q.strip()
-    if needle:
-        stmt = stmt.where(func.lower(TraderItem.name).contains(needle.lower()))
+    needle = q.strip().casefold()
     stmt = stmt.order_by(TraderItem.name.asc())
     rows = (await db.execute(stmt)).all()
-    return [_item_response(item, subsection, section, trader) for item, subsection, section, trader in rows]
+    out: list[TraderItemResponse] = []
+    for item, subsection, section, trader in rows:
+        if needle and needle not in str(item.name or "").casefold():
+            continue
+        out.append(_item_response(item, subsection, section, trader))
+    return out
 
 
 @router.post("/trader-items", response_model=TraderItemResponse)
