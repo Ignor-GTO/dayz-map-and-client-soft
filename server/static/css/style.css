@@ -135,6 +135,30 @@ button.secondary:hover { background: #3a4858; }
               padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.legend-mouse-coords {
+  position: sticky;
+  bottom: -1rem;
+  margin: 0.75rem -1rem -1rem;
+  padding: 0.65rem 1rem;
+  border-top: 1px solid #2a3848;
+  background: rgba(20, 28, 40, 0.98);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.legend-mouse-label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.legend-mouse-value {
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
 #legend.collapsed {
   width: 0;
   padding: 0;

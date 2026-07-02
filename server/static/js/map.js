@@ -346,13 +346,17 @@ function initLeaflet(config) {
     }
   });
   state.map.on("mousemove", (e) => {
+    updateMouseCoordsDisplay(e.latlng);
     if (state.draw.mode || state.navActive) {
       hideZoneHoverTooltip();
       return;
     }
     updateZoneHoverTooltip(e.latlng);
   });
-  state.map.on("mouseout", hideZoneHoverTooltip);
+  state.map.on("mouseout", () => {
+    hideZoneHoverTooltip();
+    updateMouseCoordsDisplay(null);
+  });
 
   // Handle popup action button clicks
   state.map.on("popupopen", (e) => {
@@ -512,6 +516,20 @@ function hideZoneHoverTooltip() {
   if (!state.map || !state.zoneHoverTooltip) return;
   state.map.removeLayer(state.zoneHoverTooltip);
   state.zoneHoverTooltip = null;
+}
+
+function setMouseCoordsText(text) {
+  const el = document.getElementById("mouse-coords-value");
+  if (el) el.textContent = text;
+}
+
+function updateMouseCoordsDisplay(latlng) {
+  if (!latlng) {
+    setMouseCoordsText("— / —");
+    return;
+  }
+  const game = latLngToGame(latlng);
+  setMouseCoordsText(`${Math.round(game.x)} / ${Math.round(game.y)}`);
 }
 
 function updateZoneHoverTooltip(latlng) {

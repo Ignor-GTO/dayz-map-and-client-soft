@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=14">
+  <link rel="stylesheet" href="/css/style.css?v=15">
 </head>
 <body>
   <div id="app">
@@ -289,6 +289,10 @@
               <li><span style="display:inline-block;width:20px;height:3px;background:#4fc3f7;border-radius:2px;vertical-align:middle"></span> Городская</li>
             </ul>
           </div>
+          <div id="mouse-coords-box" class="legend-mouse-coords">
+            <span class="legend-mouse-label">Курсор:</span>
+            <span id="mouse-coords-value" class="legend-mouse-value">— / —</span>
+          </div>
         </aside>
         <button type="button" id="legend-toggle" class="legend-toggle-btn">▶</button>
       </div>
@@ -297,6 +301,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js"></script>
-  <script src="/js/map.js?v=41"></script>
+  <script src="/js/map.js?v=42"></script>
 </body>
 </html>
