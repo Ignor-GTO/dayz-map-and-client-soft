@@ -16,7 +16,7 @@ CONFIG_PATH = BASE_DIR / "config.json"
 def normalize_hotkey_token(token: str) -> str:
     t = (token or "").strip().lower()
     if t in {"`", "grave", "backquote", "grave accent"}:
-        return "delete"
+        return "."
     if t in {"*", "multiply", "kp multiply", "numpad multiply"}:
         return "num *"
     if t in {"/", "divide", "kp divide", "numpad divide"}:
@@ -90,8 +90,26 @@ def load_config() -> dict:
                     ):
                         if key in loaded and isinstance(loaded[key], list):
                             loaded[key] = normalize_hotkey_list(loaded[key])
+                    # Migration: previous builds could normalize ` as "delete".
+                    # Switch those values back to dot to match current expected behavior.
+                    for key in (
+                        "hotkey_toggle_map",
+                        "hotkey_send_marker",
+                        "hotkey_snip_coords",
+                        "hotkey_close_map",
+                        "hotkey_zoom_in",
+                        "hotkey_zoom_out",
+                        "hotkey_focus_me",
+                    ):
+                        if key in loaded and isinstance(loaded[key], list):
+                            loaded[key] = [
+                                "." if str(v).strip().lower() == "delete" else v
+                                for v in loaded[key]
+                            ]
                     if "game_map_key" in loaded and isinstance(loaded["game_map_key"], str):
                         loaded["game_map_key"] = normalize_hotkey_token(loaded["game_map_key"])
+                        if loaded["game_map_key"] == "delete":
+                            loaded["game_map_key"] = "."
                     # Migration: old defaults Num+/Num- are unreliable on some layouts.
                     # If user still has untouched defaults, switch to PageUp/PageDown.
                     if (
