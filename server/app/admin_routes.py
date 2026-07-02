@@ -80,6 +80,42 @@ def _clean_name(value: str, *, field: str = "name", max_len: int = 160) -> str:
     return cleaned
 
 
+def _same_name(a: str | None, b: str | None) -> bool:
+    return str(a or "").strip().casefold() == str(b or "").strip().casefold()
+
+
+async def _find_trader(db: AsyncSession, map_id: int, name: str) -> Trader | None:
+    rows = (await db.execute(select(Trader).where(Trader.map_id == map_id))).scalars().all()
+    for row in rows:
+        if _same_name(row.name, name):
+            return row
+    return None
+
+
+async def _find_section(db: AsyncSession, trader_id: int, name: str) -> TraderSection | None:
+    rows = (await db.execute(select(TraderSection).where(TraderSection.trader_id == trader_id))).scalars().all()
+    for row in rows:
+        if _same_name(row.name, name):
+            return row
+    return None
+
+
+async def _find_subsection(db: AsyncSession, section_id: int, name: str) -> TraderSubsection | None:
+    rows = (await db.execute(select(TraderSubsection).where(TraderSubsection.section_id == section_id))).scalars().all()
+    for row in rows:
+        if _same_name(row.name, name):
+            return row
+    return None
+
+
+async def _find_item(db: AsyncSession, subsection_id: int, name: str) -> TraderItem | None:
+    rows = (await db.execute(select(TraderItem).where(TraderItem.subsection_id == subsection_id))).scalars().all()
+    for row in rows:
+        if _same_name(row.name, name):
+            return row
+    return None
+
+
 def _item_response(item: TraderItem, subsection: TraderSubsection, section: TraderSection, trader: Trader) -> TraderItemResponse:
     return TraderItemResponse(
         id=item.id,
@@ -441,11 +477,7 @@ async def admin_create_trader(
 ):
     game_map = await _get_map(db, payload.map_slug)
     name = _clean_name(payload.name, field="trader", max_len=128)
-    existing = (
-        await db.execute(
-            select(Trader).where(Trader.map_id == game_map.id, func.lower(Trader.name) == name.lower())
-        )
-    ).scalar_one_or_none()
+    existing = await _find_trader(db, game_map.id, name)
     if existing:
         if payload.x is not None:
             existing.x = float(payload.x)
@@ -525,14 +557,7 @@ async def admin_create_trader_section(
     if not trader:
         raise HTTPException(status_code=404, detail="Trader not found")
     name = _clean_name(payload.name, field="section", max_len=128)
-    existing = (
-        await db.execute(
-            select(TraderSection).where(
-                TraderSection.trader_id == trader.id,
-                func.lower(TraderSection.name) == name.lower(),
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await _find_section(db, trader.id, name)
     if existing:
         return TraderSectionResponse(id=existing.id, trader_id=existing.trader_id, name=existing.name)
     section = TraderSection(trader_id=trader.id, name=name)
@@ -580,14 +605,7 @@ async def admin_create_trader_subsection(
     if not section:
         raise HTTPException(status_code=404, detail="Section not found")
     name = _clean_name(payload.name, field="subsection", max_len=128)
-    existing = (
-        await db.execute(
-            select(TraderSubsection).where(
-                TraderSubsection.section_id == section.id,
-                func.lower(TraderSubsection.name) == name.lower(),
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await _find_subsection(db, section.id, name)
     if existing:
         return TraderSubsectionResponse(
             id=existing.id,
@@ -652,14 +670,7 @@ async def admin_create_trader_item(
     if not section or not trader:
         raise HTTPException(status_code=404, detail="Trader path not found")
     name = _clean_name(payload.name, field="item", max_len=160)
-    existing = (
-        await db.execute(
-            select(TraderItem).where(
-                TraderItem.subsection_id == subsection.id,
-                func.lower(TraderItem.name) == name.lower(),
-            )
-        )
-    ).scalar_one_or_none()
+    existing = await _find_item(db, subsection.id, name)
     if existing:
         existing.buy_price = int(payload.buy_price)
         existing.sell_price = int(payload.sell_price)
@@ -763,50 +774,25 @@ async def admin_import_trader_items_json(
     updated = 0
     try:
         for trader_name, section_name, subsection_name, item_name, buy_price, sell_price in ordered_entries:
-            trader = (
-                await db.execute(
-                    select(Trader).where(Trader.map_id == game_map.id, func.lower(Trader.name) == trader_name.lower())
-                )
-            ).scalar_one_or_none()
+            trader = await _find_trader(db, game_map.id, trader_name)
             if not trader:
                 trader = Trader(map_id=game_map.id, name=trader_name)
                 db.add(trader)
                 await db.flush()
 
-            section = (
-                await db.execute(
-                    select(TraderSection).where(
-                        TraderSection.trader_id == trader.id,
-                        func.lower(TraderSection.name) == section_name.lower(),
-                    )
-                )
-            ).scalar_one_or_none()
+            section = await _find_section(db, trader.id, section_name)
             if not section:
                 section = TraderSection(trader_id=trader.id, name=section_name)
                 db.add(section)
                 await db.flush()
 
-            subsection = (
-                await db.execute(
-                    select(TraderSubsection).where(
-                        TraderSubsection.section_id == section.id,
-                        func.lower(TraderSubsection.name) == subsection_name.lower(),
-                    )
-                )
-            ).scalar_one_or_none()
+            subsection = await _find_subsection(db, section.id, subsection_name)
             if not subsection:
                 subsection = TraderSubsection(section_id=section.id, name=subsection_name)
                 db.add(subsection)
                 await db.flush()
 
-            item = (
-                await db.execute(
-                    select(TraderItem).where(
-                        TraderItem.subsection_id == subsection.id,
-                        func.lower(TraderItem.name) == item_name.lower(),
-                    )
-                )
-            ).scalar_one_or_none()
+            item = await _find_item(db, subsection.id, item_name)
             if item:
                 item.buy_price = buy_price
                 item.sell_price = sell_price
