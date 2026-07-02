@@ -405,11 +405,8 @@ class ClientApp(tk.Tk):
         # Start button row
         btn_subfrm = ttk.Frame(ctrl_card, style="CardSub.TFrame")
         btn_subfrm.pack(fill="x")
-        self.start_btn = ttk.Button(btn_subfrm, text="Запустить hotkeys", command=self.start_hotkeys, width=22)
-        self.start_btn.pack(side="left", padx=(0, 8))
-        self.stop_btn = ttk.Button(btn_subfrm, text="Остановить hotkeys", command=self.stop_hotkeys, width=22)
-        self.stop_btn.pack(side="left")
-        self._sync_hotkey_buttons()
+        self.start_btn = ttk.Button(btn_subfrm, text="Запустить hotkeys", command=self.toggle_hotkeys, width=22)
+        self.start_btn.pack(side="left", padx=(0, 10))
 
         # Instructions / Help
         help_card = ttk.Frame(main_frm, padding=12, style="Card.TFrame")
@@ -1740,19 +1737,8 @@ class ClientApp(tk.Tk):
         else:
             self.start_hotkeys()
 
-    def _sync_hotkey_buttons(self) -> None:
-        if not hasattr(self, "start_btn") or not hasattr(self, "stop_btn"):
-            return
-        if self.hotkeys_active:
-            self.start_btn.configure(state="disabled")
-            self.stop_btn.configure(state="normal")
-        else:
-            self.start_btn.configure(state="normal")
-            self.stop_btn.configure(state="disabled")
-
     def start_hotkeys(self) -> None:
         if self.hotkeys_active:
-            self._sync_hotkey_buttons()
             return
         self.save_settings()
         if not self.map_client:
@@ -1774,7 +1760,7 @@ class ClientApp(tk.Tk):
         game_map_key_lower = game_map_key.strip().lower()
 
         self.status_var.set(f"Работает — {game_map_key.upper()} / {', '.join(toggle_keys).upper()} запуск считывания")
-        self._sync_hotkey_buttons()
+        self.start_btn.configure(text="Остановить hotkeys")
         
         for hk in toggle_keys:
             if hk.strip():
@@ -1834,14 +1820,13 @@ class ClientApp(tk.Tk):
 
     def stop_hotkeys(self) -> None:
         if not self.hotkeys_active:
-            self._sync_hotkey_buttons()
             return
         self.hotkeys_active = False
         self._end_map_session(silent=True)
         self._stop_clipboard.set()
         keyboard.unhook_all_hotkeys()
         self.status_var.set("Остановлено")
-        self._sync_hotkey_buttons()
+        self.start_btn.configure(text="Запустить hotkeys")
         self.log_line("[Стоп] Hotkeys отключены")
 
     def _end_map_session(self, *, silent: bool = False, keep_hud: bool = False) -> None:
