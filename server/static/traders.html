@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Торговцы — DayZ Map</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css?v=16">
+</head>
+<body>
+  <div class="traders-page">
+    <header class="traders-header">
+      <h1>Торговцы</h1>
+      <a class="btn-link" href="/">На карту</a>
+    </header>
+
+    <section class="traders-controls">
+      <label>
+        Карта
+        <select id="traders-map-select"></select>
+      </label>
+      <label>
+        Поиск по названию предмета
+        <input id="traders-search-input" type="text" placeholder="Например: AKM, Бинт, Вода...">
+      </label>
+      <div class="traders-meta" id="traders-meta">Найдено: 0</div>
+    </section>
+
+    <section class="traders-results">
+      <table class="traders-table">
+        <thead>
+          <tr>
+            <th>Предмет</th>
+            <th>Торговец</th>
+            <th>Раздел</th>
+            <th>Подраздел</th>
+            <th>Покупка</th>
+            <th>Продажа</th>
+          </tr>
+        </thead>
+        <tbody id="traders-table-body">
+          <tr><td colspan="6" class="muted">Загрузка...</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <script src="/js/traders.js?v=1"></script>
+</body>
+</html>

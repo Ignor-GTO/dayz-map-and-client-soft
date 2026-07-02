@@ -311,3 +311,78 @@ class NavigateResponse(BaseModel):
     snap: dict | None = None
     error: str | None = None
 
+
+class TraderResponse(BaseModel):
+    id: int
+    map_id: int
+    name: str
+
+
+class TraderSectionResponse(BaseModel):
+    id: int
+    trader_id: int
+    name: str
+
+
+class TraderSubsectionResponse(BaseModel):
+    id: int
+    section_id: int
+    name: str
+
+
+class TraderItemResponse(BaseModel):
+    id: int
+    subsection_id: int
+    section_id: int
+    trader_id: int
+    map_id: int
+    trader: str
+    section: str
+    subsection: str
+    name: str
+    buy_price: int
+    sell_price: int
+
+
+class TraderCreateRequest(BaseModel):
+    map_slug: str = Field(min_length=2, max_length=64)
+    name: str = Field(min_length=1, max_length=128)
+
+
+class TraderSectionCreateRequest(BaseModel):
+    trader_id: int
+    name: str = Field(min_length=1, max_length=128)
+
+
+class TraderSubsectionCreateRequest(BaseModel):
+    section_id: int
+    name: str = Field(min_length=1, max_length=128)
+
+
+class TraderItemCreateRequest(BaseModel):
+    subsection_id: int
+    name: str = Field(min_length=1, max_length=160)
+    buy_price: int = 0
+    sell_price: int = 0
+
+
+class TraderItemUpdateRequest(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    buy_price: int | None = None
+    sell_price: int | None = None
+    subsection_id: int | None = None
+
+
+class TraderItemImportEntry(BaseModel):
+    trader: str = Field(min_length=1, max_length=128)
+    section: str = Field(min_length=1, max_length=128)
+    subsection: str = Field(min_length=1, max_length=128)
+    name: str = Field(min_length=1, max_length=160)
+    buy_price: int = 0
+    sell_price: int = 0
+
+
+class TraderItemImportRequest(BaseModel):
+    map_slug: str = Field(min_length=2, max_length=64)
+    items: list[TraderItemImportEntry] = Field(default_factory=list)
+

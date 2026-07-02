@@ -94,6 +94,64 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_road_segments_map_id ON road_segments (map_id)"))
         logger.info("Created road_segments table")
 
+    if "traders" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE traders ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  map_id INTEGER NOT NULL REFERENCES dayz_maps(id),"
+            "  name VARCHAR(128) NOT NULL,"
+            "  created_at DATETIME,"
+            "  CONSTRAINT uq_trader_map_name UNIQUE (map_id, name)"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_traders_map_id ON traders (map_id)"))
+        conn.execute(text("CREATE INDEX ix_traders_name ON traders (name)"))
+        logger.info("Created traders table")
+
+    if "trader_sections" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE trader_sections ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  trader_id INTEGER NOT NULL REFERENCES traders(id),"
+            "  name VARCHAR(128) NOT NULL,"
+            "  created_at DATETIME,"
+            "  CONSTRAINT uq_trader_section_name UNIQUE (trader_id, name)"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_trader_sections_trader_id ON trader_sections (trader_id)"))
+        conn.execute(text("CREATE INDEX ix_trader_sections_name ON trader_sections (name)"))
+        logger.info("Created trader_sections table")
+
+    if "trader_subsections" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE trader_subsections ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  section_id INTEGER NOT NULL REFERENCES trader_sections(id),"
+            "  name VARCHAR(128) NOT NULL,"
+            "  created_at DATETIME,"
+            "  CONSTRAINT uq_trader_subsection_name UNIQUE (section_id, name)"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_trader_subsections_section_id ON trader_subsections (section_id)"))
+        conn.execute(text("CREATE INDEX ix_trader_subsections_name ON trader_subsections (name)"))
+        logger.info("Created trader_subsections table")
+
+    if "trader_items" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE trader_items ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  subsection_id INTEGER NOT NULL REFERENCES trader_subsections(id),"
+            "  name VARCHAR(160) NOT NULL,"
+            "  buy_price INTEGER NOT NULL DEFAULT 0,"
+            "  sell_price INTEGER NOT NULL DEFAULT 0,"
+            "  created_at DATETIME,"
+            "  CONSTRAINT uq_trader_item_name UNIQUE (subsection_id, name)"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_trader_items_subsection_id ON trader_items (subsection_id)"))
+        conn.execute(text("CREATE INDEX ix_trader_items_name ON trader_items (name COLLATE NOCASE)"))
+        logger.info("Created trader_items table")
+
 
 
 def default_map_kwargs() -> dict:

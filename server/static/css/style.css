@@ -1053,6 +1053,79 @@ button.secondary.small {
   cursor: zoom-in;
 }
 
+.traders-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.traders-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.traders-controls {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+  background: var(--panel);
+  border: 1px solid #2a3848;
+  border-radius: 10px;
+  padding: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.traders-controls label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.traders-meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding-bottom: 0.2rem;
+}
+
+.traders-results {
+  background: var(--panel);
+  border: 1px solid #2a3848;
+  border-radius: 10px;
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+}
+
+.traders-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.traders-table th,
+.traders-table td {
+  text-align: left;
+  padding: 0.6rem 0.7rem;
+  border-bottom: 1px solid #2a3848;
+  font-size: 0.87rem;
+}
+
+.traders-table thead th {
+  position: sticky;
+  top: 0;
+  background: #1d2a3a;
+  z-index: 2;
+}
+
+@media (max-width: 860px) {
+  .traders-controls {
+    grid-template-columns: 1fr;
+  }
+}
+
 #marker-image-modal {
   z-index: 2600;
   background: rgba(0, 0, 0, 0.8);

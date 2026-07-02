@@ -10,7 +10,17 @@ from app.auth import (
     set_admin_session,
 )
 from app.database import get_db
-from app.models import DayZMap, MapPoi, Room, Setting, User
+from app.models import (
+    DayZMap,
+    MapPoi,
+    Room,
+    Setting,
+    Trader,
+    TraderItem,
+    TraderSection,
+    TraderSubsection,
+    User,
+)
 from app.poi_icons import POI_ICONS, normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
 from app.radiation_service import (
@@ -33,6 +43,16 @@ from app.schemas import (
     RoadSegmentCreate,
     RoadSegmentResponse,
     RoadSegmentUpdate,
+    TraderCreateRequest,
+    TraderItemCreateRequest,
+    TraderItemImportRequest,
+    TraderItemResponse,
+    TraderItemUpdateRequest,
+    TraderResponse,
+    TraderSectionCreateRequest,
+    TraderSectionResponse,
+    TraderSubsectionCreateRequest,
+    TraderSubsectionResponse,
 )
 from app.seed import ADMIN_PASSWORD_KEY, hash_admin_password, verify_admin_password
 from app.settings_service import is_public_pin_creation, set_public_pin_creation
@@ -47,6 +67,31 @@ async def _get_map(db: AsyncSession, slug: str) -> DayZMap:
     if not game_map:
         raise HTTPException(status_code=404, detail="Map not found")
     return game_map
+
+
+def _clean_name(value: str, *, field: str = "name", max_len: int = 160) -> str:
+    cleaned = str(value or "").strip()
+    if not cleaned:
+        raise HTTPException(status_code=400, detail=f"{field} is required")
+    if len(cleaned) > max_len:
+        raise HTTPException(status_code=400, detail=f"{field} is too long")
+    return cleaned
+
+
+def _item_response(item: TraderItem, subsection: TraderSubsection, section: TraderSection, trader: Trader) -> TraderItemResponse:
+    return TraderItemResponse(
+        id=item.id,
+        subsection_id=subsection.id,
+        section_id=section.id,
+        trader_id=trader.id,
+        map_id=trader.map_id,
+        trader=trader.name,
+        section=section.name,
+        subsection=subsection.name,
+        name=item.name,
+        buy_price=int(item.buy_price or 0),
+        sell_price=int(item.sell_price or 0),
+    )
 
 
 @router.post("/login")
@@ -362,6 +407,363 @@ async def admin_delete_poi_image(
     poi.description_image_url = None
     await db.commit()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Traders
+# ---------------------------------------------------------------------------
+
+
+@router.get("/traders", response_model=list[TraderResponse])
+async def admin_list_traders(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    traders = (
+        await db.execute(
+            select(Trader).where(Trader.map_id == game_map.id).order_by(Trader.name.asc())
+        )
+    ).scalars().all()
+    return [TraderResponse(id=t.id, map_id=t.map_id, name=t.name) for t in traders]
+
+
+@router.post("/traders", response_model=TraderResponse)
+async def admin_create_trader(
+    payload: TraderCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, payload.map_slug)
+    name = _clean_name(payload.name, field="trader", max_len=128)
+    existing = (
+        await db.execute(
+            select(Trader).where(Trader.map_id == game_map.id, func.lower(Trader.name) == name.lower())
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return TraderResponse(id=existing.id, map_id=existing.map_id, name=existing.name)
+    trader = Trader(map_id=game_map.id, name=name)
+    db.add(trader)
+    await db.commit()
+    await db.refresh(trader)
+    return TraderResponse(id=trader.id, map_id=trader.map_id, name=trader.name)
+
+
+@router.delete("/traders/{trader_id}")
+async def admin_delete_trader(
+    trader_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    trader = await db.get(Trader, trader_id)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    await db.delete(trader)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/trader-sections", response_model=list[TraderSectionResponse])
+async def admin_list_trader_sections(
+    trader_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    sections = (
+        await db.execute(
+            select(TraderSection).where(TraderSection.trader_id == trader_id).order_by(TraderSection.name.asc())
+        )
+    ).scalars().all()
+    return [TraderSectionResponse(id=s.id, trader_id=s.trader_id, name=s.name) for s in sections]
+
+
+@router.post("/trader-sections", response_model=TraderSectionResponse)
+async def admin_create_trader_section(
+    payload: TraderSectionCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    trader = await db.get(Trader, payload.trader_id)
+    if not trader:
+        raise HTTPException(status_code=404, detail="Trader not found")
+    name = _clean_name(payload.name, field="section", max_len=128)
+    existing = (
+        await db.execute(
+            select(TraderSection).where(
+                TraderSection.trader_id == trader.id,
+                func.lower(TraderSection.name) == name.lower(),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return TraderSectionResponse(id=existing.id, trader_id=existing.trader_id, name=existing.name)
+    section = TraderSection(trader_id=trader.id, name=name)
+    db.add(section)
+    await db.commit()
+    await db.refresh(section)
+    return TraderSectionResponse(id=section.id, trader_id=section.trader_id, name=section.name)
+
+
+@router.delete("/trader-sections/{section_id}")
+async def admin_delete_trader_section(
+    section_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    section = await db.get(TraderSection, section_id)
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    await db.delete(section)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/trader-subsections", response_model=list[TraderSubsectionResponse])
+async def admin_list_trader_subsections(
+    section_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    subsections = (
+        await db.execute(
+            select(TraderSubsection).where(TraderSubsection.section_id == section_id).order_by(TraderSubsection.name.asc())
+        )
+    ).scalars().all()
+    return [TraderSubsectionResponse(id=s.id, section_id=s.section_id, name=s.name) for s in subsections]
+
+
+@router.post("/trader-subsections", response_model=TraderSubsectionResponse)
+async def admin_create_trader_subsection(
+    payload: TraderSubsectionCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    section = await db.get(TraderSection, payload.section_id)
+    if not section:
+        raise HTTPException(status_code=404, detail="Section not found")
+    name = _clean_name(payload.name, field="subsection", max_len=128)
+    existing = (
+        await db.execute(
+            select(TraderSubsection).where(
+                TraderSubsection.section_id == section.id,
+                func.lower(TraderSubsection.name) == name.lower(),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        return TraderSubsectionResponse(
+            id=existing.id,
+            section_id=existing.section_id,
+            name=existing.name,
+        )
+    subsection = TraderSubsection(section_id=section.id, name=name)
+    db.add(subsection)
+    await db.commit()
+    await db.refresh(subsection)
+    return TraderSubsectionResponse(id=subsection.id, section_id=subsection.section_id, name=subsection.name)
+
+
+@router.delete("/trader-subsections/{subsection_id}")
+async def admin_delete_trader_subsection(
+    subsection_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    subsection = await db.get(TraderSubsection, subsection_id)
+    if not subsection:
+        raise HTTPException(status_code=404, detail="Subsection not found")
+    await db.delete(subsection)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/trader-items", response_model=list[TraderItemResponse])
+async def admin_list_trader_items(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+    q: str = "",
+):
+    game_map = await _get_map(db, map_slug)
+    stmt = (
+        select(TraderItem, TraderSubsection, TraderSection, Trader)
+        .join(TraderSubsection, TraderSubsection.id == TraderItem.subsection_id)
+        .join(TraderSection, TraderSection.id == TraderSubsection.section_id)
+        .join(Trader, Trader.id == TraderSection.trader_id)
+        .where(Trader.map_id == game_map.id)
+    )
+    needle = q.strip()
+    if needle:
+        stmt = stmt.where(func.lower(TraderItem.name).contains(needle.lower()))
+    stmt = stmt.order_by(TraderItem.name.asc())
+    rows = (await db.execute(stmt)).all()
+    return [_item_response(item, subsection, section, trader) for item, subsection, section, trader in rows]
+
+
+@router.post("/trader-items", response_model=TraderItemResponse)
+async def admin_create_trader_item(
+    payload: TraderItemCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    subsection = await db.get(TraderSubsection, payload.subsection_id)
+    if not subsection:
+        raise HTTPException(status_code=404, detail="Subsection not found")
+    section = await db.get(TraderSection, subsection.section_id)
+    trader = await db.get(Trader, section.trader_id) if section else None
+    if not section or not trader:
+        raise HTTPException(status_code=404, detail="Trader path not found")
+    name = _clean_name(payload.name, field="item", max_len=160)
+    existing = (
+        await db.execute(
+            select(TraderItem).where(
+                TraderItem.subsection_id == subsection.id,
+                func.lower(TraderItem.name) == name.lower(),
+            )
+        )
+    ).scalar_one_or_none()
+    if existing:
+        existing.buy_price = int(payload.buy_price)
+        existing.sell_price = int(payload.sell_price)
+        await db.commit()
+        await db.refresh(existing)
+        return _item_response(existing, subsection, section, trader)
+    item = TraderItem(
+        subsection_id=subsection.id,
+        name=name,
+        buy_price=int(payload.buy_price),
+        sell_price=int(payload.sell_price),
+    )
+    db.add(item)
+    await db.commit()
+    await db.refresh(item)
+    return _item_response(item, subsection, section, trader)
+
+
+@router.put("/trader-items/{item_id}", response_model=TraderItemResponse)
+async def admin_update_trader_item(
+    item_id: int,
+    payload: TraderItemUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    item = await db.get(TraderItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    if payload.subsection_id is not None:
+        subsection = await db.get(TraderSubsection, payload.subsection_id)
+        if not subsection:
+            raise HTTPException(status_code=404, detail="Subsection not found")
+        item.subsection_id = subsection.id
+    subsection = await db.get(TraderSubsection, item.subsection_id)
+    section = await db.get(TraderSection, subsection.section_id) if subsection else None
+    trader = await db.get(Trader, section.trader_id) if section else None
+    if not subsection or not section or not trader:
+        raise HTTPException(status_code=404, detail="Trader path not found")
+
+    if payload.name is not None:
+        item.name = _clean_name(payload.name, field="item", max_len=160)
+    if payload.buy_price is not None:
+        item.buy_price = int(payload.buy_price)
+    if payload.sell_price is not None:
+        item.sell_price = int(payload.sell_price)
+    await db.commit()
+    await db.refresh(item)
+    return _item_response(item, subsection, section, trader)
+
+
+@router.delete("/trader-items/{item_id}")
+async def admin_delete_trader_item(
+    item_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    item = await db.get(TraderItem, item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    await db.delete(item)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/trader-items/import-json")
+async def admin_import_trader_items_json(
+    payload: TraderItemImportRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, payload.map_slug)
+    created = 0
+    updated = 0
+    for entry in payload.items:
+        trader_name = _clean_name(entry.trader, field="trader", max_len=128)
+        section_name = _clean_name(entry.section, field="section", max_len=128)
+        subsection_name = _clean_name(entry.subsection, field="subsection", max_len=128)
+        item_name = _clean_name(entry.name, field="item", max_len=160)
+
+        trader = (
+            await db.execute(
+                select(Trader).where(Trader.map_id == game_map.id, func.lower(Trader.name) == trader_name.lower())
+            )
+        ).scalar_one_or_none()
+        if not trader:
+            trader = Trader(map_id=game_map.id, name=trader_name)
+            db.add(trader)
+            await db.flush()
+
+        section = (
+            await db.execute(
+                select(TraderSection).where(
+                    TraderSection.trader_id == trader.id,
+                    func.lower(TraderSection.name) == section_name.lower(),
+                )
+            )
+        ).scalar_one_or_none()
+        if not section:
+            section = TraderSection(trader_id=trader.id, name=section_name)
+            db.add(section)
+            await db.flush()
+
+        subsection = (
+            await db.execute(
+                select(TraderSubsection).where(
+                    TraderSubsection.section_id == section.id,
+                    func.lower(TraderSubsection.name) == subsection_name.lower(),
+                )
+            )
+        ).scalar_one_or_none()
+        if not subsection:
+            subsection = TraderSubsection(section_id=section.id, name=subsection_name)
+            db.add(subsection)
+            await db.flush()
+
+        item = (
+            await db.execute(
+                select(TraderItem).where(
+                    TraderItem.subsection_id == subsection.id,
+                    func.lower(TraderItem.name) == item_name.lower(),
+                )
+            )
+        ).scalar_one_or_none()
+        if item:
+            item.buy_price = int(entry.buy_price)
+            item.sell_price = int(entry.sell_price)
+            updated += 1
+        else:
+            db.add(
+                TraderItem(
+                    subsection_id=subsection.id,
+                    name=item_name,
+                    buy_price=int(entry.buy_price),
+                    sell_price=int(entry.sell_price),
+                )
+            )
+            created += 1
+    await db.commit()
+    return {"ok": True, "created": created, "updated": updated, "total": len(payload.items)}
 
 
 @router.get("/radiation")

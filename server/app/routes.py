@@ -2,7 +2,7 @@ import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,7 +22,7 @@ from app.locations_service import get_map_locations
 from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.marker_upload import delete_marker_image_file, save_marker_image
-from app.models import MapPoi, Marker, Position, Room, User
+from app.models import MapPoi, Marker, Position, Room, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.schemas import (
     CoordsPayload,
@@ -41,6 +41,7 @@ from app.schemas import (
     PositionResponse,
     RoadSegmentResponse,
     RoomStateResponse,
+    TraderItemResponse,
 )
 from app.seed import DEFAULT_MAP_SLUG
 from app.settings_service import is_public_pin_creation
@@ -133,6 +134,59 @@ async def map_radiation(slug: str, db: Annotated[AsyncSession, Depends(get_db)])
     game_map = await get_map_by_slug(db, slug)
     data = await get_map_radiation(db, game_map)
     return MapRadiationResponse(**data)
+
+
+@router.get("/maps/{slug}/traders/items", response_model=list[TraderItemResponse])
+async def map_trader_items(
+    slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = "",
+    limit: int = 250,
+):
+    game_map = await get_map_by_slug(db, slug)
+    needle = q.strip()
+    limit = max(1, min(limit, 1000))
+
+    stmt = (
+        select(
+            TraderItem.id.label("item_id"),
+            TraderItem.subsection_id,
+            TraderItem.name.label("item_name"),
+            TraderItem.buy_price,
+            TraderItem.sell_price,
+            TraderSubsection.id.label("subsection_id_value"),
+            TraderSubsection.name.label("subsection_name"),
+            TraderSection.id.label("section_id"),
+            TraderSection.name.label("section_name"),
+            Trader.id.label("trader_id"),
+            Trader.name.label("trader_name"),
+        )
+        .join(TraderSubsection, TraderSubsection.id == TraderItem.subsection_id)
+        .join(TraderSection, TraderSection.id == TraderSubsection.section_id)
+        .join(Trader, Trader.id == TraderSection.trader_id)
+        .where(Trader.map_id == game_map.id)
+    )
+    if needle:
+        stmt = stmt.where(func.lower(TraderItem.name).contains(needle.lower()))
+    stmt = stmt.order_by(TraderItem.name.asc(), Trader.name.asc()).limit(limit)
+
+    rows = (await db.execute(stmt)).all()
+    return [
+        TraderItemResponse(
+            id=row.item_id,
+            subsection_id=row.subsection_id,
+            section_id=row.section_id,
+            trader_id=row.trader_id,
+            map_id=game_map.id,
+            trader=row.trader_name,
+            section=row.section_name,
+            subsection=row.subsection_name,
+            name=row.item_name,
+            buy_price=int(row.buy_price or 0),
+            sell_price=int(row.sell_price or 0),
+        )
+        for row in rows
+    ]
 
 
 @router.get("/map/locations", response_model=MapLocationsResponse)

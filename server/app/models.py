@@ -134,3 +134,64 @@ class Marker(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="markers")
+
+
+class Trader(Base):
+    __tablename__ = "traders"
+    __table_args__ = (UniqueConstraint("map_id", "name", name="uq_trader_map_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    sections: Mapped[list["TraderSection"]] = relationship(
+        back_populates="trader",
+        cascade="all, delete-orphan",
+    )
+
+
+class TraderSection(Base):
+    __tablename__ = "trader_sections"
+    __table_args__ = (UniqueConstraint("trader_id", "name", name="uq_trader_section_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trader_id: Mapped[int] = mapped_column(ForeignKey("traders.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    trader: Mapped["Trader"] = relationship(back_populates="sections")
+    subsections: Mapped[list["TraderSubsection"]] = relationship(
+        back_populates="section",
+        cascade="all, delete-orphan",
+    )
+
+
+class TraderSubsection(Base):
+    __tablename__ = "trader_subsections"
+    __table_args__ = (UniqueConstraint("section_id", "name", name="uq_trader_subsection_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    section_id: Mapped[int] = mapped_column(ForeignKey("trader_sections.id"), index=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    section: Mapped["TraderSection"] = relationship(back_populates="subsections")
+    items: Mapped[list["TraderItem"]] = relationship(
+        back_populates="subsection",
+        cascade="all, delete-orphan",
+    )
+
+
+class TraderItem(Base):
+    __tablename__ = "trader_items"
+    __table_args__ = (UniqueConstraint("subsection_id", "name", name="uq_trader_item_name"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    subsection_id: Mapped[int] = mapped_column(ForeignKey("trader_subsections.id"), index=True)
+    name: Mapped[str] = mapped_column(String(160), index=True)
+    buy_price: Mapped[int] = mapped_column(Integer, default=0)
+    sell_price: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    subsection: Mapped["TraderSubsection"] = relationship(back_populates="items")

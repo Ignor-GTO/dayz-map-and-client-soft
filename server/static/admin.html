@@ -36,6 +36,7 @@
       <nav class="admin-tabs">
         <button type="button" class="tab active" data-tab="maps">Карты</button>
         <button type="button" class="tab" data-tab="pois">Метки сервера</button>
+        <button type="button" class="tab" data-tab="traders">Торговцы</button>
         <button type="button" class="tab" data-tab="radiation">Радиация</button>
         <button type="button" class="tab" data-tab="psi">Пси зоны</button>
         <button type="button" class="tab" data-tab="roads">🛣 Дороги</button>
@@ -111,6 +112,81 @@
             <button type="button" class="secondary hidden" id="poi-form-cancel">Отмена</button>
           </div>
         </form>
+      </div>
+
+      <div id="tab-traders" class="tab-panel hidden">
+        <h2>Торговцы</h2>
+        <label>
+          Карта
+          <select id="trader-map-select"></select>
+        </label>
+
+        <div class="trader-columns">
+          <section class="admin-form">
+            <h3>Торговцы</h3>
+            <div class="form-grid">
+              <label>Название торговца <input id="trader-name-input" type="text" placeholder="Зелёный торговец"></label>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="trader-create-btn">Добавить торговца</button>
+              <button type="button" class="danger" id="trader-delete-btn">Удалить выбранного</button>
+            </div>
+            <select id="trader-list" size="8"></select>
+          </section>
+
+          <section class="admin-form">
+            <h3>Разделы</h3>
+            <div class="form-grid">
+              <label>Название раздела <input id="trader-section-name-input" type="text" placeholder="Оружие"></label>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="trader-section-create-btn">Добавить раздел</button>
+              <button type="button" class="danger" id="trader-section-delete-btn">Удалить выбранный</button>
+            </div>
+            <select id="trader-section-list" size="8"></select>
+          </section>
+
+          <section class="admin-form">
+            <h3>Подразделы</h3>
+            <div class="form-grid">
+              <label>Название подраздела <input id="trader-subsection-name-input" type="text" placeholder="Штурмовые винтовки"></label>
+            </div>
+            <div class="form-actions">
+              <button type="button" id="trader-subsection-create-btn">Добавить подраздел</button>
+              <button type="button" class="danger" id="trader-subsection-delete-btn">Удалить выбранный</button>
+            </div>
+            <select id="trader-subsection-list" size="8"></select>
+          </section>
+        </div>
+
+        <div class="admin-form">
+          <h3>Предметы</h3>
+          <div class="form-grid">
+            <label>Название предмета <input id="trader-item-name-input" type="text" placeholder="AKM"></label>
+            <label>Цена покупки <input id="trader-item-buy-input" type="number" value="0"></label>
+            <label>Цена продажи <input id="trader-item-sell-input" type="number" value="0"></label>
+          </div>
+          <div class="form-actions">
+            <button type="button" id="trader-item-create-btn">Добавить предмет</button>
+            <button type="button" id="trader-item-update-btn" class="secondary">Обновить выбранный</button>
+            <button type="button" class="danger" id="trader-item-delete-btn">Удалить выбранный</button>
+          </div>
+          <label>
+            Поиск предмета
+            <input id="trader-item-search-input" type="text" placeholder="Поиск по названию...">
+          </label>
+          <select id="trader-item-list" size="12"></select>
+        </div>
+
+        <div class="admin-form">
+          <h3>Импорт пачкой из JSON</h3>
+          <p class="muted">Формат: массив объектов с полями <code>trader</code>, <code>section</code>, <code>subsection</code>, <code>name</code>, <code>buy_price</code>, <code>sell_price</code>.</p>
+          <textarea id="trader-import-json" rows="8" placeholder='[{"trader":"Бандит","section":"Оружие","subsection":"AR","name":"AKM","buy_price":1200,"sell_price":600}]'></textarea>
+          <div class="form-actions">
+            <button type="button" id="trader-import-btn">Импортировать JSON</button>
+          </div>
+          <p id="trader-import-status" class="success hidden"></p>
+        </div>
       </div>
 
       <div id="tab-radiation" class="tab-panel hidden tab-panel-radiation">
@@ -326,8 +402,9 @@
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=2"></script>
-  <script src="/js/admin.js?v=6"></script>
+  <script src="/js/admin.js?v=7"></script>
   <script src="/js/admin-radiation.js?v=9"></script>
   <script src="/js/admin-roads.js?v=7"></script>
+  <script src="/js/admin-traders.js?v=1"></script>
 </body>
 </html>
