@@ -352,39 +352,35 @@ button.secondary:hover { background: #3a4858; }
   transform: scale(0.98);
 }
 
-.coord-lookup {
-  margin-bottom: 0.85rem;
-}
-
-.coord-lookup-fields {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.45rem;
-  margin-bottom: 0.45rem;
-}
-
-.coord-lookup-fields label {
+.coord-lookup-bar {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;
   display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  font-size: 0.78rem;
-  color: var(--muted);
-}
-
-.coord-lookup-fields input {
-  width: 100%;
-  padding: 0.35rem 0.45rem;
-  font-size: 0.85rem;
-}
-
-.coord-lookup-actions {
-  display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  background: rgba(15, 20, 30, 0.92);
+  border: 1px solid #2a3848;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  pointer-events: all;
 }
 
-.coord-lookup-actions button {
-  flex: 1 1 auto;
+.coord-lookup-bar input {
+  width: 168px;
+  min-width: 0;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.85rem;
+  border-radius: 6px;
+}
+
+.coord-lookup-bar button {
+  flex-shrink: 0;
+  padding: 0.35rem 0.55rem;
+  min-width: 2rem;
 }
 
 .coord-lookup-pin {

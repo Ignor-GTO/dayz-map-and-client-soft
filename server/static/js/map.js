@@ -1319,25 +1319,28 @@ function clearCoordLookupMarker() {
 }
 
 function parseCoordLookupInputs() {
-  const xInput = document.getElementById("coord-lookup-x");
-  const yInput = document.getElementById("coord-lookup-y");
-  let xRaw = String(xInput?.value || "").trim();
-  let yRaw = String(yInput?.value || "").trim();
+  const input = document.getElementById("coord-lookup-input");
+  const text = String(input?.value || "").trim();
+  if (!text) return null;
 
-  if (!yRaw && xRaw) {
-    const match = xRaw.match(/^([\d.]+)\s*[/,]\s*([\d.]+)$/);
-    if (match) {
-      xRaw = match[1];
-      yRaw = match[2];
-      if (xInput) xInput.value = xRaw;
-      if (yInput) yInput.value = yRaw;
-    }
-  }
+  const sepMatch = text.match(/^([\d.]+)\s*[/,\-–—]\s*([\d.]+)$/);
+  if (sepMatch) return parseCoordPair(sepMatch[1], sepMatch[2]);
 
+  const spaceMatch = text.match(/^([\d.]+)\s+([\d.]+)$/);
+  if (spaceMatch) return parseCoordPair(spaceMatch[1], spaceMatch[2]);
+
+  return null;
+}
+
+function parseCoordPair(xRaw, yRaw) {
   const x = Number(xRaw);
   const y = Number(yRaw);
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x, y };
+}
+
+function formatCoordLookupValue(x, y) {
+  return `${Math.round(x)} / ${Math.round(y)}`;
 }
 
 function fillCoordLookupFromCursor() {
@@ -1345,17 +1348,18 @@ function fillCoordLookupFromCursor() {
     alert("Наведите курсор на карту, чтобы получить координаты");
     return;
   }
-  const xInput = document.getElementById("coord-lookup-x");
-  const yInput = document.getElementById("coord-lookup-y");
-  if (xInput) xInput.value = String(Math.round(state.lastMouseGameCoords.x));
-  if (yInput) yInput.value = String(Math.round(state.lastMouseGameCoords.y));
+  const input = document.getElementById("coord-lookup-input");
+  if (input) {
+    input.value = formatCoordLookupValue(state.lastMouseGameCoords.x, state.lastMouseGameCoords.y);
+  }
 }
 
 function showCoordLookup() {
   if (!state.map || !state.config) return;
+  const input = document.getElementById("coord-lookup-input");
   const coords = parseCoordLookupInputs();
   if (!coords) {
-    alert("Введите корректные координаты X и Y");
+    alert("Введите координаты в формате: X Y, X / Y, X - Y, X,Y или X-Y");
     return;
   }
 
@@ -1364,6 +1368,8 @@ function showCoordLookup() {
     alert(`Координаты должны быть в пределах 0 — ${Math.round(size)}`);
     return;
   }
+
+  if (input) input.value = formatCoordLookupValue(coords.x, coords.y);
 
   clearCoordLookupMarker();
 
@@ -2137,15 +2143,11 @@ document.getElementById("coord-lookup-btn")?.addEventListener("click", showCoord
 document.getElementById("coord-lookup-from-cursor-btn")?.addEventListener("click", fillCoordLookupFromCursor);
 document.getElementById("coord-lookup-clear-btn")?.addEventListener("click", () => {
   clearCoordLookupMarker();
-  const xInput = document.getElementById("coord-lookup-x");
-  const yInput = document.getElementById("coord-lookup-y");
-  if (xInput) xInput.value = "";
-  if (yInput) yInput.value = "";
+  const input = document.getElementById("coord-lookup-input");
+  if (input) input.value = "";
 });
-["coord-lookup-x", "coord-lookup-y"].forEach((id) => {
-  document.getElementById(id)?.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") showCoordLookup();
-  });
+document.getElementById("coord-lookup-input")?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") showCoordLookup();
 });
 
 document.addEventListener("keydown", (e) => {
