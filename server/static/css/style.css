@@ -394,6 +394,10 @@ button.secondary:hover { background: #3a4858; }
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.75));
 }
 
+#map .leaflet-top.leaflet-left .leaflet-control-zoom {
+  margin-top: 22px;
+}
+
 .leaflet-control-attribution {
   font-size: 0.7rem;
   background: rgba(26, 35, 50, 0.85) !important;
