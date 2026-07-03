@@ -28,6 +28,8 @@ const state = {
   navSimPathIndex: 0,
   navSimDistanceCovered: 0,
   navSimMarker: null,
+  coordLookupMarker: null,
+  lastMouseGameCoords: null,
   navLastAnnouncedIndex: -1,
   navLastAnnouncedPrepIndex: -1,
   navAnnouncedRadZones: new Set(),
@@ -525,10 +527,12 @@ function setMouseCoordsText(text) {
 
 function updateMouseCoordsDisplay(latlng) {
   if (!latlng) {
+    state.lastMouseGameCoords = null;
     setMouseCoordsText("— / —");
     return;
   }
   const game = latLngToGame(latlng);
+  state.lastMouseGameCoords = { x: game.x, y: game.y };
   setMouseCoordsText(`${Math.round(game.x)} / ${Math.round(game.y)}`);
 }
 
@@ -1305,6 +1309,88 @@ function focusOnMarker(markerId) {
   }
 }
 
+function clearCoordLookupMarker() {
+  if (state.coordLookupMarker && state.map) {
+    state.map.removeLayer(state.coordLookupMarker);
+    state.coordLookupMarker = null;
+  }
+  const clearBtn = document.getElementById("coord-lookup-clear-btn");
+  if (clearBtn) clearBtn.classList.add("hidden");
+}
+
+function parseCoordLookupInputs() {
+  const xInput = document.getElementById("coord-lookup-x");
+  const yInput = document.getElementById("coord-lookup-y");
+  let xRaw = String(xInput?.value || "").trim();
+  let yRaw = String(yInput?.value || "").trim();
+
+  if (!yRaw && xRaw) {
+    const match = xRaw.match(/^([\d.]+)\s*[/,]\s*([\d.]+)$/);
+    if (match) {
+      xRaw = match[1];
+      yRaw = match[2];
+      if (xInput) xInput.value = xRaw;
+      if (yInput) yInput.value = yRaw;
+    }
+  }
+
+  const x = Number(xRaw);
+  const y = Number(yRaw);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  return { x, y };
+}
+
+function fillCoordLookupFromCursor() {
+  if (!state.lastMouseGameCoords) {
+    alert("Наведите курсор на карту, чтобы получить координаты");
+    return;
+  }
+  const xInput = document.getElementById("coord-lookup-x");
+  const yInput = document.getElementById("coord-lookup-y");
+  if (xInput) xInput.value = String(Math.round(state.lastMouseGameCoords.x));
+  if (yInput) yInput.value = String(Math.round(state.lastMouseGameCoords.y));
+}
+
+function showCoordLookup() {
+  if (!state.map || !state.config) return;
+  const coords = parseCoordLookupInputs();
+  if (!coords) {
+    alert("Введите корректные координаты X и Y");
+    return;
+  }
+
+  const size = mapSize(state.config);
+  if (coords.x < 0 || coords.y < 0 || coords.x > size || coords.y > size) {
+    alert(`Координаты должны быть в пределах 0 — ${Math.round(size)}`);
+    return;
+  }
+
+  clearCoordLookupMarker();
+
+  const { x, y } = coords;
+  const latlng = gameToLatLng(x, y);
+  const label = `${Math.round(x)} / ${Math.round(y)}`;
+  const popup = `<b>${label}</b><br><button class="marker-route" data-x="${x}" data-y="${y}" style="margin-top: 8px;">Маршрут</button>`;
+
+  state.coordLookupMarker = L.marker(latlng, {
+    icon: L.divIcon({
+      className: "coord-lookup-pin",
+      html: '<div class="coord-lookup-pin-inner">📍</div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+    }),
+    zIndexOffset: 2500,
+  }).addTo(state.map);
+  state.coordLookupMarker.bindPopup(popup);
+
+  rememberCommandZoomAnchor(latlng);
+  state.map.once("moveend", () => state.coordLookupMarker?.openPopup());
+  setViewCentered(latlng, Math.max(state.map.getZoom(), 5));
+
+  const clearBtn = document.getElementById("coord-lookup-clear-btn");
+  if (clearBtn) clearBtn.classList.remove("hidden");
+}
+
 function focusMe() {
   if (!state.map || !state.me) return;
   const marker = state.liveMarkers.get(state.me.user_id);
@@ -2000,6 +2086,8 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   state.pinMarkers.clear();
   state.poiMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.poiMarkers.clear();
+  clearCoordLookupMarker();
+  state.lastMouseGameCoords = null;
   state.locationEntries = [];
   if (state.locationLayer) state.locationLayer.clearLayers();
   clearRadiationLayers();
@@ -2044,6 +2132,21 @@ document.getElementById("btn-layer-sat")?.addEventListener("click", () => setTil
 document.getElementById("btn-layer-topo")?.addEventListener("click", () => setTileLayer("topographic"));
 
 document.getElementById("btn-focus-me")?.addEventListener("click", focusMe);
+
+document.getElementById("coord-lookup-btn")?.addEventListener("click", showCoordLookup);
+document.getElementById("coord-lookup-from-cursor-btn")?.addEventListener("click", fillCoordLookupFromCursor);
+document.getElementById("coord-lookup-clear-btn")?.addEventListener("click", () => {
+  clearCoordLookupMarker();
+  const xInput = document.getElementById("coord-lookup-x");
+  const yInput = document.getElementById("coord-lookup-y");
+  if (xInput) xInput.value = "";
+  if (yInput) yInput.value = "";
+});
+["coord-lookup-x", "coord-lookup-y"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") showCoordLookup();
+  });
+});
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
@@ -2162,9 +2265,9 @@ async function initClientDownloadLinks() {
 // ============================================================
 
 const ROAD_COLORS_MAP = {
-  highway: "#c084fc",
-  road: "#c0c0c0",
-  street: "#4fc3f7",
+  highway: "#f5c900",
+  road: "#f5c900",
+  street: "#f5c900",
 };
 
 const ROAD_WEIGHTS_MAP = {

@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=18">
+  <link rel="stylesheet" href="/css/style.css?v=19">
 </head>
 <body>
   <div id="app">
@@ -273,6 +273,19 @@
               </button>
             </div>
 
+            <h3>Координаты</h3>
+            <div class="coord-lookup">
+              <div class="coord-lookup-fields">
+                <label>X <input id="coord-lookup-x" type="number" step="any" placeholder="15360"></label>
+                <label>Y <input id="coord-lookup-y" type="number" step="any" placeholder="7680"></label>
+              </div>
+              <div class="coord-lookup-actions">
+                <button type="button" id="coord-lookup-from-cursor-btn" class="secondary small" title="Подставить координаты под курсором">↙ С курсора</button>
+                <button type="button" id="coord-lookup-btn" class="secondary">📍 Показать</button>
+                <button type="button" id="coord-lookup-clear-btn" class="secondary small hidden">Сбросить</button>
+              </div>
+            </div>
+
             <h3>Фильтр</h3>
             <div id="filter-list" class="filter-list"></div>
             <label class="filter-row">
@@ -286,9 +299,9 @@
               <li><span class="dot live"></span> Live-позиция (клавиша M в игре)</li>
               <li><span class="dot marker"></span> Метка (Win+Shift+S → OCR)</li>
               <li><span class="dot poi"></span> Метки сервера</li>
-              <li><span style="display:inline-block;width:20px;height:3px;background:#c084fc;border-radius:2px;vertical-align:middle"></span> Трасса</li>
-              <li><span style="display:inline-block;width:20px;height:3px;background:#c0c0c0;border-radius:2px;vertical-align:middle"></span> Посёлковая</li>
-              <li><span style="display:inline-block;width:20px;height:3px;background:#4fc3f7;border-radius:2px;vertical-align:middle"></span> Городская</li>
+              <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Трасса</li>
+              <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Посёлковая</li>
+              <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Городская</li>
             </ul>
           </div>
           <div id="mouse-coords-box" class="legend-mouse-coords">
@@ -303,6 +316,6 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=3"></script>
-  <script src="/js/map.js?v=42"></script>
+  <script src="/js/map.js?v=44"></script>
 </body>
 </html>

@@ -352,6 +352,52 @@ button.secondary:hover { background: #3a4858; }
   transform: scale(0.98);
 }
 
+.coord-lookup {
+  margin-bottom: 0.85rem;
+}
+
+.coord-lookup-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.coord-lookup-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.coord-lookup-fields input {
+  width: 100%;
+  padding: 0.35rem 0.45rem;
+  font-size: 0.85rem;
+}
+
+.coord-lookup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.coord-lookup-actions button {
+  flex: 1 1 auto;
+}
+
+.coord-lookup-pin {
+  background: transparent;
+  border: none;
+}
+
+.coord-lookup-pin-inner {
+  font-size: 1.35rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.75));
+}
+
 .leaflet-control-attribution {
   font-size: 0.7rem;
   background: rgba(26, 35, 50, 0.85) !important;
