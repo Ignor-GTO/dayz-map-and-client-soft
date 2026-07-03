@@ -5,6 +5,7 @@
     sections: [],
     subsections: [],
     items: [],
+    pois: [],
   };
 
   function byId(id) {
@@ -74,6 +75,7 @@
   async function loadTraders() {
     state.mapSlug = selectedMapSlug();
     if (!state.mapSlug) return;
+    await loadPois();
     state.traders = await api(`/api/admin/traders?map_slug=${encodeURIComponent(state.mapSlug)}`);
     const traderSelect = byId("trader-list");
     if (traderSelect) {
@@ -82,12 +84,45 @@
       } else {
         traderSelect.innerHTML = state.traders.map((t) => {
           const loc = (t.x != null && t.y != null) ? ` (${Math.round(t.x)}/${Math.round(t.y)})` : "";
-          return `<option value="${t.id}">${escapeHtml(t.name)}${loc}</option>`;
+          const pinned = t.poi_id ? " 🛒" : "";
+          return `<option value="${t.id}">${escapeHtml(t.name)}${loc}${pinned}</option>`;
         }).join("");
       }
     }
+    renderTraderPoiSelect(null);
+    setTraderCoordsEnabled(true);
     await loadSections();
     await loadItems();
+  }
+
+  function setTraderCoordsEnabled(enabled) {
+    const xInput = byId("trader-x-input");
+    const yInput = byId("trader-y-input");
+    if (xInput) xInput.disabled = !enabled;
+    if (yInput) yInput.disabled = !enabled;
+  }
+
+  function renderTraderPoiSelect(currentTraderId) {
+    const sel = byId("trader-poi-select");
+    if (!sel) return;
+    const options = ['<option value="">— вручную (X/Y ниже) —</option>'];
+    state.pois.forEach((p) => {
+      const occupiedByOther = p.trader_id && p.trader_id !== currentTraderId;
+      const suffix = occupiedByOther ? ` — занято: ${p.trader_name}` : "";
+      options.push(`<option value="${p.id}">${escapeHtml(`${p.title} (${Math.round(p.x)}/${Math.round(p.y)})${suffix}`)}</option>`);
+    });
+    sel.innerHTML = options.join("");
+  }
+
+  async function loadPois() {
+    state.mapSlug = selectedMapSlug();
+    if (!state.mapSlug) {
+      state.pois = [];
+      renderTraderPoiSelect(null);
+      return;
+    }
+    state.pois = await api(`/api/admin/pois?map_slug=${encodeURIComponent(state.mapSlug)}`);
+    renderTraderPoiSelect(selectedNumber("trader-list"));
   }
 
   async function loadSections() {
@@ -142,42 +177,54 @@
   async function createTrader() {
     const name = String(byId("trader-name-input")?.value || "").trim();
     if (!name) return alert("Введите название торговца");
-    const xVal = String(byId("trader-x-input")?.value || "").trim();
-    const yVal = String(byId("trader-y-input")?.value || "").trim();
-    const x = xVal === "" ? null : Number(xVal);
-    const y = yVal === "" ? null : Number(yVal);
+    const poiVal = String(byId("trader-poi-select")?.value || "").trim();
+    const body = { map_slug: selectedMapSlug(), name };
+    if (poiVal) {
+      body.poi_id = Number(poiVal);
+    } else {
+      const xVal = String(byId("trader-x-input")?.value || "").trim();
+      const yVal = String(byId("trader-y-input")?.value || "").trim();
+      const x = xVal === "" ? null : Number(xVal);
+      const y = yVal === "" ? null : Number(yVal);
+      body.x = Number.isFinite(x) ? x : null;
+      body.y = Number.isFinite(y) ? y : null;
+    }
     await api("/api/admin/traders", {
       method: "POST",
-      body: JSON.stringify({
-        map_slug: selectedMapSlug(),
-        name,
-        x: Number.isFinite(x) ? x : null,
-        y: Number.isFinite(y) ? y : null,
-      }),
+      body: JSON.stringify(body),
     });
     byId("trader-name-input").value = "";
     byId("trader-x-input").value = "";
     byId("trader-y-input").value = "";
+    if (byId("trader-poi-select")) byId("trader-poi-select").value = "";
+    setTraderCoordsEnabled(true);
     await loadTraders();
   }
 
   async function updateTrader() {
     const traderId = selectedNumber("trader-list");
     if (!traderId) return alert("Сначала выберите торговца");
+    const trader = state.traders.find((t) => t.id === traderId);
     const name = String(byId("trader-name-input")?.value || "").trim();
-    const xVal = String(byId("trader-x-input")?.value || "").trim();
-    const yVal = String(byId("trader-y-input")?.value || "").trim();
+    const poiVal = String(byId("trader-poi-select")?.value || "").trim();
     const payload = {};
     if (name) payload.name = name;
-    if (xVal !== "") {
-      const x = Number(xVal);
-      if (!Number.isFinite(x)) return alert("Некорректная координата X");
-      payload.x = x;
-    }
-    if (yVal !== "") {
-      const y = Number(yVal);
-      if (!Number.isFinite(y)) return alert("Некорректная координата Y");
-      payload.y = y;
+    if (poiVal) {
+      payload.poi_id = Number(poiVal);
+    } else {
+      if (trader && trader.poi_id) payload.unlink_poi = true;
+      const xVal = String(byId("trader-x-input")?.value || "").trim();
+      const yVal = String(byId("trader-y-input")?.value || "").trim();
+      if (xVal !== "") {
+        const x = Number(xVal);
+        if (!Number.isFinite(x)) return alert("Некорректная координата X");
+        payload.x = x;
+      }
+      if (yVal !== "") {
+        const y = Number(yVal);
+        if (!Number.isFinite(y)) return alert("Некорректная координата Y");
+        payload.y = y;
+      }
     }
     await api(`/api/admin/traders/${traderId}`, {
       method: "PUT",
@@ -364,6 +411,24 @@
       byId("trader-name-input").value = trader.name || "";
       byId("trader-x-input").value = trader.x ?? "";
       byId("trader-y-input").value = trader.y ?? "";
+      renderTraderPoiSelect(trader.id);
+      const poiSelect = byId("trader-poi-select");
+      if (poiSelect) poiSelect.value = trader.poi_id ? String(trader.poi_id) : "";
+      setTraderCoordsEnabled(!trader.poi_id);
+    });
+
+    byId("trader-poi-select")?.addEventListener("change", () => {
+      const val = String(byId("trader-poi-select")?.value || "").trim();
+      if (val) {
+        const poi = state.pois.find((p) => String(p.id) === val);
+        if (poi) {
+          byId("trader-x-input").value = poi.x;
+          byId("trader-y-input").value = poi.y;
+        }
+        setTraderCoordsEnabled(false);
+      } else {
+        setTraderCoordsEnabled(true);
+      }
     });
   }
 

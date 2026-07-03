@@ -160,7 +160,21 @@ async function loadItems() {
 window.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadMaps();
+    const params = new URLSearchParams(location.search);
+    const mapParam = params.get("map");
+    const traderParam = params.get("trader");
+    if (mapParam) {
+      const sel = byId("traders-map-select");
+      if (sel && tradersMaps.some((m) => m.slug === mapParam)) sel.value = mapParam;
+    }
     await loadItems();
+    if (traderParam) {
+      const traderSel = byId("traders-trader-select");
+      if (traderSel) {
+        traderSel.value = traderParam;
+        onFilterChanged({ rebuildCascade: true });
+      }
+    }
   } catch (err) {
     const body = document.getElementById("traders-table-body");
     if (body) {

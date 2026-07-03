@@ -81,6 +81,7 @@ class PoiResponse(BaseModel):
     icon: str = "star"
     x: float
     y: float
+    trader_name: str | None = None
 
 
 class PositionResponse(BaseModel):
@@ -318,6 +319,7 @@ class TraderResponse(BaseModel):
     name: str
     x: float | None = None
     y: float | None = None
+    poi_id: int | None = None
 
 
 class TraderSectionResponse(BaseModel):
@@ -353,12 +355,15 @@ class TraderCreateRequest(BaseModel):
     name: str = Field(min_length=1, max_length=128)
     x: float | None = None
     y: float | None = None
+    poi_id: int | None = None
 
 
 class TraderUpdateRequest(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=128)
     x: float | None = None
     y: float | None = None
+    poi_id: int | None = None
+    unlink_poi: bool = False
 
 
 class TraderSectionCreateRequest(BaseModel):

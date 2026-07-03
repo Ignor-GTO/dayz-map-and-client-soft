@@ -580,6 +580,13 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
     pois_result = await db.execute(select(MapPoi).where(MapPoi.map_id == user.room.map_id))
     pois = pois_result.scalars().all()
 
+    trader_rows = (
+        await db.execute(
+            select(Trader).where(Trader.map_id == user.room.map_id, Trader.poi_id.is_not(None))
+        )
+    ).scalars().all()
+    trader_name_by_poi = {t.poi_id: t.name for t in trader_rows}
+
     positions: list[PositionResponse] = []
     markers: list[MarkerResponse] = []
 
@@ -612,6 +619,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                 icon=p.icon or "star",
                 x=p.x,
                 y=p.y,
+                trader_name=trader_name_by_poi.get(p.id),
             )
             for p in pois
         ],

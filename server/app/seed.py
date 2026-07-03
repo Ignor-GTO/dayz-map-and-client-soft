@@ -102,6 +102,7 @@ def _migrate_sqlite(conn) -> None:
             "  name VARCHAR(128) NOT NULL,"
             "  x FLOAT,"
             "  y FLOAT,"
+            "  poi_id INTEGER REFERENCES map_pois(id),"
             "  created_at DATETIME,"
             "  CONSTRAINT uq_trader_map_name UNIQUE (map_id, name)"
             ")"
@@ -115,6 +116,9 @@ def _migrate_sqlite(conn) -> None:
             conn.execute(text("ALTER TABLE traders ADD COLUMN x FLOAT"))
         if trader_cols and "y" not in trader_cols:
             conn.execute(text("ALTER TABLE traders ADD COLUMN y FLOAT"))
+        if trader_cols and "poi_id" not in trader_cols:
+            conn.execute(text("ALTER TABLE traders ADD COLUMN poi_id INTEGER REFERENCES map_pois(id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS ix_traders_poi_id ON traders (poi_id)"))
 
     if "trader_sections" not in road_tables:
         conn.execute(text(

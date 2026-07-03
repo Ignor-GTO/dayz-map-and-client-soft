@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
@@ -348,6 +348,12 @@ async def admin_list_pois(
     game_map = await _get_map(db, map_slug)
     result = await db.execute(select(MapPoi).where(MapPoi.map_id == game_map.id).order_by(MapPoi.id))
     pois = result.scalars().all()
+    trader_rows = (
+        await db.execute(
+            select(Trader).where(Trader.map_id == game_map.id, Trader.poi_id.is_not(None))
+        )
+    ).scalars().all()
+    trader_by_poi = {t.poi_id: t for t in trader_rows}
     return [
         {
             "id": p.id,
@@ -358,6 +364,8 @@ async def admin_list_pois(
             "icon": p.icon or "star",
             "x": p.x,
             "y": p.y,
+            "trader_id": trader_by_poi[p.id].id if p.id in trader_by_poi else None,
+            "trader_name": trader_by_poi[p.id].name if p.id in trader_by_poi else None,
         }
         for p in pois
     ]
@@ -412,6 +420,7 @@ async def admin_delete_poi(
     if not poi:
         raise HTTPException(status_code=404, detail="POI not found")
     delete_poi_image_file(poi.description_image_url)
+    await db.execute(update(Trader).where(Trader.poi_id == poi_id).values(poi_id=None))
     await db.delete(poi)
     await db.commit()
     return {"ok": True}
@@ -454,6 +463,19 @@ async def admin_delete_poi_image(
 # ---------------------------------------------------------------------------
 
 
+def _trader_response(trader: Trader) -> TraderResponse:
+    return TraderResponse(
+        id=trader.id, map_id=trader.map_id, name=trader.name, x=trader.x, y=trader.y, poi_id=trader.poi_id
+    )
+
+
+async def _get_poi_for_map(db: AsyncSession, map_id: int, poi_id: int) -> MapPoi:
+    poi = await db.get(MapPoi, poi_id)
+    if not poi or poi.map_id != map_id:
+        raise HTTPException(status_code=404, detail="Метка сервера не найдена на этой карте")
+    return poi
+
+
 @router.get("/traders", response_model=list[TraderResponse])
 async def admin_list_traders(
     map_slug: str,
@@ -466,7 +488,7 @@ async def admin_list_traders(
             select(Trader).where(Trader.map_id == game_map.id).order_by(Trader.name.asc())
         )
     ).scalars().all()
-    return [TraderResponse(id=t.id, map_id=t.map_id, name=t.name, x=t.x, y=t.y) for t in traders]
+    return [_trader_response(t) for t in traders]
 
 
 @router.post("/traders", response_model=TraderResponse)
@@ -478,24 +500,22 @@ async def admin_create_trader(
     game_map = await _get_map(db, payload.map_slug)
     name = _clean_name(payload.name, field="trader", max_len=128)
     existing = await _find_trader(db, game_map.id, name)
-    if existing:
+    target = existing or Trader(map_id=game_map.id, name=name)
+    if payload.poi_id is not None:
+        poi = await _get_poi_for_map(db, game_map.id, payload.poi_id)
+        target.poi_id = poi.id
+        target.x = poi.x
+        target.y = poi.y
+    else:
         if payload.x is not None:
-            existing.x = float(payload.x)
+            target.x = float(payload.x)
         if payload.y is not None:
-            existing.y = float(payload.y)
-        await db.commit()
-        await db.refresh(existing)
-        return TraderResponse(id=existing.id, map_id=existing.map_id, name=existing.name, x=existing.x, y=existing.y)
-    trader = Trader(
-        map_id=game_map.id,
-        name=name,
-        x=float(payload.x) if payload.x is not None else None,
-        y=float(payload.y) if payload.y is not None else None,
-    )
-    db.add(trader)
+            target.y = float(payload.y)
+    if existing is None:
+        db.add(target)
     await db.commit()
-    await db.refresh(trader)
-    return TraderResponse(id=trader.id, map_id=trader.map_id, name=trader.name, x=trader.x, y=trader.y)
+    await db.refresh(target)
+    return _trader_response(target)
 
 
 @router.put("/traders/{trader_id}", response_model=TraderResponse)
@@ -510,13 +530,21 @@ async def admin_update_trader(
         raise HTTPException(status_code=404, detail="Trader not found")
     if payload.name is not None:
         trader.name = _clean_name(payload.name, field="trader", max_len=128)
-    if payload.x is not None:
-        trader.x = float(payload.x)
-    if payload.y is not None:
-        trader.y = float(payload.y)
+    if payload.unlink_poi:
+        trader.poi_id = None
+    if payload.poi_id is not None:
+        poi = await _get_poi_for_map(db, trader.map_id, payload.poi_id)
+        trader.poi_id = poi.id
+        trader.x = poi.x
+        trader.y = poi.y
+    else:
+        if payload.x is not None:
+            trader.x = float(payload.x)
+        if payload.y is not None:
+            trader.y = float(payload.y)
     await db.commit()
     await db.refresh(trader)
-    return TraderResponse(id=trader.id, map_id=trader.map_id, name=trader.name, x=trader.x, y=trader.y)
+    return _trader_response(trader)
 
 
 @router.delete("/traders/{trader_id}")

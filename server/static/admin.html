@@ -126,9 +126,15 @@
             <h3>Торговцы</h3>
             <div class="form-grid">
               <label>Название торговца <input id="trader-name-input" type="text" placeholder="Зелёный торговец"></label>
+              <label>Метка сервера
+                <select id="trader-poi-select">
+                  <option value="">— вручную (X/Y ниже) —</option>
+                </select>
+              </label>
               <label>X <input id="trader-x-input" type="number" step="any" placeholder="15360"></label>
               <label>Y <input id="trader-y-input" type="number" step="any" placeholder="7680"></label>
             </div>
+            <p class="muted">Выберите существующую метку сервера, чтобы привязать к ней локацию торговца, — тогда X/Y заполнятся автоматически. Или впишите координаты вручную.</p>
             <div class="form-actions">
               <button type="button" id="trader-create-btn">Добавить торговца</button>
               <button type="button" class="secondary" id="trader-update-btn">Обновить выбранного</button>
@@ -409,10 +415,10 @@
     </section>
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/poi-icons.js?v=2"></script>
+  <script src="/js/poi-icons.js?v=3"></script>
   <script src="/js/admin.js?v=7"></script>
   <script src="/js/admin-radiation.js?v=9"></script>
   <script src="/js/admin-roads.js?v=7"></script>
-  <script src="/js/admin-traders.js?v=3"></script>
+  <script src="/js/admin-traders.js?v=4"></script>
 </body>
 </html>

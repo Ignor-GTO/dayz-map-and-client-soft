@@ -145,6 +145,8 @@ class Trader(Base):
     name: Mapped[str] = mapped_column(String(128), index=True)
     x: Mapped[float | None] = mapped_column(Float, nullable=True)
     y: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Optional link to a server marker (MapPoi) whose coordinates define this trader's location.
+    poi_id: Mapped[int | None] = mapped_column(ForeignKey("map_pois.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     sections: Mapped[list["TraderSection"]] = relationship(

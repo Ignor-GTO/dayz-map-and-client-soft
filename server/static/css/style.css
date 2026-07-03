@@ -437,6 +437,18 @@ button.secondary:hover { background: #3a4858; }
   font-size: 0.85rem;
 }
 
+.poi-trader-link {
+  display: inline-block;
+  margin-top: 0.35rem;
+  color: #4fc3f7;
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+
+.poi-trader-link:hover {
+  text-decoration: underline;
+}
+
 .poi-marker {
   width: 22px;
   height: 22px;
