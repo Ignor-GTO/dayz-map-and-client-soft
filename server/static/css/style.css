@@ -395,7 +395,7 @@ button.secondary:hover { background: #3a4858; }
 }
 
 #map .leaflet-top.leaflet-left .leaflet-control-zoom {
-  margin-top: 22px;
+  margin-top: 65px;
 }
 
 .leaflet-control-attribution {
