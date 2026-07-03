@@ -172,13 +172,18 @@
           <div class="form-actions">
             <button type="button" id="trader-item-create-btn">Добавить предмет</button>
             <button type="button" id="trader-item-update-btn" class="secondary">Обновить выбранный</button>
-            <button type="button" class="danger" id="trader-item-delete-btn">Удалить выбранный</button>
+            <button type="button" class="danger" id="trader-item-delete-btn">Удалить выбранные (<span id="trader-item-selected-count">0</span>)</button>
           </div>
           <label>
             Поиск предмета
             <input id="trader-item-search-input" type="text" placeholder="Поиск по названию...">
           </label>
-          <select id="trader-item-list" size="12"></select>
+          <div class="form-actions">
+            <button type="button" class="secondary small" id="trader-item-select-all-btn">Выбрать все в списке</button>
+            <button type="button" class="secondary small" id="trader-item-select-none-btn">Снять выделение</button>
+          </div>
+          <p class="muted">Зажмите Ctrl (⌘ на Mac) или Shift, чтобы выбрать сразу несколько предметов для массового удаления.</p>
+          <select id="trader-item-list" size="12" multiple></select>
         </div>
 
         <div class="admin-form">
@@ -408,6 +413,6 @@
   <script src="/js/admin.js?v=7"></script>
   <script src="/js/admin-radiation.js?v=9"></script>
   <script src="/js/admin-roads.js?v=7"></script>
-  <script src="/js/admin-traders.js?v=2"></script>
+  <script src="/js/admin-traders.js?v=3"></script>
 </body>
 </html>

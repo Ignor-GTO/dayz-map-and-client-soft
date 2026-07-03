@@ -1068,8 +1068,8 @@ button.secondary.small {
 }
 
 .traders-controls {
-  display: grid;
-  grid-template-columns: minmax(180px, 260px) 1fr auto;
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   align-items: end;
   background: var(--panel);
@@ -1083,12 +1083,28 @@ button.secondary.small {
   margin: 0;
   color: var(--muted);
   font-size: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.traders-controls label:has(#traders-search-input) {
+  flex: 1 1 220px;
+}
+
+.traders-controls input[type="number"] {
+  width: 6.5rem;
+}
+
+.traders-controls #traders-reset-btn {
+  align-self: flex-end;
 }
 
 .traders-meta {
   color: var(--muted);
   font-size: 0.9rem;
-  padding-bottom: 0.2rem;
+  padding-bottom: 0.45rem;
+  margin-left: auto;
 }
 
 .traders-results {
@@ -1122,7 +1138,16 @@ button.secondary.small {
 
 @media (max-width: 860px) {
   .traders-controls {
-    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .traders-controls label:has(#traders-search-input) {
+    flex: initial;
+  }
+
+  .traders-meta {
+    margin-left: 0;
   }
 }
 

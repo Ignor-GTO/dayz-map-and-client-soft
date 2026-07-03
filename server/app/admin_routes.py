@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
@@ -739,6 +739,20 @@ async def admin_delete_trader_item(
     return {"ok": True}
 
 
+@router.post("/trader-items/delete-bulk")
+async def admin_delete_trader_items_bulk(
+    payload: list[int],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    ids = sorted({int(i) for i in payload if i})
+    if not ids:
+        return {"ok": True, "deleted": 0}
+    result = await db.execute(delete(TraderItem).where(TraderItem.id.in_(ids)))
+    await db.commit()
+    return {"ok": True, "deleted": result.rowcount or 0}
+
+
 @router.post("/trader-items/import-json")
 async def admin_import_trader_items_json(
     payload: TraderItemImportRequest,
@@ -1070,7 +1084,6 @@ async def admin_delete_roads_bulk(
     _: Annotated[None, Depends(require_admin)],
 ):
     game_map = await _get_map(db, map_slug)
-    from sqlalchemy import delete
     result = await db.execute(
         delete(RoadSegment).where(RoadSegment.map_id == game_map.id, RoadSegment.id.in_(payload))
     )

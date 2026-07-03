@@ -145,7 +145,7 @@ async def map_trader_items(
 ):
     game_map = await get_map_by_slug(db, slug)
     needle = q.strip().casefold()
-    limit = max(1, min(limit, 1000))
+    limit = max(1, min(limit, 20000))
 
     stmt = (
         select(

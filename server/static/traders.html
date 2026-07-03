@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Торговцы — DayZ Map</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=16">
+  <link rel="stylesheet" href="/css/style.css?v=17">
 </head>
 <body>
   <div class="traders-page">
@@ -23,6 +23,35 @@
         Поиск по названию предмета
         <input id="traders-search-input" type="text" placeholder="Например: AKM, Бинт, Вода...">
       </label>
+      <label>
+        Торговец
+        <select id="traders-trader-select"><option value="">Все</option></select>
+      </label>
+      <label>
+        Раздел
+        <select id="traders-section-select"><option value="">Все</option></select>
+      </label>
+      <label>
+        Подраздел
+        <select id="traders-subsection-select"><option value="">Все</option></select>
+      </label>
+      <label>
+        Цена покупки от
+        <input id="traders-buy-min" type="number" min="0" placeholder="0">
+      </label>
+      <label>
+        Цена покупки до
+        <input id="traders-buy-max" type="number" min="0" placeholder="∞">
+      </label>
+      <label>
+        Цена продажи от
+        <input id="traders-sell-min" type="number" min="0" placeholder="0">
+      </label>
+      <label>
+        Цена продажи до
+        <input id="traders-sell-max" type="number" min="0" placeholder="∞">
+      </label>
+      <button type="button" class="secondary" id="traders-reset-btn">Сбросить фильтры</button>
       <div class="traders-meta" id="traders-meta">Найдено: 0</div>
     </section>
 
@@ -46,6 +75,6 @@
     </section>
   </div>
 
-  <script src="/js/traders.js?v=2"></script>
+  <script src="/js/traders.js?v=3"></script>
 </body>
 </html>

@@ -17,6 +17,20 @@
     return Number.isFinite(v) && v > 0 ? v : null;
   }
 
+  function selectedNumbers(selectId) {
+    const el = byId(selectId);
+    if (!el) return [];
+    return Array.from(el.selectedOptions || [])
+      .map((o) => Number(o.value))
+      .filter((v) => Number.isFinite(v) && v > 0);
+  }
+
+  function updateSelectedCount() {
+    const count = selectedNumbers("trader-item-list").length;
+    const el = byId("trader-item-selected-count");
+    if (el) el.textContent = String(count);
+  }
+
   function selectedMapSlug() {
     return String(byId("trader-map-select")?.value || "").trim();
   }
@@ -122,6 +136,7 @@
     if (q) params.set("q", q);
     state.items = await api(`/api/admin/trader-items?${params.toString()}`);
     renderItems(state.items);
+    updateSelectedCount();
   }
 
   async function createTrader() {
@@ -245,6 +260,23 @@
     await api(`${endpointBase}/${id}`, { method: "DELETE" });
   }
 
+  async function deleteSelectedItemsBulk() {
+    const ids = selectedNumbers("trader-item-list");
+    if (!ids.length) return alert("Выберите один или несколько предметов в списке");
+    const word = ids.length === 1 ? "предмет" : "предметов";
+    if (!confirm(`Удалить выбранные ${ids.length} ${word}? Это действие необратимо.`)) return;
+    const result = await api("/api/admin/trader-items/delete-bulk", {
+      method: "POST",
+      body: JSON.stringify(ids),
+    });
+    const status = byId("trader-import-status");
+    if (status) {
+      status.textContent = `Удалено предметов: ${result.deleted ?? ids.length}`;
+      status.classList.remove("hidden");
+    }
+    await loadItems();
+  }
+
   async function importJson() {
     const raw = String(byId("trader-import-json")?.value || "").trim();
     if (!raw) return alert("Вставьте JSON-массив");
@@ -296,14 +328,29 @@
       await loadSubsections();
       await loadItems();
     });
-    byId("trader-item-delete-btn")?.addEventListener("click", async () => {
-      await deleteSelected("/api/admin/trader-items", "trader-item-list", "Удалить предмет?");
-      await loadItems();
+    byId("trader-item-delete-btn")?.addEventListener("click", () => {
+      deleteSelectedItemsBulk().catch((e) => alert(e.message));
+    });
+
+    byId("trader-item-select-all-btn")?.addEventListener("click", () => {
+      const list = byId("trader-item-list");
+      if (!list) return;
+      Array.from(list.options).forEach((o) => { o.selected = true; });
+      updateSelectedCount();
+    });
+
+    byId("trader-item-select-none-btn")?.addEventListener("click", () => {
+      const list = byId("trader-item-list");
+      if (!list) return;
+      Array.from(list.options).forEach((o) => { o.selected = false; });
+      updateSelectedCount();
     });
 
     byId("trader-item-list")?.addEventListener("change", () => {
-      const id = selectedNumber("trader-item-list");
-      const item = state.items.find((x) => x.id === id);
+      updateSelectedCount();
+      const ids = selectedNumbers("trader-item-list");
+      if (ids.length !== 1) return;
+      const item = state.items.find((x) => x.id === ids[0]);
       if (!item) return;
       byId("trader-item-name-input").value = item.name;
       byId("trader-item-buy-input").value = String(item.buy_price ?? 0);

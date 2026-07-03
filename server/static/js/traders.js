@@ -14,7 +14,8 @@ async function tradersApi(path, options = {}) {
 }
 
 let tradersMaps = [];
-let tradersTimer = null;
+let allItems = [];
+let filterTimer = null;
 
 function renderTraderRows(items) {
   const body = document.getElementById("traders-table-body");
@@ -44,31 +45,116 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+function byId(id) {
+  return document.getElementById(id);
+}
+
 async function loadMaps() {
   tradersMaps = await tradersApi("/api/maps");
-  const sel = document.getElementById("traders-map-select");
+  const sel = byId("traders-map-select");
   if (!sel) return;
-  sel.innerHTML = tradersMaps.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
+  sel.innerHTML = tradersMaps.map((m) => `<option value="${m.slug}">${escapeHtml(m.name)}</option>`).join("");
+}
+
+function uniqueSorted(values) {
+  return Array.from(new Set(values.filter((v) => v))).sort((a, b) => a.localeCompare(b, "ru"));
+}
+
+function fillSelect(selectId, values, currentValue) {
+  const sel = byId(selectId);
+  if (!sel) return;
+  const options = ['<option value="">Все</option>', ...values.map((v) => `<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`)];
+  sel.innerHTML = options.join("");
+  sel.value = values.includes(currentValue) ? currentValue : "";
+}
+
+function rebuildDependentFilters() {
+  const traderSel = byId("traders-trader-select");
+  const sectionSel = byId("traders-section-select");
+  const subsectionSel = byId("traders-subsection-select");
+  if (!traderSel || !sectionSel || !subsectionSel) return;
+
+  const currentTrader = traderSel.value;
+  const currentSection = sectionSel.value;
+  const currentSubsection = subsectionSel.value;
+
+  fillSelect("traders-trader-select", uniqueSorted(allItems.map((it) => it.trader)), currentTrader);
+
+  const bySectionPool = currentTrader ? allItems.filter((it) => it.trader === currentTrader) : allItems;
+  fillSelect("traders-section-select", uniqueSorted(bySectionPool.map((it) => it.section)), currentSection);
+
+  const bySubsectionPool = bySectionPool.filter((it) => !sectionSel.value || it.section === sectionSel.value);
+  fillSelect("traders-subsection-select", uniqueSorted(bySubsectionPool.map((it) => it.subsection)), currentSubsection);
+}
+
+function applyFilters() {
+  const q = (byId("traders-search-input")?.value || "").trim().toLowerCase();
+  const trader = byId("traders-trader-select")?.value || "";
+  const section = byId("traders-section-select")?.value || "";
+  const subsection = byId("traders-subsection-select")?.value || "";
+  const buyMin = parseFloat(byId("traders-buy-min")?.value ?? "");
+  const buyMax = parseFloat(byId("traders-buy-max")?.value ?? "");
+  const sellMin = parseFloat(byId("traders-sell-min")?.value ?? "");
+  const sellMax = parseFloat(byId("traders-sell-max")?.value ?? "");
+
+  const filtered = allItems.filter((it) => {
+    if (q && !String(it.name || "").toLowerCase().includes(q)) return false;
+    if (trader && it.trader !== trader) return false;
+    if (section && it.section !== section) return false;
+    if (subsection && it.subsection !== subsection) return false;
+    if (Number.isFinite(buyMin) && Number(it.buy_price || 0) < buyMin) return false;
+    if (Number.isFinite(buyMax) && Number(it.buy_price || 0) > buyMax) return false;
+    if (Number.isFinite(sellMin) && Number(it.sell_price || 0) < sellMin) return false;
+    if (Number.isFinite(sellMax) && Number(it.sell_price || 0) > sellMax) return false;
+    return true;
+  });
+
+  renderTraderRows(filtered);
+  const meta = byId("traders-meta");
+  if (meta) meta.textContent = `Найдено: ${filtered.length}`;
+}
+
+function onFilterChanged({ rebuildCascade = false } = {}) {
+  if (rebuildCascade) rebuildDependentFilters();
+  applyFilters();
+}
+
+function resetFilters() {
+  const ids = [
+    "traders-search-input",
+    "traders-buy-min",
+    "traders-buy-max",
+    "traders-sell-min",
+    "traders-sell-max",
+  ];
+  ids.forEach((id) => {
+    const el = byId(id);
+    if (el) el.value = "";
+  });
+  ["traders-trader-select", "traders-section-select", "traders-subsection-select"].forEach((id) => {
+    const el = byId(id);
+    if (el) el.value = "";
+  });
+  rebuildDependentFilters();
+  applyFilters();
 }
 
 async function loadItems() {
-  const sel = document.getElementById("traders-map-select");
-  const input = document.getElementById("traders-search-input");
-  const meta = document.getElementById("traders-meta");
+  const sel = byId("traders-map-select");
+  const meta = byId("traders-meta");
   if (!sel) return;
   const slug = sel.value;
   if (!slug) {
+    allItems = [];
+    rebuildDependentFilters();
     renderTraderRows([]);
     if (meta) meta.textContent = "Найдено: 0";
     return;
   }
-  const q = (input?.value || "").trim();
-  const params = new URLSearchParams();
-  if (q) params.set("q", q);
-  params.set("limit", "500");
-  const items = await tradersApi(`/api/maps/${encodeURIComponent(slug)}/traders/items?${params.toString()}`);
-  renderTraderRows(items);
-  if (meta) meta.textContent = `Найдено: ${items.length}`;
+  const params = new URLSearchParams({ limit: "20000" });
+  allItems = await tradersApi(`/api/maps/${encodeURIComponent(slug)}/traders/items?${params.toString()}`);
+  rebuildDependentFilters();
+  applyFilters();
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
@@ -82,14 +168,41 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  document.getElementById("traders-map-select")?.addEventListener("change", () => {
+  byId("traders-map-select")?.addEventListener("change", () => {
     loadItems().catch(() => {});
   });
 
-  document.getElementById("traders-search-input")?.addEventListener("input", () => {
-    if (tradersTimer) clearTimeout(tradersTimer);
-    tradersTimer = setTimeout(() => {
-      loadItems().catch(() => {});
-    }, 120);
+  byId("traders-search-input")?.addEventListener("input", () => {
+    if (filterTimer) clearTimeout(filterTimer);
+    filterTimer = setTimeout(() => onFilterChanged(), 120);
+  });
+
+  ["traders-buy-min", "traders-buy-max", "traders-sell-min", "traders-sell-max"].forEach((id) => {
+    byId(id)?.addEventListener("input", () => {
+      if (filterTimer) clearTimeout(filterTimer);
+      filterTimer = setTimeout(() => onFilterChanged(), 150);
+    });
+  });
+
+  byId("traders-trader-select")?.addEventListener("change", () => {
+    const sectionSel = byId("traders-section-select");
+    const subsectionSel = byId("traders-subsection-select");
+    if (sectionSel) sectionSel.value = "";
+    if (subsectionSel) subsectionSel.value = "";
+    onFilterChanged({ rebuildCascade: true });
+  });
+
+  byId("traders-section-select")?.addEventListener("change", () => {
+    const subsectionSel = byId("traders-subsection-select");
+    if (subsectionSel) subsectionSel.value = "";
+    onFilterChanged({ rebuildCascade: true });
+  });
+
+  byId("traders-subsection-select")?.addEventListener("change", () => {
+    onFilterChanged();
+  });
+
+  byId("traders-reset-btn")?.addEventListener("click", () => {
+    resetFilters();
   });
 });
