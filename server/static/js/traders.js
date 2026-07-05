@@ -17,6 +17,11 @@ let tradersMaps = [];
 let allItems = [];
 let filterTimer = null;
 
+function formatPrice(value) {
+  const n = Number(value || 0);
+  return n > 0 ? String(n) : "";
+}
+
 function renderTraderRows(items) {
   const body = document.getElementById("traders-table-body");
   if (!body) return;
@@ -31,8 +36,8 @@ function renderTraderRows(items) {
       <td>${it.trader_x != null && it.trader_y != null ? `${Math.round(it.trader_x)} / ${Math.round(it.trader_y)}` : "—"}</td>
       <td>${escapeHtml(it.section)}</td>
       <td>${escapeHtml(it.subsection)}</td>
-      <td>${Number(it.buy_price || 0)}</td>
-      <td>${Number(it.sell_price || 0)}</td>
+      <td>${formatPrice(it.buy_price)}</td>
+      <td>${formatPrice(it.sell_price)}</td>
     </tr>
   `).join("");
 }
