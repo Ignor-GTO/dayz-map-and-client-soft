@@ -90,6 +90,9 @@ class Room(Base):
         cascade="all, delete-orphan",
         foreign_keys="User.room_id",
     )
+    creator: Mapped["User | None"] = relationship(
+        foreign_keys=[created_by_user_id],
+    )
 
 
 class User(Base):
@@ -106,7 +109,10 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    room: Mapped["Room"] = relationship(back_populates="users")
+    room: Mapped["Room"] = relationship(
+        back_populates="users",
+        foreign_keys=[room_id],
+    )
     position: Mapped["Position | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )
