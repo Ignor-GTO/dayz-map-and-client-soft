@@ -1452,17 +1452,32 @@ function focusMe() {
 }
 
 function switchLegendTab(tabId) {
-  const tabs = [
-    { id: "group", btn: "tab-btn-group", content: "tab-content-group" },
-    { id: "filters", btn: "tab-btn-filters", content: "tab-content-filters" },
-    { id: "app", btn: "tab-btn-app", content: "tab-content-app" },
-  ];
+  const groupBtn = document.getElementById("tab-btn-group");
+  const filtersBtn = document.getElementById("tab-btn-filters");
+  const groupContent = document.getElementById("tab-content-group");
+  const filtersContent = document.getElementById("tab-content-filters");
 
-  tabs.forEach(({ id, btn, content }) => {
-    const isActive = id === tabId;
-    document.getElementById(btn)?.classList.toggle("active", isActive);
-    document.getElementById(content)?.classList.toggle("hidden", !isActive);
-  });
+  if (!groupBtn || !filtersBtn || !groupContent || !filtersContent) return;
+
+  if (tabId === "group") {
+    groupBtn.classList.add("active");
+    filtersBtn.classList.remove("active");
+    groupContent.classList.remove("hidden");
+    filtersContent.classList.add("hidden");
+  } else {
+    groupBtn.classList.remove("active");
+    filtersBtn.classList.add("active");
+    groupContent.classList.add("hidden");
+    filtersContent.classList.remove("hidden");
+  }
+}
+
+function openAppModal() {
+  document.getElementById("app-modal")?.classList.remove("hidden");
+}
+
+function closeAppModal() {
+  document.getElementById("app-modal")?.classList.add("hidden");
 }
 
 // Expose functions globally for inline HTML event handlers
@@ -2211,6 +2226,12 @@ document.getElementById("close-key-modal").addEventListener("click", () => {
   document.getElementById("key-modal").classList.add("hidden");
 });
 
+document.getElementById("app-btn")?.addEventListener("click", openAppModal);
+document.getElementById("close-app-modal")?.addEventListener("click", closeAppModal);
+document.getElementById("app-modal")?.addEventListener("click", (e) => {
+  if (e.target.id === "app-modal") closeAppModal();
+});
+
 ["map-slug", "pin", "nickname"].forEach((id) => {
   document.getElementById(id)?.addEventListener("input", scheduleLoginRequirementsRefresh);
   document.getElementById(id)?.addEventListener("change", scheduleLoginRequirementsRefresh);
@@ -2244,6 +2265,11 @@ document.addEventListener("keydown", (e) => {
     const imgModal = document.getElementById("marker-image-modal");
     if (imgModal && !imgModal.classList.contains("hidden")) {
       closeMarkerImageModal();
+      return;
+    }
+    const appModal = document.getElementById("app-modal");
+    if (appModal && !appModal.classList.contains("hidden")) {
+      closeAppModal();
       return;
     }
   }

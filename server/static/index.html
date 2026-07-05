@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=29">
+  <link rel="stylesheet" href="/css/style.css?v=30">
 </head>
 <body>
   <div id="app">
@@ -43,7 +43,7 @@
       </form>
       <p id="login-error" class="error hidden"></p>
       <a class="download-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать клиент (Windows .exe)</a>
-      <p class="muted-inline login-app-hint">После входа инструкции и ключ — во вкладке «Приложение» справа на карте.</p>
+      <p class="muted-inline login-app-hint">После входа кнопка «Приложение» в верхнем меню — скачивание, ключ и инструкция.</p>
       <a class="admin-link" href="/traders.html">Торговцы</a>
       <a class="admin-link" href="/admin.html">Админка</a>
     </section>
@@ -55,6 +55,7 @@
           <span id="room-label"></span>
         </div>
         <div class="toolbar-actions">
+          <button type="button" id="app-btn" class="secondary">💻 Приложение</button>
           <a class="btn-link secondary" href="/traders.html">Торговцы</a>
           <button id="btn-nav" class="secondary nav-btn" title="Навигатор">🧭 Навигатор</button>
           <div class="toolbar-end">
@@ -218,9 +219,6 @@
             <button type="button" id="tab-btn-filters" class="legend-tab-btn" onclick="switchLegendTab('filters')">
               ⚙️ Фильтры
             </button>
-            <button type="button" id="tab-btn-app" class="legend-tab-btn" onclick="switchLegendTab('app')">
-              💻 Приложение
-            </button>
           </div>
 
           <div id="tab-content-group">
@@ -324,48 +322,6 @@
               <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Городская</li>
             </ul>
           </div>
-
-          <div id="tab-content-app" class="hidden">
-            <p class="app-tab-intro muted-inline">
-              Windows-клиент отправляет вашу позицию в игре и метки с экрана на эту карту в реальном времени.
-            </p>
-
-            <div class="app-help-card">
-              <h3>📥 Скачать клиент</h3>
-              <p class="muted-inline">
-                Программа для ПК, с которого вы играете. Запустите один раз — она работает в фоне и связывается с картой по ключу.
-              </p>
-              <a class="btn-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать .exe (Windows)</a>
-            </div>
-
-            <div class="app-help-card">
-              <h3>🔑 Ключ клиента</h3>
-              <p class="muted-inline">
-                Уникальный код вашей сессии. Вставьте его в настройках клиента — без ключа программа не подключится к карте.
-                Ключ выдаётся при входе на сайт; здесь можно посмотреть и скопировать текущий.
-              </p>
-              <button type="button" id="copy-key-btn" class="secondary">Показать и скопировать ключ</button>
-            </div>
-
-            <div class="app-help-card">
-              <h3>🔄 Новый ключ</h3>
-              <p class="muted-inline">
-                Создаёт новый ключ и отключает старый. Используйте, если ключ утёк, сменили ПК или клиент перестал подключаться.
-                После смены обновите ключ в программе.
-              </p>
-              <button type="button" id="reset-key-btn" class="secondary">Создать новый ключ</button>
-            </div>
-
-            <div class="app-help-steps">
-              <h3>Как пользоваться</h3>
-              <ol>
-                <li>Скачайте и запустите клиент на игровом ПК.</li>
-                <li>Откройте вкладку «Приложение» → скопируйте ключ в настройки клиента.</li>
-                <li>В игре нажмите <strong>M</strong> — на карте появится live-позиция.</li>
-                <li>Метка с экрана: <strong>Win+Shift+S</strong> → выделите координаты → OCR отправит точку на карту.</li>
-              </ol>
-            </div>
-          </div>
           <div id="mouse-coords-box" class="legend-mouse-coords">
             <span class="legend-mouse-label">Курсор:</span>
             <span id="mouse-coords-value" class="legend-mouse-value">— / —</span>
@@ -374,6 +330,56 @@
         <button type="button" id="legend-toggle" class="legend-toggle-btn">▶</button>
       </div>
     </section>
+  </div>
+
+  <div id="app-modal" class="modal hidden">
+    <div class="modal-content app-modal-content">
+      <div class="app-modal-header profile-modal-header">
+        <h2>💻 Приложение</h2>
+        <button type="button" id="close-app-modal" class="profile-modal-close secondary" aria-label="Закрыть">✕</button>
+      </div>
+      <div class="app-modal-body">
+        <p class="app-tab-intro muted-inline">
+          Windows-клиент отправляет вашу позицию в игре и метки с экрана на эту карту в реальном времени.
+        </p>
+
+        <div class="app-help-card">
+          <h3>📥 Скачать клиент</h3>
+          <p class="muted-inline">
+            Программа для ПК, с которого вы играете. Запустите один раз — она работает в фоне и связывается с картой по ключу.
+          </p>
+          <a class="btn-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать .exe (Windows)</a>
+        </div>
+
+        <div class="app-help-card">
+          <h3>🔑 Ключ клиента</h3>
+          <p class="muted-inline">
+            Уникальный код вашей сессии. Вставьте его в настройках клиента — без ключа программа не подключится к карте.
+            Ключ выдаётся при входе на сайт; здесь можно посмотреть и скопировать текущий.
+          </p>
+          <button type="button" id="copy-key-btn" class="secondary">Показать и скопировать ключ</button>
+        </div>
+
+        <div class="app-help-card">
+          <h3>🔄 Новый ключ</h3>
+          <p class="muted-inline">
+            Создаёт новый ключ и отключает старый. Используйте, если ключ утёк, сменили ПК или клиент перестал подключаться.
+            После смены обновите ключ в программе.
+          </p>
+          <button type="button" id="reset-key-btn" class="secondary">Создать новый ключ</button>
+        </div>
+
+        <div class="app-help-steps">
+          <h3>Как пользоваться</h3>
+          <ol>
+            <li>Скачайте и запустите клиент на игровом ПК.</li>
+            <li>Нажмите «Приложение» в верхнем меню → скопируйте ключ в настройки клиента.</li>
+            <li>В игре нажмите <strong>M</strong> — на карте появится live-позиция.</li>
+            <li>Метка с экрана: <strong>Win+Shift+S</strong> → выделите координаты → OCR отправит точку на карту.</li>
+          </ol>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="profile-modal" class="modal hidden">
@@ -453,6 +459,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=3"></script>
   <script src="/js/profile-ui.js?v=3"></script>
-  <script src="/js/map.js?v=50"></script>
+  <script src="/js/map.js?v=51"></script>
 </body>
 </html>
