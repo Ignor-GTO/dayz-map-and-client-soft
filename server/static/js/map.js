@@ -232,6 +232,20 @@ function showKeyModal(key) {
   document.getElementById("key-modal").classList.remove("hidden");
 }
 
+async function ensureClientKey() {
+  if (state.clientKey) return state.clientKey;
+  try {
+    const data = await api("/api/auth/client-key");
+    if (data?.client_key) {
+      state.clientKey = data.client_key;
+      return state.clientKey;
+    }
+  } catch {
+    /* key not in session */
+  }
+  return null;
+}
+
 function mapSize(config) {
   return config.map_size || config.bounds.max_x || 20480;
 }
@@ -2052,6 +2066,7 @@ async function bootstrapMapView() {
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
   window.ProfileUi?.syncAvatarUi();
+  await ensureClientKey();
   syncStashCategoryControls();
   const roadsFilter = document.getElementById("filter-roads");
   if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
@@ -2186,6 +2201,7 @@ function performMapLogoutCleanup() {
     state.ws = null;
   }
   state.me = null;
+  state.clientKey = null;
   state.liveMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.liveMarkers.clear();
   state.pinMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
@@ -2213,9 +2229,15 @@ document.getElementById("reset-key-btn").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("copy-key-btn").addEventListener("click", () => {
-  if (state.clientKey) showKeyModal(state.clientKey);
-  else alert("Ключ доступен только после входа. Войдите заново для нового ключа.");
+document.getElementById("copy-key-btn").addEventListener("click", async () => {
+  const key = await ensureClientKey();
+  if (key) showKeyModal(key);
+  else {
+    alert(
+      "Ключ не сохранён в этой сессии браузера. Если вы уже настраивали клиент раньше — используйте сохранённый ключ. " +
+        "Если потеряли — нажмите «Создать новый ключ» (старый перестанет работать)."
+    );
+  }
 });
 
 document.getElementById("copy-key-confirm").addEventListener("click", () => {

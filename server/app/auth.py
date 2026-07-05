@@ -39,8 +39,11 @@ def channel_key(map_id: int, room_id: int) -> str:
     return f"map:{map_id}:room:{room_id}"
 
 
-def set_session(response: Response, user_id: int) -> None:
-    token = serializer.dumps({"user_id": user_id})
+def set_session(response: Response, user_id: int, client_key: str | None = None) -> None:
+    payload: dict[str, int | str] = {"user_id": user_id}
+    if client_key:
+        payload["client_key"] = client_key
+    token = serializer.dumps(payload)
     response.set_cookie(
         key=SESSION_COOKIE,
         value=token,
@@ -48,6 +51,18 @@ def set_session(response: Response, user_id: int) -> None:
         samesite="lax",
         max_age=60 * 60 * 24 * 30,
     )
+
+
+def read_session_client_key(request: Request) -> str | None:
+    token = request.cookies.get(SESSION_COOKIE)
+    if not token:
+        return None
+    try:
+        data = serializer.loads(token)
+    except BadSignature:
+        return None
+    key = data.get("client_key")
+    return key if isinstance(key, str) and key else None
 
 
 def clear_session(response: Response) -> None:

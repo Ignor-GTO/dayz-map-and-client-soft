@@ -1,7 +1,7 @@
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,6 +16,7 @@ from app.auth import (
     get_or_create_room,
     hash_client_key,
     hash_password,
+    read_session_client_key,
     set_session,
     verify_password,
 )
@@ -375,7 +376,7 @@ async def login(
 
     await db.commit()
     await db.refresh(user)
-    set_session(response, user.id)
+    set_session(response, user.id, client_key if client_key else None)
 
     return LoginResponse(
         nickname=nickname,
@@ -389,6 +390,7 @@ async def login(
 
 @router.post("/auth/reset-key", response_model=LoginResponse)
 async def reset_client_key(
+    response: Response,
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -397,6 +399,7 @@ async def reset_client_key(
     await db.commit()
     await db.refresh(user)
     game_map = user.room.map
+    set_session(response, user.id, client_key)
     return LoginResponse(
         nickname=user.nickname,
         pin=user.room.pin,
@@ -411,6 +414,20 @@ async def reset_client_key(
 async def logout(response: Response):
     clear_session(response)
     return {"ok": True}
+
+
+@router.get("/auth/client-key")
+async def get_client_key(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+):
+    client_key = read_session_client_key(request)
+    if not client_key:
+        raise HTTPException(
+            status_code=404,
+            detail="Ключ не сохранён в сессии. Если потеряли — нажмите «Создать новый ключ».",
+        )
+    return {"client_key": client_key}
 
 
 @router.get("/auth/me")
