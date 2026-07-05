@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from app.models import (
     AdminAccount,
     DayZMap,
     MapPoi,
+    Marker,
     Room,
     Trader,
     TraderItem,
@@ -32,6 +33,7 @@ from app.radiation_service import (
     save_radiation_config,
 )
 from app.radiation_upload import delete_overlay_file, save_radiation_overlay
+from app.routes import _marker_response
 from app.roads_service import create_segment, delete_segment, list_segments, update_segment, clear_segments, create_segments_bulk
 from app.schemas import (
     AdminAccountCreateRequest,
@@ -570,6 +572,34 @@ async def admin_list_pois(
             "trader_name": trader_by_poi[p.id].name if p.id in trader_by_poi else None,
         }
         for p in pois
+    ]
+
+
+@router.get("/group-markers")
+async def admin_list_group_markers(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    """User group markers (points, circles, lines) for reference on admin map editors."""
+    game_map = await _get_map(db, map_slug)
+    result = await db.execute(
+        select(Marker, User, Room)
+        .join(User, Marker.user_id == User.id)
+        .join(Room, User.room_id == Room.id)
+        .where(
+            Room.map_id == game_map.id,
+            or_(Marker.marker_category == "group", Marker.marker_category.is_(None)),
+        )
+        .order_by(Marker.id)
+    )
+    rows = result.all()
+    return [
+        {
+            **_marker_response(marker, user.nickname).model_dump(mode="json"),
+            "room_pin": room.pin,
+        }
+        for marker, user, room in rows
     ]
 
 

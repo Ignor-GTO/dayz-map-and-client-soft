@@ -758,6 +758,11 @@ async function radLoadForSlug(slug) {
     if (window.AdminPoiLayer && radState.map) {
       await AdminPoiLayer.render(radState.map, slug, radGameToLatLng, api, { interactive: false });
     }
+    if (window.AdminGroupMarkersLayer && radState.map) {
+      await AdminGroupMarkersLayer.render(radState.map, slug, radGameToLatLng, api, {
+        mapSize: radMapSize(),
+      });
+    }
     setTimeout(() => {
       radState.map?.invalidateSize();
       radUpdateMinZoom();

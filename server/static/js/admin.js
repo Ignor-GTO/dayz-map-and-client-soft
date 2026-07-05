@@ -268,6 +268,12 @@ async function refreshPoiAdminMap(highlightId = poiAdminHighlightId) {
     highlightId,
     onMarkerClick: (poi) => fillPoiForm(poi),
   });
+  if (window.AdminGroupMarkersLayer) {
+    const mapRow = mapsCache.find((m) => m.slug === slug);
+    await AdminGroupMarkersLayer.render(poiAdminMap, slug, poiAdminToLatLng, api, {
+      mapSize: mapRow?.map_size || 20480,
+    });
+  }
 }
 
 async function loadMaps() {

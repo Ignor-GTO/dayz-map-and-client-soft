@@ -115,6 +115,11 @@
   async function syncPoiReferenceLayer() {
     if (!roadsMap || !currentMapSlug || !window.AdminPoiLayer) return;
     await AdminPoiLayer.render(roadsMap, currentMapSlug, toLatLng, adminApi, { interactive: false });
+    if (window.AdminGroupMarkersLayer) {
+      await AdminGroupMarkersLayer.render(roadsMap, currentMapSlug, toLatLng, adminApi, {
+        mapSize: mapConfig?.map_size || 20480,
+      });
+    }
   }
 
   // -------------------------------------------------------------------------
