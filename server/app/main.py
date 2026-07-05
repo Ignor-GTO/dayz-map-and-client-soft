@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.admin_routes import router as admin_router
@@ -17,6 +17,7 @@ from app.radiation_upload import ensure_overlay_dir
 from app.websocket import manager
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+DEFAULT_AVATAR_PATH = STATIC_DIR / "img" / "default-avatar.svg"
 
 
 @asynccontextmanager
@@ -42,6 +43,14 @@ async def health():
 @app.get("/api/download/client")
 async def download_client():
     return RedirectResponse(url=CLIENT_DOWNLOAD_URL, status_code=302)
+
+
+@app.get("/img/default-avatar.svg")
+async def default_avatar_svg():
+    path = DEFAULT_AVATAR_PATH if DEFAULT_AVATAR_PATH.is_file() else STATIC_DIR / "default-avatar.svg"
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Default avatar not found")
+    return FileResponse(path, media_type="image/svg+xml")
 
 
 @app.websocket("/ws/map")

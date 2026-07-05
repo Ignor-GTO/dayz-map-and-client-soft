@@ -2,7 +2,14 @@
 (function () {
   "use strict";
 
-  const DEFAULT_AVATAR_URL = "/img/default-avatar.svg";
+  const DEFAULT_AVATAR_SVG =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">' +
+    '<circle cx="32" cy="32" r="32" fill="#2a3848"/>' +
+    '<circle cx="32" cy="24" r="11" fill="#8b9cb3"/>' +
+    '<path d="M12 54c3.5-11 11.5-17 20-17s16.5 6 20 17" fill="#8b9cb3"/>' +
+    "</svg>";
+  const DEFAULT_AVATAR_URL = `data:image/svg+xml,${encodeURIComponent(DEFAULT_AVATAR_SVG)}`;
+  const DEFAULT_AVATAR_FILE_URL = "/img/default-avatar.svg?v=2";
   let hooks = {};
   let bound = false;
 
@@ -34,18 +41,24 @@
   }
 
   function resolveAvatarUrl(url) {
-    return url || DEFAULT_AVATAR_URL;
+    return url || DEFAULT_AVATAR_FILE_URL;
+  }
+
+  function setAvatarImage(img, url) {
+    if (!img) return;
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = DEFAULT_AVATAR_URL;
+    };
+    img.src = url;
   }
 
   function syncAvatarUi() {
     const me = getUser();
-    if (!me) return;
-    const url = resolveAvatarUrl(me.avatar_url);
-    const toolbarAvatar = document.getElementById("toolbar-avatar");
-    const previewAvatar = document.getElementById("profile-avatar-preview");
-    if (toolbarAvatar) toolbarAvatar.src = url;
-    if (previewAvatar) previewAvatar.src = url;
-    document.getElementById("profile-avatar-remove-btn")?.classList.toggle("hidden", !me.avatar_url);
+    const url = me ? resolveAvatarUrl(me.avatar_url) : DEFAULT_AVATAR_FILE_URL;
+    setAvatarImage(document.getElementById("toolbar-avatar"), url);
+    setAvatarImage(document.getElementById("profile-avatar-preview"), url);
+    document.getElementById("profile-avatar-remove-btn")?.classList.toggle("hidden", !me?.avatar_url);
   }
 
   function setToolbarVisible(visible) {
@@ -219,6 +232,7 @@
 
   async function refreshSession() {
     bindEvents();
+    syncAvatarUi();
     try {
       const me = await api("/api/auth/me");
       setUser(me);
@@ -228,6 +242,7 @@
     } catch {
       setUser(null);
       setToolbarVisible(false);
+      syncAvatarUi();
       return null;
     }
   }
