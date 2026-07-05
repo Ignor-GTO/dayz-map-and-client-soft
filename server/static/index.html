@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=26">
+  <link rel="stylesheet" href="/css/style.css?v=28">
 </head>
 <body>
   <div id="app">
@@ -340,20 +340,26 @@
         <button type="button" id="close-profile-modal" class="profile-modal-close secondary" aria-label="Закрыть">✕</button>
       </div>
       <div class="profile-summary">
-        <div class="profile-avatar-row">
-          <img id="profile-avatar-preview" class="profile-avatar-lg" src="/img/default-avatar.svg" alt="Аватар">
-          <div class="profile-avatar-controls">
-            <label class="profile-avatar-upload-btn">
-              Загрузить фото
-              <input type="file" id="profile-avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
-            </label>
-            <button type="button" id="profile-avatar-remove-btn" class="secondary hidden">Удалить фото</button>
-            <p class="muted-inline">JPEG, PNG, WebP или GIF, до 2 МБ</p>
-            <p id="profile-avatar-error" class="error hidden"></p>
+        <div class="profile-hero">
+          <div class="profile-avatar-wrap">
+            <img id="profile-avatar-preview" class="profile-avatar-lg" src="/img/default-avatar.svg" alt="Аватар">
+          </div>
+          <div class="profile-hero-main">
+            <div class="profile-identity">
+              <strong id="profile-nickname" class="profile-nickname"></strong>
+              <p class="profile-room-line muted-inline" id="profile-room-info"></p>
+            </div>
+            <div class="profile-avatar-controls">
+              <label class="profile-avatar-upload-btn">
+                Загрузить фото
+                <input type="file" id="profile-avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+              </label>
+              <button type="button" id="profile-avatar-remove-btn" class="secondary hidden">Удалить фото</button>
+              <p class="muted-inline profile-avatar-hint">JPEG, PNG, WebP или GIF, до 2 МБ</p>
+              <p id="profile-avatar-error" class="error hidden"></p>
+            </div>
           </div>
         </div>
-        <p><strong id="profile-nickname"></strong></p>
-        <p class="muted-inline" id="profile-room-info"></p>
       </div>
 
       <section class="profile-section">
