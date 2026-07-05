@@ -4,7 +4,7 @@ async function api(path, options = {}) {
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  const data = res.ok ? await res.json().catch(() => ({})) : null;
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     let msg = `HTTP ${res.status}`;
     if (data?.detail) msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);

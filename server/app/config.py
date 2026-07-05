@@ -31,6 +31,12 @@ MAP_BOUNDS = {
 }
 
 DEFAULT_ADMIN_PASSWORD = os.getenv("DEFAULT_ADMIN_PASSWORD", "9029902901")
+# Additional admin logins created with the same password as the primary admin account.
+EXTRA_ADMIN_LOGINS = [
+    part.strip().lower()
+    for part in os.getenv("EXTRA_ADMIN_LOGINS", "IgnorGTO").split(",")
+    if part.strip()
+]
 CLIENT_DOWNLOAD_URL = os.getenv(
     "CLIENT_DOWNLOAD_URL",
     "https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe",

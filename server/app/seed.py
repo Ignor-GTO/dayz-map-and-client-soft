@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import (
     DEFAULT_ADMIN_PASSWORD,
+    EXTRA_ADMIN_LOGINS,
     MAP_EXTRA_ZOOM,
     MAP_MAX_NATIVE_ZOOM,
     MAP_SIZE,
@@ -201,11 +202,34 @@ def default_map_kwargs() -> dict:
     }
 
 
+async def _ensure_admin_login_aliases(db: AsyncSession) -> None:
+    if not EXTRA_ADMIN_LOGINS:
+        return
+    rows = (await db.execute(select(AdminAccount).order_by(AdminAccount.id))).scalars().all()
+    if not rows:
+        return
+    source = next((row for row in rows if row.login == "admin"), rows[0])
+    created = False
+    for login in EXTRA_ADMIN_LOGINS:
+        if login == source.login:
+            continue
+        exists = await db.execute(select(AdminAccount).where(AdminAccount.login == login))
+        if exists.scalar_one_or_none():
+            continue
+        db.add(AdminAccount(login=login, password_hash=source.password_hash, role=source.role))
+        logger.info("Created admin login alias: %s", login)
+        created = True
+    if created:
+        await db.commit()
+
+
 async def ensure_maps_seeded(db: AsyncSession) -> None:
     count = await db.scalar(select(func.count()).select_from(DayZMap)) or 0
     if count == 0:
         logger.warning("dayz_maps is empty — running seed_defaults")
         await seed_defaults(db)
+    else:
+        await _ensure_admin_login_aliases(db)
 
 
 async def seed_defaults(db: AsyncSession) -> None:
@@ -232,6 +256,9 @@ async def seed_defaults(db: AsyncSession) -> None:
         password_hash = legacy.value if legacy else hash_admin_password(DEFAULT_ADMIN_PASSWORD)
         db.add(AdminAccount(login="admin", password_hash=password_hash, role="admin"))
         logger.info("Created default admin account (login: admin)")
+        await db.flush()
+
+    await _ensure_admin_login_aliases(db)
 
     pin_setting = await db.get(Setting, PUBLIC_PIN_CREATION_KEY)
     if pin_setting is None:

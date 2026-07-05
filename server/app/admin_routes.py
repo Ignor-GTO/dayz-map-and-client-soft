@@ -168,7 +168,7 @@ async def admin_login(
     result = await db.execute(select(AdminAccount).where(AdminAccount.login == login))
     account = result.scalar_one_or_none()
     if not account or not verify_admin_password(payload.password, account.password_hash):
-        raise HTTPException(status_code=401, detail="Invalid login or password")
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
     set_admin_session(response, account.id)
     return {"ok": True, "login": account.login, "role": account.role}
 
