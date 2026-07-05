@@ -66,11 +66,13 @@
     document.getElementById("logout-btn")?.classList.toggle("hidden", !visible);
   }
 
-  function openProfileModal() {
+  function closeProfileModal() {
+    document.getElementById("profile-modal")?.classList.add("hidden");
+  }
+
+  function populateProfileModal() {
     const me = getUser();
     if (!me) return;
-    const modal = document.getElementById("profile-modal");
-    if (!modal) return;
 
     document.getElementById("profile-nickname").textContent = me.nickname;
     document.getElementById("profile-room-info").textContent =
@@ -106,8 +108,12 @@
     } else {
       roomSection.classList.add("hidden");
     }
+  }
 
-    modal.classList.remove("hidden");
+  function openProfileModal() {
+    if (!getUser()) return;
+    populateProfileModal();
+    document.getElementById("profile-modal")?.classList.remove("hidden");
   }
 
   async function saveProfilePassword(remove = false) {
@@ -124,7 +130,7 @@
       const me = { ...getUser(), has_profile_password: !!data.has_profile_password };
       setUser(me);
       alert(data.message);
-      openProfileModal();
+      populateProfileModal();
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove("hidden");
@@ -153,7 +159,7 @@
       });
       hooks.onRoomPinChange?.(data.pin);
       alert("Настройки группы сохранены.");
-      openProfileModal();
+      populateProfileModal();
     } catch (err) {
       errEl.textContent = err.message;
       errEl.classList.remove("hidden");
@@ -192,8 +198,14 @@
     bound = true;
 
     document.getElementById("profile-btn")?.addEventListener("click", openProfileModal);
-    document.getElementById("close-profile-modal")?.addEventListener("click", () => {
-      document.getElementById("profile-modal")?.classList.add("hidden");
+    document.getElementById("close-profile-modal")?.addEventListener("click", closeProfileModal);
+    document.getElementById("profile-modal")?.addEventListener("click", (e) => {
+      if (e.target.id === "profile-modal") closeProfileModal();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+      const modal = document.getElementById("profile-modal");
+      if (modal && !modal.classList.contains("hidden")) closeProfileModal();
     });
     document.getElementById("profile-save-password-btn")?.addEventListener("click", () => {
       saveProfilePassword(false);

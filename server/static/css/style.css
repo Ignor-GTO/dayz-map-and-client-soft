@@ -54,19 +54,82 @@ h1 { margin: 0 0 0.25rem; font-size: 1.6rem; }
   display: none;
 }
 
+.profile-modal-content {
+  max-height: min(88vh, 620px);
+  overflow-y: auto;
+  padding: 1rem 1.15rem;
+}
+
+.profile-modal-content h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.profile-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--panel);
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid #2a3848;
+}
+
+.profile-modal-close {
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  line-height: 1;
+  border-radius: 8px;
+  font-size: 1.1rem;
+}
+
 .profile-modal-content h3 {
-  margin: 1rem 0 0.5rem;
-  font-size: 1rem;
+  margin: 0.65rem 0 0.35rem;
+  font-size: 0.95rem;
 }
 
 .profile-section {
-  margin-top: 1rem;
-  padding-top: 0.75rem;
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
   border-top: 1px solid #2a3848;
 }
 
 .profile-summary {
+  margin-bottom: 0.35rem;
+}
+
+.profile-avatar-row {
+  gap: 0.75rem;
   margin-bottom: 0.5rem;
+}
+
+.profile-avatar-lg {
+  width: 56px;
+  height: 56px;
+}
+
+.profile-avatar-controls .muted-inline {
+  font-size: 0.78rem;
+  margin: 0;
+}
+
+.profile-modal-content label {
+  margin-bottom: 0.65rem;
+}
+
+.profile-modal-footer {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #2a3848;
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
 }
 
 .profile-actions {
@@ -656,7 +719,8 @@ select {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2000;
+  z-index: 10000;
+  padding: 1rem;
 }
 
 .modal-content {

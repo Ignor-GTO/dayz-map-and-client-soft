@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Торговцы — DayZ Map</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=24">
+  <link rel="stylesheet" href="/css/style.css?v=25">
 </head>
 <body>
   <div class="traders-page">
@@ -85,7 +85,10 @@
 
   <div id="profile-modal" class="modal hidden">
     <div class="modal-content profile-modal-content">
-      <h2>Профиль</h2>
+      <div class="profile-modal-header">
+        <h2>Профиль</h2>
+        <button type="button" id="close-profile-modal" class="profile-modal-close secondary" aria-label="Закрыть">✕</button>
+      </div>
       <div class="profile-summary">
         <div class="profile-avatar-row">
           <img id="profile-avatar-preview" class="profile-avatar-lg" src="/img/default-avatar.svg" alt="Аватар">
@@ -145,12 +148,10 @@
         </div>
         <p id="room-settings-error" class="error hidden"></p>
       </section>
-
-      <button type="button" id="close-profile-modal" class="secondary">Закрыть</button>
     </div>
   </div>
 
-  <script src="/js/profile-ui.js?v=2"></script>
+  <script src="/js/profile-ui.js?v=3"></script>
   <script src="/js/traders.js?v=6"></script>
   <script>
     ProfileUi.init({
