@@ -1,0 +1,571 @@
+{
+  "meta": {
+    "images_for_ocr": 140,
+    "records_total": 0,
+    "records_unique": 0,
+    "ocr_errors": 140
+  },
+  "items": [],
+  "ocr_errors": [
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Навесные карманы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Навесные карманы/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Навесные карманы/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Наклейки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Нашивки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Нашивки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/ПНВ/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/ПНВ/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/ПНВ/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Merc Heavy and Light/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Merc Heavy and Light/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Merc Heavy and Light/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Ботинки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Ботинки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Ботинки/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Куртки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Одежда в Повязку/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Перчатки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Перчатки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Перчатки/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Сет SWAT/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Сет SWAT/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Сет Охотника/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image5.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image6.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image7.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Глушители/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Гранотометы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Дробовики/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Компенсаторы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Магазины/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Магазины/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Магазины/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Патроны/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Патроны/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Патроны/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Пистолеты/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Пистолеты-Пулеметы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Приклады/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Прицелы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Пулеметы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Снайперские винтовки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Снайперские винтовки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Сошки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Цевья/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Штурмовые автоматы/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Штурмовые автоматы/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Набедренная кобура/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Ременные и поясничные системы/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Ременные и поясничные системы/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image5.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image6.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image7.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "Черный рынок/Мод аксессуары/Маски и очки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "Черный рынок/Мод аксессуары/Маски и очки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Навесные карманы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Навесные карманы/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Навесные карманы/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Наклейки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Нашивки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/Нашивки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/ПНВ/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/ПНВ/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Мод аксессуары/ПНВ/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Merc Heavy and Light/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Merc Heavy and Light/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Merc Heavy and Light/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Ботинки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Ботинки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Ботинки/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Куртки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Одежда в Повязку/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Перчатки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Перчатки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Перчатки/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Сет SWAT/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Сет SWAT/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Сет Охотника/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image5.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image6.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовая Одежда/Штаны/image7.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Глушители/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Гранотометы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Дробовики/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Компенсаторы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Магазины/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Магазины/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Магазины/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Патроны/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Патроны/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Патроны/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Пистолеты/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Пистолеты-Пулеметы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Приклады/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Прицелы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Пулеметы/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Снайперские винтовки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Снайперские винтовки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Сошки/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Цевья/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Штурмовые автоматы/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Оружие/Штурмовые автоматы/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Бронежилеты/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Набедренная кобура/image.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Ременные и поясничные системы/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Ременные и поясничные системы/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image4.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image5.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image6.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Рюкзаки/image7.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image1.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image2.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image3.png",
+      "error": "no result"
+    },
+    {
+      "source": "_downloaded/Черный рынок/Модовое Снаряжение/Шлем/image4.png",
+      "error": "no result"
+    }
+  ]
+}

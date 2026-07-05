@@ -1,0 +1,810 @@
+[
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Будильник",
+    "buy_price": 0,
+    "sell_price": 300
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Карнавальная маска",
+    "buy_price": 0,
+    "sell_price": 500
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Плюшевый медведь",
+    "buy_price": 0,
+    "sell_price": 600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Лыжные перчатки",
+    "buy_price": 0,
+    "sell_price": 700
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Лыжные очки",
+    "buy_price": 0,
+    "sell_price": 700
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Кольчуга",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Кольчужный капюшон",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Кольчужные шоссы",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Кираса",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Скандинавский шлем",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Средневековый шлем",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Средневековые ботинки",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Противоядие РО-Х",
+    "buy_price": 0,
+    "sell_price": 900
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Юбилейная футболка",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Кухонный таймер",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Мегафон",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Маска мима",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Маска Чейнса",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Маска Далласа",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Маска Хокстона",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Маска Вулфа",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Ведьминский капюшон",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Ведьминский колпак",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Дальномер",
+    "buy_price": 0,
+    "sell_price": 1300
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Тонкие очки",
+    "buy_price": 0,
+    "sell_price": 1400
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Классические очки",
+    "buy_price": 0,
+    "sell_price": 1400
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Пусковая установка для фейерверков",
+    "buy_price": 0,
+    "sell_price": 2100
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Бинокль",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Флаг",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Коллекционные предметы",
+    "name": "Фонарь из тыквы",
+    "buy_price": 0,
+    "sell_price": 7000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Самодельный нож",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Специальный нож",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Заточка",
+    "buy_price": 0,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Коса",
+    "buy_price": 0,
+    "sell_price": 15000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Трап",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Любэ",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Aqua",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Бумер",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета исполнителя Серега",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Иванушки International",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Руки Вверх",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Linkin Park",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы 30 Second To Mars",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы AC/DC",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Imagine Dragons",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета Группы Neffex",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета исполнителя Oxxxymiron",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник песен",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 1 песен EvaR",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник песен Nissan Sky",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник песен Soil",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Proshliy",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник МосКВа",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 1 izzi",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 2 izzi",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 3 izzi",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 4 izzi",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 5 izzi",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник ucakoB",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Huleeo",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Viiy",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Shelby",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник RoiMang",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Tizer",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник DoMoVoi",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник SMERTNIK39",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник ТЕСАК",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Shuler",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник EGK4",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Qvadr",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 2 Qvadr",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник BOBER",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 2 BOBER",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник номер 2 EGK4",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник kosmos",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "DayZavr Касета сборник Dudez",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Кассетный магнитофон Беларусь-302",
+    "buy_price": 0,
+    "sell_price": 18500
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Мобильный кассетный магнитофон",
+    "buy_price": 0,
+    "sell_price": 100000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "Watch Montana",
+    "buy_price": 0,
+    "sell_price": 15000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Разные эксклюзивные предметы",
+    "name": "GPS-приемник",
+    "buy_price": 0,
+    "sell_price": 20000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Исследования",
+    "buy_price": 0,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Журнал (3000)",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Журнал (3500)",
+    "buy_price": 0,
+    "sell_price": 3500
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Журнал (4000)",
+    "buy_price": 0,
+    "sell_price": 4000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Журнал (7000)",
+    "buy_price": 0,
+    "sell_price": 7000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Документ об исследованиях",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Доклад об исследовании образцов",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Документ об экспериментах",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Записи об экспериментах",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Тетрадь с записью об эксперименте",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Документы об исследованиях",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Распоряжение о переводе",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Инструкция к (изделию №62)",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Излучатель (Радуга) — основные ТТХ",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Административные документы",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Приказ № 562",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Документы из лаборатории Х16",
+    "buy_price": 0,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Дискета",
+    "buy_price": 0,
+    "sell_price": 4000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Синяя флешка",
+    "buy_price": 0,
+    "sell_price": 5000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Белая Флешка",
+    "buy_price": 0,
+    "sell_price": 5000
+  },
+  {
+    "trader": "Коллекционер",
+    "section": "Борода",
+    "subsection": "Журналы и документация",
+    "name": "Жесткий диск",
+    "buy_price": 0,
+    "sell_price": 5000
+  }
+]

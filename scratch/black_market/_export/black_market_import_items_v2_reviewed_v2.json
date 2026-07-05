@@ -1,0 +1,1218 @@
+[
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Поясная сумка (Свобода)",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Поясная сумка (одиночная)",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Поясная сумка (двойная)",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 01)",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 02)",
+    "buy_price": 20000,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 03)",
+    "buy_price": 20000,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "оАсНаАсуМКаСеВаАо",
+    "buy_price": 20000,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 04)",
+    "buy_price": 20000,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 05)",
+    "buy_price": 20000,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 06)",
+    "buy_price": 4000,
+    "sell_price": 400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 07)",
+    "buy_price": 4000,
+    "sell_price": 400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 08)",
+    "buy_price": 4000,
+    "sell_price": 400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Кобура",
+    "buy_price": 4500,
+    "sell_price": 450
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "ВССуМка",
+    "buy_price": 7000,
+    "sell_price": 700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 09)",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "оАсНасу каЗарАо",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "оАсНаА суМКаЗарАСВобоАа",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "оАсНаАсуМКаЗарОАМНо Ка",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Навесные карманы",
+    "name": "Навесные карманы (позиция 10)",
+    "buy_price": 12000,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "ПНВ",
+    "name": "ПНВ (модель 1)",
+    "buy_price": 320000,
+    "sell_price": 32000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "ПНВ",
+    "name": "ПНВ (модель 2)",
+    "buy_price": 870000,
+    "sell_price": 87000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "ТаКТ усКаАбааКаВа",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "ТакТ сКаАбааКаВа",
+    "buy_price": 25000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "Merc Heavy and Light (позиция 01)",
+    "buy_price": 7000,
+    "sell_price": 700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "Merc Heavy and Light (позиция 02)",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "КурТКа КОМбМНеЗОНа",
+    "buy_price": 160000,
+    "sell_price": 16000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "КурТКаКОМбМНеЗОНа",
+    "buy_price": 160000,
+    "sell_price": 16000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "КурТКаКОМбМНеЗОНа",
+    "buy_price": 500000,
+    "sell_price": 50000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "КурТКаКОМб НеЗОНа",
+    "buy_price": 500000,
+    "sell_price": 50000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "КурТКа КОМбМНеЗОНа",
+    "buy_price": 500000,
+    "sell_price": 50000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "ТаН КОМбМНеЗОНа",
+    "buy_price": 160000,
+    "sell_price": 16000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Merc Heavy and Light",
+    "name": "ТаН КОМбМНеЗОНа",
+    "buy_price": 500000,
+    "sell_price": 50000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "Ботинки",
+    "buy_price": 560,
+    "sell_price": 140
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "Сникерсы",
+    "buy_price": 600,
+    "sell_price": 150
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "Сникерсы",
+    "buy_price": 1000,
+    "sell_price": 250
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "Сникерсы",
+    "buy_price": 1200,
+    "sell_price": 300
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "Ботинки (усиленные)",
+    "buy_price": 4000,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "боТМНКМКОМбМНеЗОНаСеВа",
+    "buy_price": 6000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Ботинки",
+    "name": "боТМНКМКОМбМНеЗОНаЗарА",
+    "buy_price": 15000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Куртки",
+    "name": "ТаКТ есКаАКурТКа",
+    "buy_price": 200000,
+    "sell_price": 20000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Перчатки",
+    "name": "Перчатки",
+    "buy_price": 400,
+    "sell_price": 4000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Перчатки",
+    "name": "Перчатки (позиция 01)",
+    "buy_price": 7500,
+    "sell_price": 800
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет SWAT",
+    "name": "Сет SWAT (позиция 01)",
+    "buy_price": 155000,
+    "sell_price": 15500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет SWAT",
+    "name": "аТру НаАКурТКа",
+    "buy_price": 155000,
+    "sell_price": 15500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет SWAT",
+    "name": "Сет SWAT (позиция 02)",
+    "buy_price": 155000,
+    "sell_price": 15500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет SWAT",
+    "name": "аТруА НаАКурТКа",
+    "buy_price": 155000,
+    "sell_price": 15500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "Ва аКаВаСМасКоОХОТНМКА",
+    "buy_price": 55000,
+    "sell_price": 5500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "Сет Охотника (позиция 01)",
+    "buy_price": 415000,
+    "sell_price": 51500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "РоКЗаКОХОТНМКА",
+    "buy_price": 415000,
+    "sell_price": 51500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "РоКЗаКОХОТНМКА",
+    "buy_price": 410000,
+    "sell_price": 51000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "КурТКасброНеХ еТоМОХОТНМКА",
+    "buy_price": 185000,
+    "sell_price": 18500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "ТаН ОХОТНМКА",
+    "buy_price": 220000,
+    "sell_price": 18000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "ТаН ОХОТНМКА",
+    "buy_price": 220000,
+    "sell_price": 22000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Сет Охотника",
+    "name": "Сет Охотника (позиция 02)",
+    "buy_price": 25000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "ТаН орКа",
+    "buy_price": 400,
+    "sell_price": 100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "Штаны (позиция 01)",
+    "buy_price": 400,
+    "sell_price": 100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "ароВар ААМАас",
+    "buy_price": 400,
+    "sell_price": 100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "ТаН КОМбМНеЗОНаЗарабаНАМТ",
+    "buy_price": 21000,
+    "sell_price": 2100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "ТаН КОМбМНеЗОНаЗарААо",
+    "buy_price": 21000,
+    "sell_price": 2100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "ТаН КОМбМНеЗОНаЗараНаеМНМКИ",
+    "buy_price": 21000,
+    "sell_price": 2100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовая Одежда",
+    "subsection": "Штаны",
+    "name": "ТаН КОМбМНеЗОНаСеВа",
+    "buy_price": 25000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Дробовики",
+    "name": "МоНо ТАрМс",
+    "buy_price": 97000,
+    "sell_price": 9700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Компенсаторы",
+    "name": "КоМ еНсаТорА",
+    "buy_price": 5000,
+    "sell_price": 500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Компенсаторы",
+    "name": "Ко еНсаТорАК",
+    "buy_price": 5000,
+    "sell_price": 500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Магазины",
+    "name": "Магазин",
+    "buy_price": 212500,
+    "sell_price": 21250
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "аТрОН .ЗО",
+    "buy_price": 2020,
+    "sell_price": 200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "Патроны",
+    "buy_price": 2300,
+    "sell_price": 230
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "Патроны",
+    "buy_price": 2240,
+    "sell_price": 224
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "КоробКа аТроНОВ",
+    "buy_price": 510,
+    "sell_price": 50
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "Патроны (позиция 01)",
+    "buy_price": 1380,
+    "sell_price": 140
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "Патроны (позиция 02)",
+    "buy_price": 2020,
+    "sell_price": 200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Патроны",
+    "name": "КоробКа аТроНоВ. ОВМ",
+    "buy_price": 9800,
+    "sell_price": 980
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Пистолеты",
+    "name": "Пистолет",
+    "buy_price": 13500,
+    "sell_price": 1350
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Приклады",
+    "name": "Приклады (позиция 01)",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Прицелы",
+    "name": "Прицел",
+    "buy_price": 11000,
+    "sell_price": 1100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Прицелы",
+    "name": "Прицелы (позиция 01)",
+    "buy_price": 8000,
+    "sell_price": 800
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Прицелы",
+    "name": "ЕОТес НН",
+    "buy_price": 9000,
+    "sell_price": 900
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Пулеметы",
+    "name": "Пулемет (модель 1)",
+    "buy_price": 250000,
+    "sell_price": 25000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Пулеметы",
+    "name": "Пулемет (модель 2)",
+    "buy_price": 250000,
+    "sell_price": 25000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Пулеметы",
+    "name": "Пулемет (модель 3)",
+    "buy_price": 220000,
+    "sell_price": 22000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Пулеметы",
+    "name": "Пулемет (модель 4)",
+    "buy_price": 185000,
+    "sell_price": 18500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Снайперские винтовки",
+    "name": "KSVK",
+    "buy_price": 975000,
+    "sell_price": 97500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Снайперские винтовки",
+    "name": "VSSK",
+    "buy_price": 975000,
+    "sell_price": 97500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Снайперские винтовки",
+    "name": "AWM",
+    "buy_price": 345000,
+    "sell_price": 34500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Снайперские винтовки",
+    "name": "Kar98k",
+    "buy_price": 300000,
+    "sell_price": 30000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Снайперские винтовки",
+    "name": "AWM",
+    "buy_price": 320000,
+    "sell_price": 32000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Снайперские винтовки",
+    "name": "SKS",
+    "buy_price": 75000,
+    "sell_price": 8000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Сошки",
+    "name": "Сошки (позиция 01)",
+    "buy_price": 50000,
+    "sell_price": 5000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Сошки",
+    "name": "Сошки (позиция 02)",
+    "buy_price": 30000,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Сошки",
+    "name": "Сошки (позиция 03)",
+    "buy_price": 110000,
+    "sell_price": 11000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Цевья",
+    "name": "Цевья (позиция 01)",
+    "buy_price": 7000,
+    "sell_price": 700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Цевья",
+    "name": "РуКОАТКау ОВаА",
+    "buy_price": 8500,
+    "sell_price": 850
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Цевья",
+    "name": "Цевья (позиция 02)",
+    "buy_price": 10000,
+    "sell_price": 1000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Штурмовые автоматы",
+    "name": "SCAR-H",
+    "buy_price": 75000,
+    "sell_price": 7500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Штурмовые автоматы",
+    "name": "AKM",
+    "buy_price": 58000,
+    "sell_price": 5800
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Штурмовые автоматы",
+    "name": "M4A1",
+    "buy_price": 57000,
+    "sell_price": 5700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Оружие",
+    "subsection": "Штурмовые автоматы",
+    "name": "AEK",
+    "buy_price": 32000,
+    "sell_price": 3200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Бронежилеты",
+    "name": "ВрОНеХ еТКОМбМНеЗОНаСеВаАо",
+    "buy_price": 25000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Бронежилеты",
+    "name": "ВрОНеХ еТКОМбМНеЗОНаСеВаНаеМНМКМ",
+    "buy_price": 25000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Бронежилеты",
+    "name": "Бронежилеты (позиция 01)",
+    "buy_price": 50000,
+    "sell_price": 5000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Бронежилеты",
+    "name": "ВроНераЗ руЗКаКоМбМНеЗоНаСеВаВаНАМТ",
+    "buy_price": 55000,
+    "sell_price": 5500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Бронежилеты",
+    "name": "Бронежилеты (позиция 02)",
+    "buy_price": 7000,
+    "sell_price": 700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Набедренная кобура",
+    "name": "НабеАреННааКобура",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Набедренная кобура",
+    "name": "НабеАреННа кобура",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Набедренная кобура",
+    "name": "НабеАреННаКобура",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 01)",
+    "buy_price": 35000,
+    "sell_price": 3500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 02)",
+    "buy_price": 35000,
+    "sell_price": 3500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 03)",
+    "buy_price": 35000,
+    "sell_price": 3500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 04)",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "СреАНААреМеННаА сНСТеМа",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 05)",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 06)",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "СреАНААреМеННаА СМСТеМа",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 07)",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 08)",
+    "buy_price": 81000,
+    "sell_price": 8100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Ременные и поясничные системы (позиция 09)",
+    "buy_price": 95000,
+    "sell_price": 9500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Ременные и поясничные системы",
+    "name": "Тяжелая ременная система",
+    "buy_price": 100000,
+    "sell_price": 10000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзак",
+    "buy_price": 600,
+    "sell_price": 600
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Тактический рюкзак",
+    "buy_price": 7300,
+    "sell_price": 730
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 01)",
+    "buy_price": 14500,
+    "sell_price": 1450
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 02)",
+    "buy_price": 30000,
+    "sell_price": 3000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 03)",
+    "buy_price": 34000,
+    "sell_price": 3400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "РОКЗаКНОВМ Ка",
+    "buy_price": 34000,
+    "sell_price": 3400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 04)",
+    "buy_price": 34000,
+    "sell_price": 3400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "РОКЗаКНОВМ КаСВОбОАа",
+    "buy_price": 34000,
+    "sell_price": 3400
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Вещмешок",
+    "buy_price": 46000,
+    "sell_price": 4600
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 05)",
+    "buy_price": 97000,
+    "sell_price": 9700
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 06)",
+    "buy_price": 140000,
+    "sell_price": 14000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 07)",
+    "buy_price": 140000,
+    "sell_price": 14000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 08)",
+    "buy_price": 140000,
+    "sell_price": 14000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "РоКЗаККОМб НеЗОНаСеВа",
+    "buy_price": 140000,
+    "sell_price": 14000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 09)",
+    "buy_price": 140000,
+    "sell_price": 14000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "ОВаскраск",
+    "buy_price": 150000,
+    "sell_price": 15000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 10)",
+    "buy_price": 200000,
+    "sell_price": 20000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 11)",
+    "buy_price": 370000,
+    "sell_price": 37000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "охОАНаА суМКа",
+    "buy_price": 370000,
+    "sell_price": 37000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 12)",
+    "buy_price": 500000,
+    "sell_price": 6
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 13)",
+    "buy_price": 500000,
+    "sell_price": 90000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 14)",
+    "buy_price": 700000,
+    "sell_price": 70000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзаки (позиция 15)",
+    "buy_price": 700000,
+    "sell_price": 70000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Рюкзаки",
+    "name": "ОрухеМНаА суМка",
+    "buy_price": 700000,
+    "sell_price": 70000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 1)",
+    "buy_price": 20000,
+    "sell_price": 2000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 1)",
+    "buy_price": 20000,
+    "sell_price": 2500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 1)",
+    "buy_price": 20000,
+    "sell_price": 2300
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 2)",
+    "buy_price": 26000,
+    "sell_price": 3200
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 2)",
+    "buy_price": 36000,
+    "sell_price": 4000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 3)",
+    "buy_price": 40000,
+    "sell_price": 4100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (модель 4)",
+    "buy_price": 40000,
+    "sell_price": 4100
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Модовое Снаряжение",
+    "subsection": "Шлем",
+    "name": "Шлем (позиция 01)",
+    "buy_price": 210000,
+    "sell_price": 21000
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Маски и очки",
+    "name": "Маски и очки (позиция 01)",
+    "buy_price": 45000,
+    "sell_price": 4500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Маски и очки",
+    "name": "Хе еЗНаАМасКа",
+    "buy_price": 45000,
+    "sell_price": 4500
+  },
+  {
+    "trader": "Черный рынок",
+    "section": "Мод аксессуары",
+    "subsection": "Маски и очки",
+    "name": "Ghost Mask",
+    "buy_price": 65000,
+    "sell_price": 8500
+  }
+]

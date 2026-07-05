@@ -1,0 +1,168 @@
+{
+  "input": 763,
+  "cleaned_before_dedupe": 179,
+  "output_unique": 158,
+  "dropped": 584,
+  "sample_dropped": [
+    {
+      "orig": "OAcHaA cyMKa 3apA OAMHouKa",
+      "clean": "ОАсНаА суМКа ЗарА ОАМНо Ка"
+    },
+    {
+      "orig": "OAcHaA cyMKa 3apA OAMHouka",
+      "clean": "ОАсНаА суМКа ЗарА ОАМНо ка"
+    },
+    {
+      "orig": "oAcHaA cyMKa 3apa MoHOΛNT",
+      "clean": "оАсНаА суМКа Зара МоНО  Т"
+    },
+    {
+      "orig": "noAcyMoKBepWnn-5M6aHANTbl",
+      "clean": "оАсуМоКВер     МбаНА Т"
+    },
+    {
+      "orig": "OAcyMoKbepWnn-5M4ncToeHe6o",
+      "clean": "ОАсуМоК ер     М  сТоеНебо"
+    },
+    {
+      "orig": "oAcymoKbepnnn-5MAonr",
+      "clean": "оАсу оК ер     МАо"
+    },
+    {
+      "orig": "noAcyMoKpa3rpy30uHorOXWneTaKoM6nHe3oHabepWnn-5MHaeMHnKM",
+      "clean": "оАсуМоКраЗ руЗО Но ОХ  еТаКоМб НеЗоНа ер     МНаеМН КМ"
+    },
+    {
+      "orig": "oACyMOKBepWnn-5MMoHOANT",
+      "clean": "оАСуМОКВер     ММоНОА Т"
+    },
+    {
+      "orig": "noAcyMoKBepWnn-5MCBo6oAa",
+      "clean": "оАсуМоКВер     МСВобоАа"
+    },
+    {
+      "orig": "NoAcyMoKBepWnn-5MBoeHHble",
+      "clean": "оАсуМоКВер     МВоеНН  е"
+    },
+    {
+      "orig": "oAcHaA cyMKa CeBa 4ncTOe He6o",
+      "clean": "оАсНаА суМКа СеВа   сТОе Небо"
+    },
+    {
+      "orig": "oACHaA CyMKa CeBaHaeMHNKM",
+      "clean": "оАСНаА СуМКа СеВаНаеМН КМ"
+    },
+    {
+      "orig": "oAcyMoK AA Wnema",
+      "clean": "оАсуМоК АА   е а"
+    },
+    {
+      "orig": "OAcymoK AA Wnema",
+      "clean": "ОАсу оК АА   е а"
+    },
+    {
+      "orig": "OAcyMoKAAWnema",
+      "clean": "ОАсуМоКАА  е а"
+    },
+    {
+      "orig": "OAcyMoKAA Wnema",
+      "clean": "ОАсуМоКАА   е а"
+    },
+    {
+      "orig": "4000 400 oAcyMOKAAWema",
+      "clean": "ООО  ОО оАсуМОКАА е а"
+    },
+    {
+      "orig": "TaKTnuecKnNnoAcyMoK",
+      "clean": "ТаКТ  есК   оАсуМоК"
+    },
+    {
+      "orig": "TaKTNuecKnNnoACyMoK",
+      "clean": "ТаКТ  есК   оАСуМоК"
+    },
+    {
+      "orig": "TaKTnueCKMnoACyMoK",
+      "clean": "ТаКТ  еСКМ оАСуМоК"
+    },
+    {
+      "orig": "oAcyMoKK piok3aky ATaka 3",
+      "clean": "оАсуМоКК р окЗаку АТака З"
+    },
+    {
+      "orig": "EM",
+      "clean": "ЕМ"
+    },
+    {
+      "orig": "oAcHaA cyMKa 3apa4ncToe He6o",
+      "clean": "оАсНаА суМКа Зара  сТое Небо"
+    },
+    {
+      "orig": "oAcHaA cyMKa 3apa OANHouKa",
+      "clean": "оАсНаА суМКа Зара ОА Но Ка"
+    },
+    {
+      "orig": "OUKNHOUHOrOBNAEHNA",
+      "clean": "О К НО НО ОВ АЕН А"
+    },
+    {
+      "orig": "-MHBnOANAbTPA-NVGFORFILTERS pn6opHOuHOrOBWAeHNA(M24epHbI)",
+      "clean": "МНВ ОА А ТРА     О    ТЕ   р борНО НО ОВ АеН А М  ерН"
+    },
+    {
+      "orig": "pn6opHOuHOrO BWAeHNA(M26enb)",
+      "clean": "р борНО НО О В АеН А М бе"
+    },
+    {
+      "orig": "pn6opHOuHOrO BWAeHNA (M23eeHbI)",
+      "clean": "р борНО НО О В АеН А  М ЗееН"
+    },
+    {
+      "orig": "pN6op HOuHOrO BWAeHNA (M26eXeBbI)",
+      "clean": "р бор НО НО О В АеН А  М беХеВ"
+    },
+    {
+      "orig": "pN6opHO4HOrO BWAeHNa(M3yepHbI)",
+      "clean": "р борНО НО О В АеН а МЗуерН"
+    },
+    {
+      "orig": "pn6op HOuHOrO BWAeHNA (M3 6eAbI)",
+      "clean": "р бор НО НО О В АеН А  МЗ беА"
+    },
+    {
+      "orig": "pn6opHOuHOrOBMAeHNA(M33eneHbI)",
+      "clean": "р борНО НО ОВМАеН А МЗЗе еН"
+    },
+    {
+      "orig": "pn6opHOuHOrOBMAeHNA(M36eXeBbI)",
+      "clean": "р борНО НО ОВМАеН А МЗбеХеВ"
+    },
+    {
+      "orig": "pn6opHOuHOrOBWAeHNA(M14epHbI)",
+      "clean": "р борНО НО ОВ АеН А М  ерН"
+    },
+    {
+      "orig": "pn6opHOuHOrOBNAeHNA(M16ebI)",
+      "clean": "р борНО НО ОВ АеН А М бе"
+    },
+    {
+      "orig": "pn6op HOuHOrO BWAeHNA(M13eΛeHbl)",
+      "clean": "р бор НО НО О В АеН А М Зе еН"
+    },
+    {
+      "orig": "pn6op HOuHOrO BWAeHNA (M1 6eXeBbI)",
+      "clean": "р бор НО НО О В АеН А  М  беХеВ"
+    },
+    {
+      "orig": "pN6opHOuHOrO BWAeHNA(M4HepHbI)",
+      "clean": "р борНО НО О В АеН А М НерН"
+    },
+    {
+      "orig": "pn6op HOuHOrO BWAeHNA (M1 6eXeBbI)",
+      "clean": "р бор НО НО О В АеН А  М  беХеВ"
+    },
+    {
+      "orig": "pn6opHOuHOrO BWAeHNA(M43eΛeHbl)",
+      "clean": "р борНО НО О В АеН А М Зе еН"
+    }
+  ]
+}

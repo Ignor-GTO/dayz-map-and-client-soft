@@ -1,0 +1,2554 @@
+[
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Счетчики Гейгера",
+    "name": "CDV-700",
+    "buy_price": 3250,
+    "sell_price": 975
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Тестер на радиацию",
+    "name": "Радиационный Инъектор",
+    "buy_price": 5200,
+    "sell_price": 1560
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Лечение от радиации",
+    "name": "Сигарета",
+    "buy_price": 325,
+    "sell_price": 97
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Лечение от радиации",
+    "name": "Косяк",
+    "buy_price": 2860,
+    "sell_price": 858
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Радиационная защита",
+    "name": "Противогаз РШ4",
+    "buy_price": 15000,
+    "sell_price": 1500
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Спецсвязь по выбросам",
+    "name": "Полевая радиостанция",
+    "buy_price": 3750,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Спецсвязь по выбросам",
+    "name": "Армейская рация",
+    "buy_price": 110000,
+    "sell_price": 33000
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Детекторы артефактов",
+    "name": "Детектор Отклик",
+    "buy_price": 53500,
+    "sell_price": 16050
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Болты для разрядки аномалий",
+    "name": "Болт",
+    "buy_price": 5,
+    "sell_price": 1
+  },
+  {
+    "trader": "Обитель",
+    "section": "Полевой медик",
+    "subsection": "Радиационная защита",
+    "name": "Фильтр противогаза STAYER A1",
+    "buy_price": 2000,
+    "sell_price": 0
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Голова тушкана",
+    "buy_price": 0,
+    "sell_price": 44
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Мясо мутанта",
+    "buy_price": 0,
+    "sell_price": 80
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Кошачья голова",
+    "buy_price": 0,
+    "sell_price": 148
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Хвост слепого пса",
+    "buy_price": 0,
+    "sell_price": 160
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Голова бультерьера",
+    "buy_price": 0,
+    "sell_price": 160
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Рука Зомби",
+    "buy_price": 0,
+    "sell_price": 160
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Рука излома",
+    "buy_price": 0,
+    "sell_price": 200
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Нога кабана",
+    "buy_price": 0,
+    "sell_price": 320
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Голова Кота Баюна",
+    "buy_price": 0,
+    "sell_price": 344
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Расчлененное тело Снорка",
+    "buy_price": 0,
+    "sell_price": 360
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Лапа Крысоволка",
+    "buy_price": 0,
+    "sell_price": 560
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Лапа псевдособаки",
+    "buy_price": 0,
+    "sell_price": 600
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Коготь трупожора",
+    "buy_price": 0,
+    "sell_price": 640
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Коготь химеры (малый)",
+    "buy_price": 0,
+    "sell_price": 960
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Ухо химеры",
+    "buy_price": 0,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Глаз псевдогиганта",
+    "buy_price": 0,
+    "sell_price": 1040
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Мозг псевдогиганта",
+    "buy_price": 0,
+    "sell_price": 1040
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Язык пиявки",
+    "buy_price": 0,
+    "sell_price": 1120
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Глаз плоти",
+    "buy_price": 0,
+    "sell_price": 1200
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Коготь мутированного медведя",
+    "buy_price": 0,
+    "sell_price": 1400
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Рука псевдогиганта",
+    "buy_price": 0,
+    "sell_price": 1600
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Нога снорка",
+    "buy_price": 0,
+    "sell_price": 1920
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Зубы Шипастого",
+    "buy_price": 0,
+    "sell_price": 1840
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Глаз полтергейста",
+    "buy_price": 0,
+    "sell_price": 2240
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Щупальца кровососа",
+    "buy_price": 0,
+    "sell_price": 3040
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Мозг контролера",
+    "buy_price": 0,
+    "sell_price": 3600
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Рука бюрера",
+    "buy_price": 0,
+    "sell_price": 4080
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Части тел мутантов",
+    "name": "Коготь химеры (большой)",
+    "buy_price": 0,
+    "sell_price": 6000
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура зайца",
+    "buy_price": 0,
+    "sell_price": 100
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура лисицы",
+    "buy_price": 0,
+    "sell_price": 200
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура овцы",
+    "buy_price": 0,
+    "sell_price": 300
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура свиньи",
+    "buy_price": 0,
+    "sell_price": 300
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура козы",
+    "buy_price": 0,
+    "sell_price": 300
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура коровы",
+    "buy_price": 0,
+    "sell_price": 350
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура кабана",
+    "buy_price": 0,
+    "sell_price": 400
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура оленя",
+    "buy_price": 0,
+    "sell_price": 600
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура волка",
+    "buy_price": 0,
+    "sell_price": 700
+  },
+  {
+    "trader": "Обитель",
+    "section": "Сборщик органов мутантов",
+    "subsection": "Шкуры животных",
+    "name": "Шкура медведя",
+    "buy_price": 0,
+    "sell_price": 800
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Бумага",
+    "buy_price": 0,
+    "sell_price": 35
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Спички",
+    "buy_price": 0,
+    "sell_price": 35
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Зажигалка",
+    "buy_price": 0,
+    "sell_price": 289
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Консервный нож",
+    "buy_price": 116,
+    "sell_price": 28
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Бутылка-фильтр",
+    "buy_price": 924,
+    "sell_price": 231
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Пластиковая бутылка",
+    "buy_price": 347,
+    "sell_price": 30
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Фляжка",
+    "buy_price": 693,
+    "sell_price": 81
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Общее",
+    "name": "Кастрюля",
+    "buy_price": 2195,
+    "sell_price": 346
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Кулинария",
+    "name": "Конфорка",
+    "buy_price": 231,
+    "sell_price": 58
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Кулинария",
+    "name": "Тренога для костра",
+    "buy_price": 289,
+    "sell_price": 71
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Кулинария",
+    "name": "Сковорода",
+    "buy_price": 347,
+    "sell_price": 174
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Загадочные консервы",
+    "buy_price": 347,
+    "sell_price": 87
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Крабовые консервы",
+    "buy_price": 405,
+    "sell_price": 98
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Райка",
+    "buy_price": 462,
+    "sell_price": 116
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Печеночный паштет",
+    "buy_price": 520,
+    "sell_price": 116
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Чипсы",
+    "buy_price": 578,
+    "sell_price": 144
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Свиной паштет",
+    "buy_price": 636,
+    "sell_price": 156
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Крекеры",
+    "buy_price": 693,
+    "sell_price": 174
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Клубничное варенье",
+    "buy_price": 751,
+    "sell_price": 174
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Zagorky",
+    "buy_price": 809,
+    "sell_price": 202
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Zagorky с шоколадом",
+    "buy_price": 867,
+    "sell_price": 202
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Zagorky с арахисом",
+    "buy_price": 924,
+    "sell_price": 231
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Соломка",
+    "buy_price": 982,
+    "sell_price": 231
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Кошачьи консервы",
+    "buy_price": 1040,
+    "sell_price": 260
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Собачьи консервы",
+    "buy_price": 1098,
+    "sell_price": 272
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Консервированные сардины",
+    "buy_price": 1155,
+    "sell_price": 289
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Консервированный тунец",
+    "buy_price": 1271,
+    "sell_price": 318
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Свиные консервы",
+    "buy_price": 1329,
+    "sell_price": 318
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Хлопья",
+    "buy_price": 1386,
+    "sell_price": 347
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Консервы",
+    "name": "Сухое молоко",
+    "buy_price": 1444,
+    "sell_price": 347
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Яблоко",
+    "buy_price": 0,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Груша",
+    "buy_price": 0,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Слива",
+    "buy_price": 0,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Шиповник",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Бузина",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Шампиньон",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Мухомор",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Рыжик",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Гриб-зонтик",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Колпак свободы",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Иудино ухо",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Белый гриб",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Вешенка",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Помидор",
+    "buy_price": 0,
+    "sell_price": 8
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Картофель",
+    "buy_price": 0,
+    "sell_price": 23
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Очищенный картофель",
+    "buy_price": 0,
+    "sell_price": 35
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Перец",
+    "buy_price": 0,
+    "sell_price": 19
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Кабачок",
+    "buy_price": 0,
+    "sell_price": 28
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Свежая еда",
+    "name": "Тыква",
+    "buy_price": 0,
+    "sell_price": 66
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Семена",
+    "name": "Пакет семян перца",
+    "buy_price": 0,
+    "sell_price": 58
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Семена",
+    "name": "Пакет семян тыквы",
+    "buy_price": 0,
+    "sell_price": 58
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Семена",
+    "name": "Пакет семян кабачка",
+    "buy_price": 0,
+    "sell_price": 58
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Семена",
+    "name": "Пакет семян томатов",
+    "buy_price": 0,
+    "sell_price": 58
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из курицы",
+    "buy_price": 0,
+    "sell_price": 87
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Нога зайца",
+    "buy_price": 0,
+    "sell_price": 88
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из лисицы",
+    "buy_price": 0,
+    "sell_price": 90
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из козлятины",
+    "buy_price": 0,
+    "sell_price": 92
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из баранины",
+    "buy_price": 0,
+    "sell_price": 92
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из свинины",
+    "buy_price": 0,
+    "sell_price": 92
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из кабанятины",
+    "buy_price": 0,
+    "sell_price": 92
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из волчатины",
+    "buy_price": 0,
+    "sell_price": 98
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из оленины",
+    "buy_price": 0,
+    "sell_price": 151
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из говядины",
+    "buy_price": 0,
+    "sell_price": 208
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Стейк из медвежатины",
+    "buy_price": 0,
+    "sell_price": 250
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Филе карпа",
+    "buy_price": 0,
+    "sell_price": 105
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Сардины",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Горчаки",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Филе скумбрии",
+    "buy_price": 0,
+    "sell_price": 35
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Карп",
+    "buy_price": 0,
+    "sell_price": 174
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Кости",
+    "buy_price": 0,
+    "sell_price": 26
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Жир",
+    "buy_price": 0,
+    "sell_price": 35
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Еда — Мясо",
+    "name": "Кишки",
+    "buy_price": 0,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Вилы",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Молоток для отбивания мяса",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Мотыга",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Серп",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Труба",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Трубный ключ",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Монтировка",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Булава",
+    "buy_price": 385,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Кухонный нож",
+    "buy_price": 440,
+    "sell_price": 44
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Нож для стейка",
+    "buy_price": 440,
+    "sell_price": 44
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Лом",
+    "buy_price": 440,
+    "sell_price": 44
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Гаечный ключ",
+    "buy_price": 440,
+    "sell_price": 44
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Восточное мачете",
+    "buy_price": 495,
+    "sell_price": 50
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Полевая лопата",
+    "buy_price": 0,
+    "sell_price": 88
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Штык для винтовки Мосин 91/30",
+    "buy_price": 990,
+    "sell_price": 99
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Холодное оружие",
+    "name": "Колун",
+    "buy_price": 1980,
+    "sell_price": 198
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты",
+    "name": "P1",
+    "buy_price": 600,
+    "sell_price": 60
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты",
+    "name": "ИЖ-70",
+    "buy_price": 660,
+    "sell_price": 66
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты",
+    "name": "CR-75",
+    "buy_price": 715,
+    "sell_price": 77
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты",
+    "name": "Дерринджер",
+    "buy_price": 660,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты",
+    "name": "MK II",
+    "buy_price": 660,
+    "sell_price": 176
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты",
+    "name": "Kolt 1911",
+    "buy_price": 715,
+    "sell_price": 165
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Дробовики",
+    "name": "Обрез БК-12",
+    "buy_price": 1500,
+    "sell_price": 190
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Дробовики",
+    "name": "Обрез БК-43",
+    "buy_price": 1700,
+    "sell_price": 200
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Дробовики",
+    "name": "БК-18",
+    "buy_price": 2000,
+    "sell_price": 205
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Дробовики",
+    "name": "БК-12",
+    "buy_price": 2350,
+    "sell_price": 235
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Дробовики",
+    "name": "БК-43",
+    "buy_price": 2750,
+    "sell_price": 275
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Дробовики",
+    "name": "MP 27M",
+    "buy_price": 5000,
+    "sell_price": 500
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты-пулеметы",
+    "name": "CR-61 Skorpion",
+    "buy_price": 2750,
+    "sell_price": 275
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Пистолеты-пулеметы",
+    "name": "SG5-K",
+    "buy_price": 3300,
+    "sell_price": 330
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Винтовки",
+    "name": "Sporter 22",
+    "buy_price": 1210,
+    "sell_price": 121
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Оружие — Винтовки",
+    "name": "Карабин с магазином",
+    "buy_price": 1210,
+    "sell_price": 121
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Патроны .22 LR",
+    "buy_price": 585,
+    "sell_price": 59
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Патроны .380 ACP",
+    "buy_price": 670,
+    "sell_price": 67
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Ружейные патроны 12 калибра",
+    "buy_price": 500,
+    "sell_price": 60
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Патроны 12 калибра с нарезами",
+    "buy_price": 670,
+    "sell_price": 67
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Патроны 9x19 мм",
+    "buy_price": 750,
+    "sell_price": 75
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Патроны .45 ACP",
+    "buy_price": 1000,
+    "sell_price": 100
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Патроны 9x39 мм",
+    "buy_price": 1495,
+    "sell_price": 150
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Бронебойные патроны 9x39 мм",
+    "buy_price": 1590,
+    "sell_price": 159
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка патронов .22 LR",
+    "buy_price": 585,
+    "sell_price": 59
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка патронов .380 ACP",
+    "buy_price": 670,
+    "sell_price": 67
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка ружейных патронов 12 калибра",
+    "buy_price": 550,
+    "sell_price": 65
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Нарезные патроны 12 кал.",
+    "buy_price": 670,
+    "sell_price": 67
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка патронов 9x19 мм",
+    "buy_price": 750,
+    "sell_price": 75
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка патронов .45 ACP",
+    "buy_price": 1000,
+    "sell_price": 100
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка патронов .357",
+    "buy_price": 1150,
+    "sell_price": 145
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка патронов 9x39 мм",
+    "buy_price": 1495,
+    "sell_price": 150
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Патроны",
+    "name": "Коробка бронебойных патронов 9x39 мм",
+    "buy_price": 1590,
+    "sell_price": 159
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обвесы",
+    "name": "Надульник SG5-K",
+    "buy_price": 330,
+    "sell_price": 61
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обвесы",
+    "name": "Полимерное цевьё SG5-K",
+    "buy_price": 330,
+    "sell_price": 61
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обвесы",
+    "name": "Реечная ствольная накладка SG5-K",
+    "buy_price": 440,
+    "sell_price": 72
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обвесы",
+    "name": "Легкий приклад для SG5-K",
+    "buy_price": 330,
+    "sell_price": 61
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин P1, 8 пат.",
+    "buy_price": 88,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин ИЖ-70, 12 пат.",
+    "buy_price": 110,
+    "sell_price": 11
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин MK II, 10 пат.",
+    "buy_price": 110,
+    "sell_price": 11
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин Kolt 1911, 7 пат.",
+    "buy_price": 110,
+    "sell_price": 11
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин CR-75, 15 пат.",
+    "buy_price": 150,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин SG5-K, 15 пат.",
+    "buy_price": 220,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин CR-61, 20 пат.",
+    "buy_price": 220,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Магазины",
+    "name": "Магазин Sporter 22, 15 пат.",
+    "buy_price": 220,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Таблетки",
+    "name": "Таблетки с кодеином",
+    "buy_price": 385,
+    "sell_price": 99
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Таблетки",
+    "name": "Активированный уголь",
+    "buy_price": 0,
+    "sell_price": 385
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Таблетки",
+    "name": "Комплект для сбора крови",
+    "buy_price": 440,
+    "sell_price": 110
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Таблетки",
+    "name": "Таблетки с мультивитаминами",
+    "buy_price": 935,
+    "sell_price": 242
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Таблетки",
+    "name": "Таблетки тетрациклина",
+    "buy_price": 2750,
+    "sell_price": 688
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Мед. инструменты",
+    "name": "Медицинский термометр",
+    "buy_price": 110,
+    "sell_price": 28
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Мед. инструменты",
+    "name": "Набор для определения группы крови",
+    "buy_price": 165,
+    "sell_price": 44
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Мед. инструменты",
+    "name": "Набор для переливания",
+    "buy_price": 220,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Дезинфекторы",
+    "name": "Дезинфицирующий спрей",
+    "buy_price": 1320,
+    "sell_price": 330
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Дезинфекторы",
+    "name": "Алкогольная настойка",
+    "buy_price": 1980,
+    "sell_price": 495
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Медицина — Бинты",
+    "name": "Бинт",
+    "buy_price": 6050,
+    "sell_price": 1513
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Освещение",
+    "name": "Химсвет",
+    "buy_price": 22,
+    "sell_price": 6
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Освещение",
+    "name": "Фальшфейер",
+    "buy_price": 83,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Освещение",
+    "name": "Фонарик",
+    "buy_price": 0,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Освещение",
+    "name": "Газовая лампа",
+    "buy_price": 385,
+    "sell_price": 88
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Общее",
+    "name": "Химическая грелка",
+    "buy_price": 220,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Общее",
+    "name": "Батарея на 9 В",
+    "buy_price": 1045,
+    "sell_price": 198
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Общее",
+    "name": "Точильный камень",
+    "buy_price": 1100,
+    "sell_price": 275
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Общее",
+    "name": "Набор инструментов скорняка",
+    "buy_price": 1540,
+    "sell_price": 308
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Общее",
+    "name": "Скотч",
+    "buy_price": 1980,
+    "sell_price": 396
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Газовые канистры",
+    "name": "Маленький баллон с газом",
+    "buy_price": 1100,
+    "sell_price": 220
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Разное",
+    "name": "Веревка",
+    "buy_price": 0,
+    "sell_price": 39
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Разное",
+    "name": "Мешок",
+    "buy_price": 0,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Разное",
+    "name": "Брезент",
+    "buy_price": 0,
+    "sell_price": 165
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Расходники — Разное",
+    "name": "Садовая известь",
+    "buy_price": 0,
+    "sell_price": 198
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Картография",
+    "name": "Туристическая карта",
+    "buy_price": 0,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Картография",
+    "name": "Ориентировочный компас",
+    "buy_price": 0,
+    "sell_price": 385
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Картография",
+    "name": "Компас",
+    "buy_price": 0,
+    "sell_price": 385
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Картография",
+    "name": "Ручка",
+    "buy_price": 0,
+    "sell_price": 550
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Жилеты",
+    "name": "Противоударный жилет",
+    "buy_price": 120,
+    "sell_price": 30
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Жилеты",
+    "name": "Баллистический жилет",
+    "buy_price": 120,
+    "sell_price": 30
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Жилеты",
+    "name": "Охотничий жилет",
+    "buy_price": 200,
+    "sell_price": 50
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Жилеты",
+    "name": "Ножны",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Футболка",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Спортивная рубашка",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Рубашка",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Блузка",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Свитер",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Тельняшка",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Дождевик",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Рубашка медика",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Спортивная куртка",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Толстовка",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Пиджак женский",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Платье медсестры",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Пиджак мужской",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Бушлат",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Байкерская куртка",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Джинсовая куртка",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Куртка санитара",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Полицейская куртка",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Китель спецподразделения полиции ОРЕЛ",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Куртка рабочего",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Телогрейка",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Походная куртка",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Пуховик",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Бомбер",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Полицейский бушлат",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Охотничья куртка",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Тело",
+    "name": "Куртка пожарного",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Пояс",
+    "name": "Ремень",
+    "buy_price": 64,
+    "sell_price": 16
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Пояс",
+    "name": "Поясная сумка",
+    "buy_price": 240,
+    "sell_price": 60
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Джинсовая юбка",
+    "buy_price": 32,
+    "sell_price": 8
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Платье с воротником",
+    "buy_price": 36,
+    "sell_price": 9
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Штаны медика",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Джинсовые шорты",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Спортивные штаны",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Джинсы",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Брюки капри",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Походные штаны",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Укор. походные штаны",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Полицейские штаны",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Штаны санитара",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Штаны спецподразделения полиции ОРЕЛ",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Штаны карго",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Штаны рабочего",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Штаны пожарного",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Охотничьи штаны",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Гермомешок",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Сумка на ремне",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Ноги",
+    "name": "Брюки",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Школьный рюкзак",
+    "buy_price": 96,
+    "sell_price": 24
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Холщовая сумка",
+    "buy_price": 100,
+    "sell_price": 25
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Походный рюкзак",
+    "buy_price": 120,
+    "sell_price": 30
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Водонепроницаемый рюкзак",
+    "buy_price": 168,
+    "sell_price": 42
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Рюкзак охотника",
+    "buy_price": 168,
+    "sell_price": 42
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Рюкзаки",
+    "name": "Альпинистский рюкзак",
+    "buy_price": 224,
+    "sell_price": 56
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Кепка",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Бейсболка",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Строительная каска",
+    "buy_price": 44,
+    "sell_price": 11
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Вязаная шапка",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Панама",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Сварочная маска",
+    "buy_price": 50,
+    "sell_price": 13
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Шапочка медика",
+    "buy_price": 52,
+    "sell_price": 13
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Полицейская фуражка",
+    "buy_price": 52,
+    "sell_price": 13
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Ковбойская шляпа",
+    "buy_price": 56,
+    "sell_price": 14
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Скейтерский шлем",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Кроссовый мотошлем",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Капа мотоцикла",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Визор мотошлема",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Хоккейный шлем",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Мотоциклетный шлем",
+    "buy_price": 68,
+    "sell_price": 17
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Шапочка Шерпа",
+    "buy_price": 72,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Змеёвка",
+    "buy_price": 72,
+    "sell_price": 18
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Вязаная шапка с козырьком",
+    "buy_price": 84,
+    "sell_price": 21
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Шапка «Петушок»",
+    "buy_price": 84,
+    "sell_price": 21
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Шапка-ушанка",
+    "buy_price": 88,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Ushanka Duty",
+    "buy_price": 88,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Ushanka Freedom",
+    "buy_price": 88,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Кепка от ОКЗК",
+    "buy_price": 88,
+    "sell_price": 22
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Зимний подшлемник",
+    "buy_price": 92,
+    "sell_price": 23
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Голова",
+    "name": "Шлем пожарного",
+    "buy_price": 100,
+    "sell_price": 25
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Лицо",
+    "name": "Респиратор",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Лицо",
+    "name": "Хоккейная маска",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Лицо",
+    "name": "Бандана",
+    "buy_price": 80,
+    "sell_price": 20
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Лицо",
+    "name": "Шемаг",
+    "buy_price": 100,
+    "sell_price": 25
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Лицо",
+    "name": "Балаклава",
+    "buy_price": 160,
+    "sell_price": 80
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Лицо",
+    "name": "Лыжная маска",
+    "buy_price": 160,
+    "sell_price": 80
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Глаза",
+    "name": "Спортивные солнцезащитные очки",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Глаза",
+    "name": "Авиаторы",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Глаза",
+    "name": "Обычные солнцезащитные очки",
+    "buy_price": 220,
+    "sell_price": 55
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Перчатки",
+    "name": "Хирургические перчатки",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Перчатки",
+    "name": "Перчатки без пальцев",
+    "buy_price": 112,
+    "sell_price": 28
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Перчатки",
+    "name": "Шерстяные перчатки",
+    "buy_price": 112,
+    "sell_price": 28
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Перчатки",
+    "name": "Утепленные перчатки",
+    "buy_price": 112,
+    "sell_price": 28
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Перчатки",
+    "name": "Рабочие перчатки",
+    "buy_price": 120,
+    "sell_price": 30
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Туфли",
+    "buy_price": 40,
+    "sell_price": 10
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Резиновые сапоги",
+    "buy_price": 48,
+    "sell_price": 12
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Кроссовки",
+    "buy_price": 52,
+    "sell_price": 13
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Беговая обувь",
+    "buy_price": 56,
+    "sell_price": 14
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Спортивные ботинки",
+    "buy_price": 60,
+    "sell_price": 15
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Трекинговые ботинки",
+    "buy_price": 120,
+    "sell_price": 30
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Рабочие ботинки",
+    "buy_price": 136,
+    "sell_price": 34
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Обувь",
+    "name": "Походные ботинки",
+    "buy_price": 140,
+    "sell_price": 35
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Торговые талоны",
+    "name": "Талон номиналом 10000 рублей",
+    "buy_price": 10000,
+    "sell_price": 10000
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Торговые талоны",
+    "name": "Талон номиналом 100 рублей",
+    "buy_price": 100,
+    "sell_price": 100
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Торговые талоны",
+    "name": "Талон номиналом 1 рубль",
+    "buy_price": 1,
+    "sell_price": 1
+  },
+  {
+    "trader": "Обитель",
+    "section": "Батюшка",
+    "subsection": "Торговые палатки",
+    "name": "Рыночная палатка",
+    "buy_price": 15000,
+    "sell_price": 1500
+  }
+]
