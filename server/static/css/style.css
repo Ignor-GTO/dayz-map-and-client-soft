@@ -1200,17 +1200,20 @@ button.secondary.small {
   border: none;
   color: var(--muted);
   font-family: inherit;
-  font-size: 0.88rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  padding: 0.6rem 0.5rem;
+  padding: 0.55rem 0.35rem;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
   transition: color 0.15s, background-color 0.15s, border-color 0.15s;
   border-bottom: 2px solid transparent;
   border-radius: 0;
+  min-width: 0;
+  line-height: 1.15;
+  text-align: center;
 }
 
 .legend-tab-btn:hover {
@@ -1221,6 +1224,74 @@ button.secondary.small {
 .legend-tab-btn.active {
   color: var(--accent);
   border-bottom: 2px solid var(--accent);
+}
+
+.app-tab-intro {
+  margin: 0 0 0.85rem;
+  line-height: 1.45;
+  font-size: 0.84rem;
+}
+
+.app-help-card {
+  padding: 0.85rem;
+  margin-bottom: 0.7rem;
+  border-radius: 10px;
+  background: rgba(15, 20, 25, 0.55);
+  border: 1px solid #2a3848;
+}
+
+.app-help-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.app-help-card p {
+  margin: 0 0 0.65rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.app-help-card .btn-link,
+.app-help-card button {
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.app-help-steps {
+  margin-top: 0.25rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid #2a3848;
+}
+
+.app-help-steps h3 {
+  margin: 0 0 0.45rem;
+  font-size: 0.9rem;
+}
+
+.app-help-steps ol {
+  margin: 0;
+  padding-left: 1.15rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.app-help-steps li + li {
+  margin-top: 0.35rem;
+}
+
+.app-help-steps strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.login-app-hint {
+  margin: 0.65rem 0 0;
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.4;
 }
 
 /* ============================================================

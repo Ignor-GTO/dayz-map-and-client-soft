@@ -1452,24 +1452,17 @@ function focusMe() {
 }
 
 function switchLegendTab(tabId) {
-  const groupBtn = document.getElementById("tab-btn-group");
-  const filtersBtn = document.getElementById("tab-btn-filters");
-  const groupContent = document.getElementById("tab-content-group");
-  const filtersContent = document.getElementById("tab-content-filters");
+  const tabs = [
+    { id: "group", btn: "tab-btn-group", content: "tab-content-group" },
+    { id: "filters", btn: "tab-btn-filters", content: "tab-content-filters" },
+    { id: "app", btn: "tab-btn-app", content: "tab-content-app" },
+  ];
 
-  if (!groupBtn || !filtersBtn || !groupContent || !filtersContent) return;
-
-  if (tabId === "group") {
-    groupBtn.classList.add("active");
-    filtersBtn.classList.remove("active");
-    groupContent.classList.remove("hidden");
-    filtersContent.classList.add("hidden");
-  } else {
-    groupBtn.classList.remove("active");
-    filtersBtn.classList.add("active");
-    groupContent.classList.add("hidden");
-    filtersContent.classList.remove("hidden");
-  }
+  tabs.forEach(({ id, btn, content }) => {
+    const isActive = id === tabId;
+    document.getElementById(btn)?.classList.toggle("active", isActive);
+    document.getElementById(content)?.classList.toggle("hidden", !isActive);
+  });
 }
 
 // Expose functions globally for inline HTML event handlers
