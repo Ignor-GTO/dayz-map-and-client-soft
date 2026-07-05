@@ -5,13 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Торговцы — DayZ Map</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=18">
+  <link rel="stylesheet" href="/css/style.css?v=24">
 </head>
 <body>
   <div class="traders-page">
     <header class="traders-header">
       <h1>Торговцы</h1>
-      <a class="btn-link" href="/">На карту</a>
+      <div class="traders-header-actions">
+        <a class="btn-link secondary" href="/">На карту</a>
+        <div class="toolbar-end">
+          <button id="profile-btn" class="profile-avatar-btn hidden" type="button" title="Профиль">
+            <img id="toolbar-avatar" src="/img/default-avatar.svg" alt="Профиль">
+          </button>
+          <button id="logout-btn" class="secondary hidden">Выйти</button>
+        </div>
+      </div>
     </header>
 
     <section class="traders-controls">
@@ -75,6 +83,79 @@
     </section>
   </div>
 
-  <script src="/js/traders.js?v=5"></script>
+  <div id="profile-modal" class="modal hidden">
+    <div class="modal-content profile-modal-content">
+      <h2>Профиль</h2>
+      <div class="profile-summary">
+        <div class="profile-avatar-row">
+          <img id="profile-avatar-preview" class="profile-avatar-lg" src="/img/default-avatar.svg" alt="Аватар">
+          <div class="profile-avatar-controls">
+            <label class="profile-avatar-upload-btn">
+              Загрузить фото
+              <input type="file" id="profile-avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            </label>
+            <button type="button" id="profile-avatar-remove-btn" class="secondary hidden">Удалить фото</button>
+            <p class="muted-inline">JPEG, PNG, WebP или GIF, до 2 МБ</p>
+            <p id="profile-avatar-error" class="error hidden"></p>
+          </div>
+        </div>
+        <p><strong id="profile-nickname"></strong></p>
+        <p class="muted-inline" id="profile-room-info"></p>
+      </div>
+
+      <section class="profile-section">
+        <h3>Пароль профиля</h3>
+        <p class="muted-inline" id="profile-password-status"></p>
+        <label id="profile-current-password-wrap" class="hidden">
+          Текущий пароль
+          <input type="password" id="profile-current-password" autocomplete="current-password">
+        </label>
+        <label>
+          <span id="profile-new-password-label">Новый пароль</span>
+          <input type="password" id="profile-new-password" placeholder="Минимум 4 символа" autocomplete="new-password">
+        </label>
+        <div class="profile-actions">
+          <button type="button" id="profile-save-password-btn">Сохранить пароль</button>
+          <button type="button" id="profile-remove-password-btn" class="secondary hidden">Отключить пароль</button>
+        </div>
+        <p id="profile-password-error" class="error hidden"></p>
+      </section>
+
+      <section id="room-settings-section" class="profile-section hidden">
+        <h3>Настройки группы</h3>
+        <p class="muted-inline">Вы создали эту PIN-группу и можете менять её параметры.</p>
+        <label>
+          PIN группы
+          <input type="text" id="room-settings-pin" minlength="4" maxlength="16">
+        </label>
+        <label id="room-settings-current-password-wrap" class="hidden">
+          Текущий пароль группы
+          <input type="password" id="room-settings-current-password" autocomplete="current-password">
+        </label>
+        <label>
+          Пароль входа в группу <span class="muted-inline">(необязательно)</span>
+          <input type="password" id="room-settings-entry-password" placeholder="Оставьте пустым — без изменений" autocomplete="new-password">
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="room-settings-remove-entry-password">
+          Отключить пароль группы
+        </label>
+        <div class="profile-actions">
+          <button type="button" id="room-settings-save-btn">Сохранить настройки группы</button>
+        </div>
+        <p id="room-settings-error" class="error hidden"></p>
+      </section>
+
+      <button type="button" id="close-profile-modal" class="secondary">Закрыть</button>
+    </div>
+  </div>
+
+  <script src="/js/profile-ui.js?v=1"></script>
+  <script src="/js/traders.js?v=6"></script>
+  <script>
+    ProfileUi.init({
+      onLogout() { window.location.href = "/"; },
+    });
+  </script>
 </body>
 </html>

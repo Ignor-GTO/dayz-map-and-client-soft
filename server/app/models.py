@@ -105,6 +105,7 @@ class User(Base):
     client_key_hash: Mapped[str] = mapped_column(String(128))
     # Optional password to protect nickname from impersonation within a PIN group.
     profile_password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     # user | vip | moderator | admin — privileges on the live map
     role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

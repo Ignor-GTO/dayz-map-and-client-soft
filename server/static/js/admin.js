@@ -37,6 +37,9 @@ function switchTab(name) {
   }
   if (name === "users") loadUsers();
   if (name === "password") loadAdminAccounts();
+  if (name === "pois") {
+    ensurePoiAdminMap().then(() => refreshPoiAdminMap());
+  }
 }
 
 const MAP_USER_ROLE_LABELS = {
@@ -73,6 +76,13 @@ function poiIconBadge(iconKey) {
 
 let mapsCache = [];
 let poisCache = [];
+let poiAdminMap = null;
+let poiAdminTileLayer = null;
+let poiAdminConfig = null;
+let poiAdminHighlightId = null;
+const POI_ADMIN_BOUNDS = typeof L !== "undefined"
+  ? L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256))
+  : null;
 let usersCache = [];
 let roomsByMap = {};
 let currentAdmin = null;
@@ -166,6 +176,7 @@ function fillMapForm(map) {
 }
 
 function resetPoiForm() {
+  poiAdminHighlightId = null;
   const form = document.getElementById("poi-form");
   form.reset();
   document.getElementById("poi-edit-id").value = "";
@@ -174,9 +185,11 @@ function resetPoiForm() {
   document.getElementById("poi-form-cancel").classList.add("hidden");
   resetPoiImageState();
   initPoiIconPicker("star");
+  refreshPoiAdminMap(null);
 }
 
 function fillPoiForm(poi) {
+  poiAdminHighlightId = poi.id;
   const form = document.getElementById("poi-form");
   document.getElementById("poi-edit-id").value = String(poi.id);
   document.getElementById("poi-form-title").textContent = `Редактировать: ${poi.title}`;
@@ -191,7 +204,70 @@ function fillPoiForm(poi) {
     setPoiImagePreview(poi.description_image_url);
   }
   initPoiIconPicker(poi.icon || "star");
+  refreshPoiAdminMap(poi.id);
+  if (poiAdminMap) poiAdminMap.panTo(poiAdminToLatLng(poi.x, poi.y));
   form.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function poiAdminToLatLng(x, y, config = poiAdminConfig) {
+  const size = config?.map_size || 20480;
+  const ratio = size / 256;
+  return L.latLng(y / ratio - 256, x / ratio);
+}
+
+function poiAdminFromLatLng(latlng, config = poiAdminConfig) {
+  const size = config?.map_size || 20480;
+  const ratio = size / 256;
+  return { x: latlng.lng * ratio, y: (latlng.lat + 256) * ratio };
+}
+
+async function ensurePoiAdminMap() {
+  const slug = document.getElementById("poi-map-select")?.value;
+  if (!slug || !POI_ADMIN_BOUNDS) return;
+
+  if (!poiAdminMap) {
+    poiAdminMap = L.map("poi-admin-map", {
+      crs: L.CRS.Simple,
+      minZoom: 1,
+      maxZoom: 10,
+      maxBounds: POI_ADMIN_BOUNDS,
+      maxBoundsViscosity: 1.0,
+    });
+    poiAdminMap.on("click", (e) => {
+      const { x, y } = poiAdminFromLatLng(e.latlng);
+      const form = document.getElementById("poi-form");
+      if (!form) return;
+      form.querySelector('[name="x"]').value = Math.round(x);
+      form.querySelector('[name="y"]').value = Math.round(y);
+    });
+  }
+
+  if (!poiAdminConfig || poiAdminConfig.slug !== slug) {
+    const cfg = await api(`/api/maps/${slug}/config`);
+    poiAdminConfig = { ...cfg, slug };
+    if (poiAdminTileLayer) poiAdminMap.removeLayer(poiAdminTileLayer);
+    poiAdminTileLayer = L.tileLayer(cfg.tiles_satellite, {
+      tileSize: 256,
+      maxNativeZoom: cfg.max_native_zoom,
+      maxZoom: cfg.max_native_zoom + cfg.extra_zoom,
+      noWrap: true,
+      bounds: POI_ADMIN_BOUNDS,
+    }).addTo(poiAdminMap);
+    poiAdminMap.fitBounds(POI_ADMIN_BOUNDS);
+  }
+
+  setTimeout(() => poiAdminMap?.invalidateSize({ animate: false }), 200);
+}
+
+async function refreshPoiAdminMap(highlightId = poiAdminHighlightId) {
+  const slug = document.getElementById("poi-map-select")?.value;
+  if (!slug || !window.AdminPoiLayer) return;
+  await ensurePoiAdminMap();
+  await AdminPoiLayer.render(poiAdminMap, slug, poiAdminToLatLng, api, {
+    interactive: true,
+    highlightId,
+    onMarkerClick: (poi) => fillPoiForm(poi),
+  });
 }
 
 async function loadMaps() {
@@ -253,6 +329,7 @@ async function loadPois() {
       </div>
     `).join("")
     : "<p class='muted'>Нет меток на этой карте</p>";
+  await refreshPoiAdminMap(poiAdminHighlightId);
 }
 
 async function loadPinPolicy() {

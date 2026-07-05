@@ -108,7 +108,13 @@
     roadsMap.on("dblclick", onMapDblClick);
 
     await loadSegments();
+    await syncPoiReferenceLayer();
     bindEvents();
+  }
+
+  async function syncPoiReferenceLayer() {
+    if (!roadsMap || !currentMapSlug || !window.AdminPoiLayer) return;
+    await AdminPoiLayer.render(roadsMap, currentMapSlug, toLatLng, adminApi, { interactive: false });
   }
 
   // -------------------------------------------------------------------------
@@ -122,6 +128,7 @@
       allSegments = await adminApi(`/api/admin/maps/${currentMapSlug}/roads`);
       renderAllSegments();
       updateSegmentList();
+      await syncPoiReferenceLayer();
     } catch (e) {
       showError("Ошибка загрузки дорог: " + e.message);
     }

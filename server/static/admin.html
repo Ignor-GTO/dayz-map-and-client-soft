@@ -92,8 +92,11 @@
           Карта
           <select id="poi-map-select"></select>
         </label>
-        <div id="pois-list" class="card-list"></div>
-        <form id="poi-form" class="admin-form">
+        <div class="poi-admin-layout">
+          <div id="poi-admin-map" class="poi-admin-map"></div>
+          <div class="poi-admin-side">
+            <div id="pois-list" class="card-list"></div>
+            <form id="poi-form" class="admin-form">
           <h3 id="poi-form-title">Добавить метку</h3>
           <input type="hidden" id="poi-edit-id" value="">
           <div class="form-grid">
@@ -118,6 +121,8 @@
             <button type="button" class="secondary hidden" id="poi-form-cancel">Отмена</button>
           </div>
         </form>
+          </div>
+        </div>
       </div>
 
       <div id="tab-traders" class="tab-panel hidden">
@@ -456,9 +461,10 @@
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=3"></script>
-  <script src="/js/admin.js?v=9"></script>
-  <script src="/js/admin-radiation.js?v=9"></script>
-  <script src="/js/admin-roads.js?v=9"></script>
+  <script src="/js/admin-poi-layer.js?v=1"></script>
+  <script src="/js/admin.js?v=10"></script>
+  <script src="/js/admin-radiation.js?v=10"></script>
+  <script src="/js/admin-roads.js?v=10"></script>
   <script src="/js/admin-traders.js?v=4"></script>
 </body>
 </html>

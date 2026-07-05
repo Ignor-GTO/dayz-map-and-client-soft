@@ -2043,6 +2043,7 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
+  window.ProfileUi?.syncAvatarUi();
   syncStashCategoryControls();
   const roadsFilter = document.getElementById("filter-roads");
   if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
@@ -2138,94 +2139,6 @@ function scheduleLoginRequirementsRefresh() {
   loginRequirementsTimer = setTimeout(refreshLoginRequirements, 350);
 }
 
-function openProfileModal() {
-  if (!state.me) return;
-  const modal = document.getElementById("profile-modal");
-  if (!modal) return;
-
-  document.getElementById("profile-nickname").textContent = state.me.nickname;
-  document.getElementById("profile-room-info").textContent =
-    `${state.me.map_name} · PIN: ${state.me.pin}`;
-
-  const hasPassword = !!state.me.has_profile_password;
-  document.getElementById("profile-password-status").textContent = hasPassword
-    ? "Пароль включён — без него никто не войдёт под вашим никнеймом."
-    : "Пароль не задан — вход только по PIN и никнейму.";
-  document.getElementById("profile-current-password-wrap").classList.toggle("hidden", !hasPassword);
-  document.getElementById("profile-remove-password-btn").classList.toggle("hidden", !hasPassword);
-  document.getElementById("profile-new-password-label").textContent = hasPassword
-    ? "Новый пароль"
-    : "Задать пароль";
-  document.getElementById("profile-current-password").value = "";
-  document.getElementById("profile-new-password").value = "";
-  document.getElementById("profile-password-error").classList.add("hidden");
-
-  const roomSection = document.getElementById("room-settings-section");
-  if (state.me.can_manage_room) {
-    roomSection.classList.remove("hidden");
-    document.getElementById("room-settings-pin").value = state.me.pin;
-    document.getElementById("room-settings-current-password").value = "";
-    document.getElementById("room-settings-entry-password").value = "";
-    document.getElementById("room-settings-remove-entry-password").checked = false;
-    document.getElementById("room-settings-current-password-wrap").classList.toggle(
-      "hidden",
-      !state.me.room_entry_password_enabled
-    );
-    document.getElementById("room-settings-error").classList.add("hidden");
-  } else {
-    roomSection.classList.add("hidden");
-  }
-
-  modal.classList.remove("hidden");
-}
-
-async function saveProfilePassword(remove = false) {
-  const errEl = document.getElementById("profile-password-error");
-  errEl.classList.add("hidden");
-  try {
-    const body = {
-      current_password: document.getElementById("profile-current-password").value || null,
-      new_password: remove ? "" : document.getElementById("profile-new-password").value || null,
-    };
-    const data = await api("/api/auth/profile/password", {
-      method: "PUT",
-      body: JSON.stringify(body),
-    });
-    state.me.has_profile_password = !!data.has_profile_password;
-    alert(data.message);
-    openProfileModal();
-  } catch (err) {
-    errEl.textContent = err.message;
-    errEl.classList.remove("hidden");
-  }
-}
-
-async function saveRoomSettings() {
-  const errEl = document.getElementById("room-settings-error");
-  errEl.classList.add("hidden");
-  try {
-    const newPin = document.getElementById("room-settings-pin").value.trim();
-    const payload = {
-      new_pin: newPin !== state.me.pin ? newPin : null,
-      current_room_password: document.getElementById("room-settings-current-password").value || null,
-      new_entry_password: document.getElementById("room-settings-entry-password").value || null,
-      remove_entry_password: document.getElementById("room-settings-remove-entry-password").checked,
-    };
-    const data = await api("/api/room/settings", {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    });
-    state.me.pin = data.pin;
-    state.me.room_entry_password_enabled = !!data.entry_password_enabled;
-    document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
-    alert("Настройки группы сохранены.");
-    openProfileModal();
-  } catch (err) {
-    errEl.textContent = err.message;
-    errEl.classList.remove("hidden");
-  }
-}
-
 document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const errEl = document.getElementById("login-error");
@@ -2258,20 +2171,13 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
   }
 });
 
-document.getElementById("logout-btn").addEventListener("click", async () => {
-  await api("/api/auth/logout", { method: "POST" });
-
-  // Закрываем WS без автореконнекта
+function performMapLogoutCleanup() {
   if (state.ws) {
     state.wsClosing = true;
     state.ws.close();
     state.ws = null;
   }
-
-  // Сбрасываем идентификатор пользователя
   state.me = null;
-
-  // Очищаем все слои
   state.liveMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.liveMarkers.clear();
   state.pinMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
@@ -2286,9 +2192,8 @@ document.getElementById("logout-btn").addEventListener("click", async () => {
   if (state.roadLayer) state.roadLayer.clearLayers();
   stopGeometryEdit({ restoreMarker: false, silent: true });
   setDrawMode(null);
-
   showLogin();
-});
+}
 
 document.getElementById("reset-key-btn").addEventListener("click", async () => {
   if (!confirm("Старый ключ перестанет работать. Создать новый?")) return;
@@ -2312,19 +2217,6 @@ document.getElementById("copy-key-confirm").addEventListener("click", () => {
 document.getElementById("close-key-modal").addEventListener("click", () => {
   document.getElementById("key-modal").classList.add("hidden");
 });
-
-document.getElementById("profile-btn")?.addEventListener("click", openProfileModal);
-document.getElementById("close-profile-modal")?.addEventListener("click", () => {
-  document.getElementById("profile-modal")?.classList.add("hidden");
-});
-document.getElementById("profile-save-password-btn")?.addEventListener("click", () => {
-  saveProfilePassword(false);
-});
-document.getElementById("profile-remove-password-btn")?.addEventListener("click", () => {
-  if (!confirm("Отключить пароль профиля? Вход снова будет только по PIN и никнейму.")) return;
-  saveProfilePassword(true);
-});
-document.getElementById("room-settings-save-btn")?.addEventListener("click", saveRoomSettings);
 
 ["map-slug", "pin", "nickname"].forEach((id) => {
   document.getElementById(id)?.addEventListener("input", scheduleLoginRequirementsRefresh);
@@ -2451,6 +2343,17 @@ async function initClientDownloadLinks() {
 }
 
 (async () => {
+  window.ProfileUi?.init({
+    getUser: () => state.me,
+    setUser: (user) => { state.me = user; },
+    onRoomPinChange: (pin) => {
+      if (!state.me) return;
+      state.me.pin = pin;
+      document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${pin}`;
+    },
+    onLogout: performMapLogoutCleanup,
+  });
+
   try {
     await loadMapOptions();
     await loadPinPolicyHint();

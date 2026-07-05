@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=23">
+  <link rel="stylesheet" href="/css/style.css?v=24">
 </head>
 <body>
   <div id="app">
@@ -54,13 +54,17 @@
           <span id="room-label"></span>
         </div>
         <div class="toolbar-actions">
-          <button id="profile-btn" class="secondary">Профиль</button>
           <button id="reset-key-btn" class="secondary">Новый ключ</button>
           <button id="copy-key-btn" class="secondary">Ключ клиента</button>
           <a class="btn-link client-download" href="/api/download/client" target="_blank" rel="noopener">Скачать .exe</a>
           <a class="btn-link secondary" href="/traders.html">Торговцы</a>
           <button id="btn-nav" class="secondary nav-btn" title="Навигатор">🧭 Навигатор</button>
-          <button id="logout-btn" class="secondary">Выйти</button>
+          <div class="toolbar-end">
+            <button id="profile-btn" class="profile-avatar-btn" type="button" title="Профиль">
+              <img id="toolbar-avatar" src="/img/default-avatar.svg" alt="Профиль">
+            </button>
+            <button id="logout-btn" class="secondary">Выйти</button>
+          </div>
         </div>
       </header>
 
@@ -78,6 +82,18 @@
         <div class="modal-content profile-modal-content">
           <h2>Профиль</h2>
           <div class="profile-summary">
+            <div class="profile-avatar-row">
+              <img id="profile-avatar-preview" class="profile-avatar-lg" src="/img/default-avatar.svg" alt="Аватар">
+              <div class="profile-avatar-controls">
+                <label class="profile-avatar-upload-btn">
+                  Загрузить фото
+                  <input type="file" id="profile-avatar-input" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+                </label>
+                <button type="button" id="profile-avatar-remove-btn" class="secondary hidden">Удалить фото</button>
+                <p class="muted-inline">JPEG, PNG, WebP или GIF, до 2 МБ</p>
+                <p id="profile-avatar-error" class="error hidden"></p>
+              </div>
+            </div>
             <p><strong id="profile-nickname"></strong></p>
             <p class="muted-inline" id="profile-room-info"></p>
           </div>
@@ -386,6 +402,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=3"></script>
-  <script src="/js/map.js?v=47"></script>
+  <script src="/js/profile-ui.js?v=1"></script>
+  <script src="/js/map.js?v=49"></script>
 </body>
 </html>

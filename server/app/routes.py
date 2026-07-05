@@ -24,6 +24,7 @@ from app.locations_service import get_map_locations
 from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.marker_upload import delete_marker_image_file, save_marker_image
+from app.avatar_upload import delete_avatar_file, save_avatar_image
 from app.models import MapPoi, Marker, Position, Room, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.schemas import (
@@ -425,6 +426,7 @@ async def me(user: Annotated[User, Depends(get_current_user)]):
         "has_profile_password": bool(user.profile_password_hash),
         "can_manage_room": _can_manage_room(user),
         "room_entry_password_enabled": bool(user.room.entry_password_hash),
+        "avatar_url": user.avatar_url,
     }
 
 
@@ -452,6 +454,29 @@ async def update_profile_password(
 
     await db.commit()
     return {"ok": True, "has_profile_password": bool(user.profile_password_hash), "message": message}
+
+
+@router.post("/auth/profile/avatar")
+async def upload_profile_avatar(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    delete_avatar_file(user.avatar_url)
+    user.avatar_url = await save_avatar_image(user.id, file)
+    await db.commit()
+    return {"ok": True, "avatar_url": user.avatar_url}
+
+
+@router.delete("/auth/profile/avatar")
+async def remove_profile_avatar(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    delete_avatar_file(user.avatar_url)
+    user.avatar_url = None
+    await db.commit()
+    return {"ok": True, "avatar_url": None}
 
 
 @router.get("/room/settings", response_model=RoomSettingsResponse)

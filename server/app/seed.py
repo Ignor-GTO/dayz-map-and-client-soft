@@ -184,6 +184,9 @@ def _migrate_sqlite(conn) -> None:
     if user_cols and "profile_password_hash" not in user_cols:
         conn.execute(text("ALTER TABLE users ADD COLUMN profile_password_hash VARCHAR(128)"))
         logger.info("Added users.profile_password_hash column")
+    if user_cols and "avatar_url" not in user_cols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
+        logger.info("Added users.avatar_url column")
 
     room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
     if room_cols and "entry_password_hash" not in room_cols:

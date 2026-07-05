@@ -755,6 +755,9 @@ async function radLoadForSlug(slug) {
       radSelectZone(firstZone.id);
     }
     radSetStatus(`Рад: ${radState.zones.length} · Пси: ${radState.psiZones.length}${radState.overlay?.url ? " · подложка загружена" : ""}`);
+    if (window.AdminPoiLayer && radState.map) {
+      await AdminPoiLayer.render(radState.map, slug, radGameToLatLng, api, { interactive: false });
+    }
     setTimeout(() => {
       radState.map?.invalidateSize();
       radUpdateMinZoom();

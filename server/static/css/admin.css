@@ -692,3 +692,39 @@ button.secondary.small {
   transform: scale(0.97);
 }
 
+.admin-poi-ref {
+  opacity: 0.92;
+}
+
+.poi-admin-layout {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.2fr) minmax(280px, 1fr);
+  gap: 1rem;
+  margin-top: 0.75rem;
+  min-height: 520px;
+}
+
+.poi-admin-map {
+  height: 520px;
+  border-radius: 10px;
+  border: 1px solid #2a3848;
+  background: #1a2332;
+}
+
+.poi-admin-side {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+@media (max-width: 960px) {
+  .poi-admin-layout {
+    grid-template-columns: 1fr;
+  }
+  .poi-admin-map {
+    height: 360px;
+  }
+  .poi-admin-side {
+    max-height: none;
+  }
+}
+
