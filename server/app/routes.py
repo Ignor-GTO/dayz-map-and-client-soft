@@ -15,7 +15,9 @@ from app.auth import (
     get_map_by_slug,
     get_or_create_room,
     hash_client_key,
+    hash_password,
     set_session,
+    verify_password,
 )
 from app.database import get_db
 from app.locations_service import get_map_locations
@@ -27,6 +29,8 @@ from app.roads_service import create_segment, delete_segment, find_route, list_s
 from app.schemas import (
     CoordsPayload,
     LoginRequest,
+    LoginRequirementsRequest,
+    LoginRequirementsResponse,
     LoginResponse,
     MapConfigResponse,
     MapListItem,
@@ -39,7 +43,10 @@ from app.schemas import (
     NavigateResponse,
     PoiResponse,
     PositionResponse,
+    ProfilePasswordRequest,
     RoadSegmentResponse,
+    RoomSettingsResponse,
+    RoomSettingsUpdateRequest,
     RoomStateResponse,
     TraderItemResponse,
 )
@@ -48,6 +55,70 @@ from app.settings_service import is_public_pin_creation
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
+
+STASH_MANAGER_ROLES = {"admin", "moderator"}
+
+
+def _can_manage_stashes(user: User) -> bool:
+    return (user.role or "user") in STASH_MANAGER_ROLES
+
+
+def _can_manage_room(user: User) -> bool:
+    room = user.room
+    if room.created_by_user_id is None:
+        return False
+    return room.created_by_user_id == user.id
+
+
+def _ensure_room_owner(room: Room, user: User) -> None:
+    if room.created_by_user_id is None:
+        room.created_by_user_id = user.id
+    elif room.created_by_user_id != user.id:
+        raise HTTPException(status_code=403, detail="Только создатель группы может изменять её настройки")
+
+
+def _verify_room_entry_password(room: Room, room_password: str | None) -> None:
+    if not room.entry_password_hash:
+        return
+    if not room_password or not verify_password(room_password, room.entry_password_hash):
+        raise HTTPException(status_code=401, detail="Неверный пароль группы")
+
+
+def _verify_profile_password(user: User, profile_password: str | None) -> None:
+    if not user.profile_password_hash:
+        return
+    if not profile_password or not verify_password(profile_password, user.profile_password_hash):
+        raise HTTPException(status_code=401, detail="Неверный пароль профиля")
+
+
+def _is_map_stash(marker: Marker) -> bool:
+    return (marker.marker_category or "group") == "stash" and marker.map_id is not None
+
+
+def _marker_nickname(marker: Marker) -> str:
+    if _is_map_stash(marker):
+        return "Сервер"
+    if marker.user:
+        return marker.user.nickname
+    return "?"
+
+
+async def _broadcast_to_map(db: AsyncSession, map_id: int, message: dict) -> None:
+    result = await db.execute(select(Room.id).where(Room.map_id == map_id))
+    for room_id in result.scalars().all():
+        await manager.broadcast(channel_key(map_id, room_id), message)
+
+
+async def _broadcast_marker_event(
+    db: AsyncSession,
+    user: User,
+    marker: Marker,
+    event: dict,
+) -> None:
+    if _is_map_stash(marker):
+        await _broadcast_to_map(db, user.room.map_id, event)
+    else:
+        await manager.broadcast(channel_key(user.room.map_id, user.room_id), event)
 
 
 def _load_marker_points(marker: Marker) -> list[list[float]] | None:
@@ -216,6 +287,37 @@ async def pin_policy(db: Annotated[AsyncSession, Depends(get_db)]):
     return {"public_pin_creation": await is_public_pin_creation(db)}
 
 
+@router.post("/auth/login-requirements", response_model=LoginRequirementsResponse)
+async def login_requirements(
+    payload: LoginRequirementsRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    pin = payload.pin.strip()
+    nickname = payload.nickname.strip()
+    game_map = await get_map_by_slug(db, payload.map_slug.strip().lower())
+
+    result = await db.execute(select(Room).where(Room.map_id == game_map.id, Room.pin == pin))
+    room = result.scalar_one_or_none()
+    if room is None:
+        return LoginRequirementsResponse(
+            room_exists=False,
+            is_new_user=True,
+            room_password_required=False,
+            profile_password_required=False,
+        )
+
+    result = await db.execute(
+        select(User).where(User.room_id == room.id, User.nickname == nickname)
+    )
+    user = result.scalar_one_or_none()
+    return LoginRequirementsResponse(
+        room_exists=True,
+        is_new_user=user is None,
+        room_password_required=bool(room.entry_password_hash),
+        profile_password_required=bool(user and user.profile_password_hash),
+    )
+
+
 @router.post("/auth/login", response_model=LoginResponse)
 async def login(
     payload: LoginRequest,
@@ -228,6 +330,7 @@ async def login(
 
     result = await db.execute(select(Room).where(Room.map_id == game_map.id, Room.pin == pin))
     room = result.scalar_one_or_none()
+    room_is_new = False
     if room is None:
         if not await is_public_pin_creation(db):
             raise HTTPException(
@@ -235,6 +338,9 @@ async def login(
                 detail="Группа с таким PIN не найдена. Создание новых PIN отключено — обратитесь к администратору.",
             )
         room = await get_or_create_room(db, game_map.id, pin)
+        room_is_new = True
+    else:
+        _verify_room_entry_password(room, payload.room_password)
 
     result = await db.execute(
         select(User).where(User.room_id == room.id, User.nickname == nickname)
@@ -242,17 +348,29 @@ async def login(
     user = result.scalar_one_or_none()
 
     if user:
+        _verify_profile_password(user, payload.profile_password)
         client_key = None
         message = "С возвращением! Используйте сохранённый ключ клиента."
     else:
         client_key = generate_client_key()
+        profile_hash = None
+        if payload.profile_password:
+            if len(payload.profile_password.strip()) < 4:
+                raise HTTPException(status_code=400, detail="Пароль профиля — минимум 4 символа")
+            profile_hash = hash_password(payload.profile_password.strip())
         user = User(
             room_id=room.id,
             nickname=nickname,
             client_key_hash=hash_client_key(client_key),
+            profile_password_hash=profile_hash,
         )
         db.add(user)
+        await db.flush()
+        if room.created_by_user_id is None:
+            room.created_by_user_id = user.id
         message = "Аккаунт создан. Сохраните ключ клиента — он показывается один раз."
+        if profile_hash:
+            message += " Пароль профиля установлен."
 
     await db.commit()
     await db.refresh(user)
@@ -302,7 +420,98 @@ async def me(user: Annotated[User, Depends(get_current_user)]):
         "map_slug": user.room.map.slug,
         "map_name": user.room.map.name,
         "user_id": user.id,
+        "role": user.role or "user",
+        "can_manage_stashes": _can_manage_stashes(user),
+        "has_profile_password": bool(user.profile_password_hash),
+        "can_manage_room": _can_manage_room(user),
+        "room_entry_password_enabled": bool(user.room.entry_password_hash),
     }
+
+
+@router.put("/auth/profile/password")
+async def update_profile_password(
+    payload: ProfilePasswordRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    new_password = (payload.new_password or "").strip()
+    if user.profile_password_hash:
+        if not payload.current_password or not verify_password(
+            payload.current_password, user.profile_password_hash
+        ):
+            raise HTTPException(status_code=401, detail="Неверный текущий пароль профиля")
+
+    if not new_password:
+        user.profile_password_hash = None
+        message = "Пароль профиля отключён. Вход снова только по PIN и никнейму."
+    else:
+        if len(new_password) < 4:
+            raise HTTPException(status_code=400, detail="Пароль профиля — минимум 4 символа")
+        user.profile_password_hash = hash_password(new_password)
+        message = "Пароль профиля обновлён."
+
+    await db.commit()
+    return {"ok": True, "has_profile_password": bool(user.profile_password_hash), "message": message}
+
+
+@router.get("/room/settings", response_model=RoomSettingsResponse)
+async def get_room_settings(user: Annotated[User, Depends(get_current_user)]):
+    return RoomSettingsResponse(
+        pin=user.room.pin,
+        entry_password_enabled=bool(user.room.entry_password_hash),
+        can_manage=_can_manage_room(user),
+    )
+
+
+@router.put("/room/settings", response_model=RoomSettingsResponse)
+async def update_room_settings(
+    payload: RoomSettingsUpdateRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    room = user.room
+    _ensure_room_owner(room, user)
+
+    if room.entry_password_hash:
+        if not payload.current_room_password or not verify_password(
+            payload.current_room_password, room.entry_password_hash
+        ):
+            raise HTTPException(status_code=401, detail="Неверный текущий пароль группы")
+
+    if payload.new_pin is not None:
+        new_pin = payload.new_pin.strip()
+        if new_pin == room.pin:
+            pass
+        else:
+            exists = await db.execute(
+                select(Room).where(
+                    Room.map_id == room.map_id,
+                    Room.pin == new_pin,
+                    Room.id != room.id,
+                )
+            )
+            if exists.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="Группа с таким PIN уже существует")
+            room.pin = new_pin
+
+    if payload.remove_entry_password:
+        room.entry_password_hash = None
+    elif payload.new_entry_password is not None:
+        entry_password = payload.new_entry_password.strip()
+        if not entry_password:
+            room.entry_password_hash = None
+        else:
+            if len(entry_password) < 4:
+                raise HTTPException(status_code=400, detail="Пароль группы — минимум 4 символа")
+            room.entry_password_hash = hash_password(entry_password)
+
+    await db.commit()
+    await db.refresh(room)
+    return RoomSettingsResponse(
+        pin=room.pin,
+        entry_password_enabled=bool(room.entry_password_hash),
+        can_manage=True,
+    )
 
 
 @router.get("/room/state", response_model=RoomStateResponse)
@@ -399,12 +608,17 @@ async def create_marker(
     else:
         radius = None
 
+    category = _normalize_marker_category(payload.marker_category)
+    if category == "stash" and not _can_manage_stashes(user):
+        raise HTTPException(status_code=403, detail="Only admins and moderators can create stashes")
+
     marker = Marker(
         user_id=user.id,
         x=float(x),
         y=float(y),
         type=(payload.type or "marker").strip() or "marker",
-        marker_category=_normalize_marker_category(payload.marker_category),
+        marker_category=category,
+        map_id=user.room.map_id if category == "stash" else None,
         title=payload.title,
         description=payload.description,
         image_url=payload.image_url,
@@ -418,9 +632,13 @@ async def create_marker(
     await db.commit()
     await db.refresh(marker)
 
-    ch = channel_key(user.room.map_id, user.room_id)
-    resp = _marker_response(marker, user.nickname)
-    await manager.broadcast(ch, {"type": "marker_added", "data": resp.model_dump(mode="json")})
+    resp = _marker_response(marker, _marker_nickname(marker))
+    await _broadcast_marker_event(
+        db,
+        user,
+        marker,
+        {"type": "marker_added", "data": resp.model_dump(mode="json")},
+    )
     return resp
 
 
@@ -454,13 +672,27 @@ async def update_marker(
     marker = result.scalar_one_or_none()
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
-    if marker.user.room_id != user.room_id:
+
+    is_stash = _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    if is_stash:
+        if not _can_manage_stashes(user):
+            raise HTTPException(status_code=403, detail="Only admins and moderators can edit stashes")
+        if marker.map_id != user.room.map_id:
+            raise HTTPException(status_code=403, detail="Stash not on this map")
+    elif marker.user.room_id != user.room_id:
         raise HTTPException(status_code=403, detail="Marker not in your group")
 
     if payload.type is not None:
         marker.type = payload.type
     if payload.marker_category is not None:
-        marker.marker_category = _normalize_marker_category(payload.marker_category)
+        new_category = _normalize_marker_category(payload.marker_category)
+        if new_category == "stash" and not _can_manage_stashes(user):
+            raise HTTPException(status_code=403, detail="Only admins and moderators can create stashes")
+        marker.marker_category = new_category
+        if new_category == "stash":
+            marker.map_id = user.room.map_id
+        elif _is_map_stash(marker) or marker.map_id is not None:
+            marker.map_id = None
     if payload.x is not None:
         marker.x = payload.x
     if payload.y is not None:
@@ -505,9 +737,13 @@ async def update_marker(
     await db.commit()
     await db.refresh(marker)
 
-    resp = _marker_response(marker, marker.user.nickname)
-    ch = channel_key(user.room.map_id, user.room_id)
-    await manager.broadcast(ch, {"type": "marker_updated", "data": resp.model_dump(mode="json")})
+    resp = _marker_response(marker, _marker_nickname(marker))
+    await _broadcast_marker_event(
+        db,
+        user,
+        marker,
+        {"type": "marker_updated", "data": resp.model_dump(mode="json")},
+    )
     return resp
 
 
@@ -524,7 +760,14 @@ async def upload_marker_image(
     marker = result.scalar_one_or_none()
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
-    if marker.user.room_id != user.room_id:
+
+    is_stash = _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    if is_stash:
+        if not _can_manage_stashes(user):
+            raise HTTPException(status_code=403, detail="Only admins and moderators can edit stashes")
+        if marker.map_id != user.room.map_id:
+            raise HTTPException(status_code=403, detail="Stash not on this map")
+    elif marker.user.room_id != user.room_id:
         raise HTTPException(status_code=403, detail="Marker not in your group")
 
     old_url = marker.image_url
@@ -537,9 +780,13 @@ async def upload_marker_image(
     if old_url:
         delete_marker_image_file(old_url)
 
-    resp = _marker_response(marker, marker.user.nickname)
-    ch = channel_key(user.room.map_id, user.room_id)
-    await manager.broadcast(ch, {"type": "marker_updated", "data": resp.model_dump(mode="json")})
+    resp = _marker_response(marker, _marker_nickname(marker))
+    await _broadcast_marker_event(
+        db,
+        user,
+        marker,
+        {"type": "marker_updated", "data": resp.model_dump(mode="json")},
+    )
     return resp
 
 
@@ -549,20 +796,33 @@ async def delete_marker(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    result = await db.execute(select(Marker).where(Marker.id == marker_id))
+    result = await db.execute(
+        select(Marker).options(selectinload(Marker.user)).where(Marker.id == marker_id)
+    )
     marker = result.scalar_one_or_none()
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
-    if marker.user_id != user.id:
+
+    is_stash = _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    if is_stash:
+        if not _can_manage_stashes(user):
+            raise HTTPException(status_code=403, detail="Only admins and moderators can delete stashes")
+        if marker.map_id != user.room.map_id:
+            raise HTTPException(status_code=403, detail="Stash not on this map")
+    elif marker.user_id != user.id:
         raise HTTPException(status_code=403, detail="Can only delete own markers")
 
     old_url = marker.image_url
-    ch = channel_key(user.room.map_id, user.room_id)
+    map_id = user.room.map_id
     await db.delete(marker)
     await db.commit()
     if old_url:
         delete_marker_image_file(old_url)
-    await manager.broadcast(ch, {"type": "marker_deleted", "data": {"id": marker_id}})
+    event = {"type": "marker_deleted", "data": {"id": marker_id}}
+    if is_stash:
+        await _broadcast_to_map(db, map_id, event)
+    else:
+        await manager.broadcast(channel_key(map_id, user.room_id), event)
     return {"ok": True}
 
 
@@ -602,7 +862,29 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                 )
             )
         for m in u.markers:
+            if (m.marker_category or "group") == "stash":
+                continue
             markers.append(_marker_response(m, u.nickname))
+
+    stash_result = await db.execute(
+        select(Marker)
+        .options(selectinload(Marker.user))
+        .where(
+            Marker.map_id == user.room.map_id,
+            Marker.marker_category == "stash",
+        )
+    )
+    for m in stash_result.scalars().all():
+        markers.append(_marker_response(m, _marker_nickname(m)))
+
+    # Legacy stashes not yet linked to map_id (pre-migration).
+    linked_stash_ids = {m.id for m in markers if (m.marker_category or "group") == "stash"}
+    for u in users:
+        for m in u.markers:
+            if (m.marker_category or "group") != "stash" or m.id in linked_stash_ids:
+                continue
+            markers.append(_marker_response(m, u.nickname))
+            linked_stash_ids.add(m.id)
 
     game_map = user.room.map
     return RoomStateResponse(

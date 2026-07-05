@@ -7,6 +7,39 @@ class LoginRequest(BaseModel):
     map_slug: str = Field(min_length=2, max_length=64)
     pin: str = Field(min_length=4, max_length=16)
     nickname: str = Field(min_length=2, max_length=64)
+    room_password: str | None = Field(default=None, max_length=128)
+    profile_password: str | None = Field(default=None, max_length=128)
+
+
+class LoginRequirementsRequest(BaseModel):
+    map_slug: str = Field(min_length=2, max_length=64)
+    pin: str = Field(min_length=4, max_length=16)
+    nickname: str = Field(min_length=2, max_length=64)
+
+
+class LoginRequirementsResponse(BaseModel):
+    room_exists: bool
+    is_new_user: bool
+    room_password_required: bool
+    profile_password_required: bool
+
+
+class ProfilePasswordRequest(BaseModel):
+    current_password: str | None = Field(default=None, max_length=128)
+    new_password: str | None = Field(default=None, max_length=128)
+
+
+class RoomSettingsResponse(BaseModel):
+    pin: str
+    entry_password_enabled: bool
+    can_manage: bool
+
+
+class RoomSettingsUpdateRequest(BaseModel):
+    new_pin: str | None = Field(default=None, min_length=4, max_length=16)
+    current_room_password: str | None = Field(default=None, max_length=128)
+    new_entry_password: str | None = Field(default=None, max_length=128)
+    remove_entry_password: bool = False
 
 
 class LoginResponse(BaseModel):

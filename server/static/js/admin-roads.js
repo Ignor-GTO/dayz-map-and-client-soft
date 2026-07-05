@@ -3,17 +3,17 @@
  * Allows drawing, managing and deleting road segments on the DayZ map.
  *
  * Road types:
- *   highway : yellow  (#f5c900) — main highway
- *   road    : gray    (#b0b0b0) — village/rural road
- *   street  : blue   (#4fc3f7) — city street
+ *   highway : lilac   (#c084fc) — main highway (admin preview only)
+ *   road    : lilac   (#c084fc) — village/rural road
+ *   street  : lilac   (#c084fc) — city street
  */
 (function () {
   "use strict";
 
   const ROAD_COLORS = {
-    highway: "#f5c900",
-    road: "#f5c900",
-    street: "#f5c900",
+    highway: "#c084fc",
+    road: "#c084fc",
+    street: "#c084fc",
   };
 
   const ROAD_WEIGHTS = {

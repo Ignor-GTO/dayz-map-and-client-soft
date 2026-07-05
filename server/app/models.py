@@ -78,10 +78,18 @@ class Room(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
     pin: Mapped[str] = mapped_column(String(16), index=True)
+    # Optional password required to enter the room (in addition to PIN).
+    entry_password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    # First user who created/joined the room; may manage room settings.
+    created_by_user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     map: Mapped["DayZMap"] = relationship(back_populates="rooms")
-    users: Mapped[list["User"]] = relationship(back_populates="room", cascade="all, delete-orphan")
+    users: Mapped[list["User"]] = relationship(
+        back_populates="room",
+        cascade="all, delete-orphan",
+        foreign_keys="User.room_id",
+    )
 
 
 class User(Base):
@@ -92,6 +100,8 @@ class User(Base):
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), index=True)
     nickname: Mapped[str] = mapped_column(String(64))
     client_key_hash: Mapped[str] = mapped_column(String(128))
+    # Optional password to protect nickname from impersonation within a PIN group.
+    profile_password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     # user | vip | moderator | admin — privileges on the live map
     role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
@@ -133,6 +143,8 @@ class Marker(Base):
     radius: Mapped[float | None] = mapped_column(Float, nullable=True)
     stroke_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     fill_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    # Server stashes (marker_category=stash) are tied to map, visible to all PIN groups.
+    map_id: Mapped[int | None] = mapped_column(ForeignKey("dayz_maps.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="markers")

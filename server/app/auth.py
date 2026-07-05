@@ -21,6 +21,16 @@ def hash_client_key(key: str) -> str:
     return hashlib.sha256(key.encode()).hexdigest()
 
 
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def verify_password(password: str, stored_hash: str | None) -> bool:
+    if not stored_hash:
+        return False
+    return hash_password(password) == stored_hash
+
+
 def generate_client_key() -> str:
     return secrets.token_urlsafe(32)
 

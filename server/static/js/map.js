@@ -1041,11 +1041,37 @@ function applyCommandZoom(action) {
   }
 }
 
+function canManageStashes() {
+  return !!state.me?.can_manage_stashes;
+}
+
+function isStashMarker(meta) {
+  return (meta?.marker_category || "group") === "stash";
+}
+
+function canEditMarker(meta) {
+  if (isStashMarker(meta)) return canManageStashes();
+  return true;
+}
+
+function canDeleteMarker(meta) {
+  if (isStashMarker(meta)) return canManageStashes();
+  return !!(state.me && meta?.user_id === state.me.user_id);
+}
+
+function syncStashCategoryControls() {
+  const can = canManageStashes();
+  document.querySelectorAll('#marker-edit-category option[value="stash"]').forEach((opt) => {
+    opt.hidden = !can;
+    opt.disabled = !can;
+  });
+}
+
 function upsertPin(m) {
   const color = colorForUser(m.user_id);
   let layer = state.pinMarkers.get(m.id);
 
-  const inGroup = true; // any group member can edit
+  const inGroup = canEditMarker(m);
   const kind = m.geometry_kind || "point";
   const markerCategory = m.marker_category || "group";
   const canGeoEdit = inGroup && (kind === "circle" || kind === "line");
@@ -1075,7 +1101,7 @@ function upsertPin(m) {
       <button class="marker-route" data-x="${m.x}" data-y="${m.y}">Маршрут</button>
       ${inGroup ? `<button class="marker-edit-btn" data-id="${m.id}">✏️ Изменить</button>` : ""}
       ${canGeoEdit ? `<button class="marker-geo-edit-btn" data-id="${m.id}">🧩 Геометрия</button>` : ""}
-      ${state.me && m.user_id === state.me.user_id ? `<button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
+      ${canDeleteMarker(m) ? `<button class="marker-delete" data-id="${m.id}">Удалить</button>` : ""}
     </div>
   `;
 
@@ -1220,7 +1246,7 @@ function updateMarkersList() {
     const m = marker._markerMeta;
     if (!m) return;
 
-    const isMine = state.me && m.user_id === state.me.user_id;
+    const showDelete = canDeleteMarker(m);
     const def = MARKER_ICON_DEFS[m.type] || MARKER_ICON_DEFS.marker;
     const shapePrefix = m.geometry_kind === "circle"
       ? "⭕"
@@ -1244,7 +1270,7 @@ function updateMarkersList() {
         </div>
         <div style="display: flex; align-items: center; gap: 4px;">
           <span class="sidebar-info" style="margin-right: 4px;">${Math.round(m.x)}/${Math.round(m.y)}</span>
-          ${isMine ? `<button class="delete-btn-small" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Удалить">✕</button>` : ""}
+          ${showDelete ? `<button class="delete-btn-small" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Удалить">✕</button>` : ""}
         </div>
       </div>
     `;
@@ -1483,6 +1509,10 @@ function openMarkerEditModal(markerId) {
   if (!leafletMarker) return;
   const m = leafletMarker._markerMeta;
   if (!m) return;
+  if (isStashMarker(m) && !canManageStashes()) {
+    alert("Тайники может редактировать только администратор или модератор");
+    return;
+  }
 
   _editMarkerId = markerId;
   _editImageFile = null;
@@ -1493,6 +1523,7 @@ function openMarkerEditModal(markerId) {
   document.getElementById("marker-edit-desc").value = m.description || "";
   const categoryInput = document.getElementById("marker-edit-category");
   if (categoryInput) categoryInput.value = (m.marker_category || "group");
+  syncStashCategoryControls();
   const kind = m.geometry_kind || "point";
   const geometryKind = document.getElementById("marker-edit-geometry-kind");
   if (geometryKind) geometryKind.value = markerKindLabel(kind);
@@ -2012,6 +2043,7 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
+  syncStashCategoryControls();
   const roadsFilter = document.getElementById("filter-roads");
   if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
   syncStashVisibilityControls();
@@ -2048,6 +2080,152 @@ async function loadPinPolicyHint() {
   }
 }
 
+let loginRequirementsTimer = null;
+
+function applyLoginRequirements(data) {
+  const roomWrap = document.getElementById("room-password-wrap");
+  const profileWrap = document.getElementById("profile-password-wrap");
+  const newProfileWrap = document.getElementById("new-profile-password-wrap");
+  if (!roomWrap || !profileWrap || !newProfileWrap) return;
+
+  roomWrap.classList.toggle("hidden", !data.room_password_required);
+  profileWrap.classList.toggle("hidden", !data.profile_password_required);
+  newProfileWrap.classList.toggle("hidden", !(data.is_new_user && !data.profile_password_required));
+
+  if (!data.room_password_required) {
+    const roomInput = document.getElementById("room-password");
+    if (roomInput) roomInput.value = "";
+  }
+  if (!data.profile_password_required) {
+    const profileInput = document.getElementById("profile-password");
+    if (profileInput) profileInput.value = "";
+  }
+  if (!data.is_new_user || data.profile_password_required) {
+    const newProfileInput = document.getElementById("new-profile-password");
+    if (newProfileInput) newProfileInput.value = "";
+  }
+}
+
+async function refreshLoginRequirements() {
+  const mapSlug = document.getElementById("map-slug")?.value;
+  const pin = document.getElementById("pin")?.value.trim();
+  const nickname = document.getElementById("nickname")?.value.trim();
+  if (!mapSlug || pin.length < 4 || nickname.length < 2) {
+    applyLoginRequirements({
+      room_password_required: false,
+      profile_password_required: false,
+      is_new_user: true,
+    });
+    return;
+  }
+  try {
+    const data = await api("/api/auth/login-requirements", {
+      method: "POST",
+      body: JSON.stringify({ map_slug: mapSlug, pin, nickname }),
+    });
+    applyLoginRequirements(data);
+  } catch {
+    applyLoginRequirements({
+      room_password_required: false,
+      profile_password_required: false,
+      is_new_user: true,
+    });
+  }
+}
+
+function scheduleLoginRequirementsRefresh() {
+  clearTimeout(loginRequirementsTimer);
+  loginRequirementsTimer = setTimeout(refreshLoginRequirements, 350);
+}
+
+function openProfileModal() {
+  if (!state.me) return;
+  const modal = document.getElementById("profile-modal");
+  if (!modal) return;
+
+  document.getElementById("profile-nickname").textContent = state.me.nickname;
+  document.getElementById("profile-room-info").textContent =
+    `${state.me.map_name} · PIN: ${state.me.pin}`;
+
+  const hasPassword = !!state.me.has_profile_password;
+  document.getElementById("profile-password-status").textContent = hasPassword
+    ? "Пароль включён — без него никто не войдёт под вашим никнеймом."
+    : "Пароль не задан — вход только по PIN и никнейму.";
+  document.getElementById("profile-current-password-wrap").classList.toggle("hidden", !hasPassword);
+  document.getElementById("profile-remove-password-btn").classList.toggle("hidden", !hasPassword);
+  document.getElementById("profile-new-password-label").textContent = hasPassword
+    ? "Новый пароль"
+    : "Задать пароль";
+  document.getElementById("profile-current-password").value = "";
+  document.getElementById("profile-new-password").value = "";
+  document.getElementById("profile-password-error").classList.add("hidden");
+
+  const roomSection = document.getElementById("room-settings-section");
+  if (state.me.can_manage_room) {
+    roomSection.classList.remove("hidden");
+    document.getElementById("room-settings-pin").value = state.me.pin;
+    document.getElementById("room-settings-current-password").value = "";
+    document.getElementById("room-settings-entry-password").value = "";
+    document.getElementById("room-settings-remove-entry-password").checked = false;
+    document.getElementById("room-settings-current-password-wrap").classList.toggle(
+      "hidden",
+      !state.me.room_entry_password_enabled
+    );
+    document.getElementById("room-settings-error").classList.add("hidden");
+  } else {
+    roomSection.classList.add("hidden");
+  }
+
+  modal.classList.remove("hidden");
+}
+
+async function saveProfilePassword(remove = false) {
+  const errEl = document.getElementById("profile-password-error");
+  errEl.classList.add("hidden");
+  try {
+    const body = {
+      current_password: document.getElementById("profile-current-password").value || null,
+      new_password: remove ? "" : document.getElementById("profile-new-password").value || null,
+    };
+    const data = await api("/api/auth/profile/password", {
+      method: "PUT",
+      body: JSON.stringify(body),
+    });
+    state.me.has_profile_password = !!data.has_profile_password;
+    alert(data.message);
+    openProfileModal();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove("hidden");
+  }
+}
+
+async function saveRoomSettings() {
+  const errEl = document.getElementById("room-settings-error");
+  errEl.classList.add("hidden");
+  try {
+    const newPin = document.getElementById("room-settings-pin").value.trim();
+    const payload = {
+      new_pin: newPin !== state.me.pin ? newPin : null,
+      current_room_password: document.getElementById("room-settings-current-password").value || null,
+      new_entry_password: document.getElementById("room-settings-entry-password").value || null,
+      remove_entry_password: document.getElementById("room-settings-remove-entry-password").checked,
+    };
+    const data = await api("/api/room/settings", {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    state.me.pin = data.pin;
+    state.me.room_entry_password_enabled = !!data.entry_password_enabled;
+    document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
+    alert("Настройки группы сохранены.");
+    openProfileModal();
+  } catch (err) {
+    errEl.textContent = err.message;
+    errEl.classList.remove("hidden");
+  }
+}
+
 document.getElementById("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const errEl = document.getElementById("login-error");
@@ -2056,9 +2234,17 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
     const map_slug = document.getElementById("map-slug").value;
     const pin = document.getElementById("pin").value.trim();
     const nickname = document.getElementById("nickname").value.trim();
+    const room_password = document.getElementById("room-password")?.value || null;
+    const profile_password =
+      document.getElementById("profile-password")?.value ||
+      document.getElementById("new-profile-password")?.value ||
+      null;
+    const payload = { map_slug, pin, nickname };
+    if (room_password) payload.room_password = room_password;
+    if (profile_password) payload.profile_password = profile_password;
     const data = await api("/api/auth/login", {
       method: "POST",
-      body: JSON.stringify({ map_slug, pin, nickname }),
+      body: JSON.stringify(payload),
     });
     if (data.client_key) {
       showKeyModal(data.client_key);
@@ -2125,6 +2311,24 @@ document.getElementById("copy-key-confirm").addEventListener("click", () => {
 
 document.getElementById("close-key-modal").addEventListener("click", () => {
   document.getElementById("key-modal").classList.add("hidden");
+});
+
+document.getElementById("profile-btn")?.addEventListener("click", openProfileModal);
+document.getElementById("close-profile-modal")?.addEventListener("click", () => {
+  document.getElementById("profile-modal")?.classList.add("hidden");
+});
+document.getElementById("profile-save-password-btn")?.addEventListener("click", () => {
+  saveProfilePassword(false);
+});
+document.getElementById("profile-remove-password-btn")?.addEventListener("click", () => {
+  if (!confirm("Отключить пароль профиля? Вход снова будет только по PIN и никнейму.")) return;
+  saveProfilePassword(true);
+});
+document.getElementById("room-settings-save-btn")?.addEventListener("click", saveRoomSettings);
+
+["map-slug", "pin", "nickname"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("input", scheduleLoginRequirementsRefresh);
+  document.getElementById(id)?.addEventListener("change", scheduleLoginRequirementsRefresh);
 });
 
 document.getElementById("marker-image-close")?.addEventListener("click", closeMarkerImageModal);

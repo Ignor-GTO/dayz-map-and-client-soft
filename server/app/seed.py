@@ -79,6 +79,18 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("ALTER TABLE markers ADD COLUMN stroke_color VARCHAR(16)"))
     if marker_cols and "fill_color" not in marker_cols:
         conn.execute(text("ALTER TABLE markers ADD COLUMN fill_color VARCHAR(16)"))
+    if marker_cols and "map_id" not in marker_cols:
+        conn.execute(text("ALTER TABLE markers ADD COLUMN map_id INTEGER REFERENCES dayz_maps(id)"))
+        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_markers_map_id ON markers (map_id)"))
+        logger.info("Added markers.map_id column")
+    if marker_cols:
+        conn.execute(text(
+            "UPDATE markers SET map_id = ("
+            "  SELECT rooms.map_id FROM users "
+            "  INNER JOIN rooms ON users.room_id = rooms.id "
+            "  WHERE users.id = markers.user_id"
+            ") WHERE marker_category = 'stash' AND map_id IS NULL"
+        ))
 
     # road_segments table (created by SQLAlchemy create_all but add for existing DBs)
     road_tables = {row[0] for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()}
@@ -169,6 +181,24 @@ def _migrate_sqlite(conn) -> None:
     if user_cols and "role" not in user_cols:
         conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(16) DEFAULT 'user'"))
         logger.info("Added users.role column")
+    if user_cols and "profile_password_hash" not in user_cols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN profile_password_hash VARCHAR(128)"))
+        logger.info("Added users.profile_password_hash column")
+
+    room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
+    if room_cols and "entry_password_hash" not in room_cols:
+        conn.execute(text("ALTER TABLE rooms ADD COLUMN entry_password_hash VARCHAR(128)"))
+        logger.info("Added rooms.entry_password_hash column")
+    if room_cols and "created_by_user_id" not in room_cols:
+        conn.execute(text("ALTER TABLE rooms ADD COLUMN created_by_user_id INTEGER REFERENCES users(id)"))
+        logger.info("Added rooms.created_by_user_id column")
+        conn.execute(text(
+            "UPDATE rooms SET created_by_user_id = ("
+            "  SELECT MIN(u.id) FROM users u WHERE u.room_id = rooms.id"
+            ") WHERE created_by_user_id IS NULL AND EXISTS ("
+            "  SELECT 1 FROM users u2 WHERE u2.room_id = rooms.id"
+            ")"
+        ))
 
     if "admin_accounts" not in road_tables:
         conn.execute(text(

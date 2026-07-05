@@ -576,7 +576,7 @@ select option {
 }
 
 .draw-idle { color: var(--muted); }
-.draw-drawing { color: #f5c900; }
+.draw-drawing { color: #c084fc; }
 
 /* List header */
 .roads-list-header {
