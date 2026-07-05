@@ -191,12 +191,48 @@ class MapRadiationResponse(BaseModel):
 
 
 class AdminLoginRequest(BaseModel):
+    login: str = Field(min_length=2, max_length=64)
     password: str
 
 
 class AdminPasswordRequest(BaseModel):
     current_password: str
     new_password: str = Field(min_length=6, max_length=128)
+
+
+class AdminAccountCreateRequest(BaseModel):
+    login: str = Field(min_length=2, max_length=64)
+    password: str = Field(min_length=6, max_length=128)
+    role: str = Field(default="moderator", pattern="^(admin|moderator)$")
+
+
+class AdminAccountUpdateRequest(BaseModel):
+    password: str | None = Field(default=None, min_length=6, max_length=128)
+    role: str | None = Field(default=None, pattern="^(admin|moderator)$")
+
+
+class AdminUserUpdateRequest(BaseModel):
+    room_id: int | None = None
+    role: str | None = Field(default=None, pattern="^(user|vip|moderator|admin)$")
+    nickname: str | None = Field(default=None, min_length=2, max_length=64)
+
+
+class AdminUserResponse(BaseModel):
+    id: int
+    nickname: str
+    role: str
+    room_id: int
+    pin: str
+    map_slug: str
+    map_name: str
+    created_at: datetime
+
+
+class AdminAccountResponse(BaseModel):
+    id: int
+    login: str
+    role: str
+    created_at: datetime
 
 
 class AdminPinPolicyRequest(BaseModel):

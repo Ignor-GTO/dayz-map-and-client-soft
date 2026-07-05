@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import SECRET_KEY, SESSION_COOKIE
 from app.database import get_db
-from app.models import DayZMap, Room, User
+from app.models import AdminAccount, DayZMap, Room, User
 
 serializer = URLSafeSerializer(SECRET_KEY, salt="dayz-map-session")
 admin_serializer = URLSafeSerializer(SECRET_KEY, salt="dayz-map-admin")
@@ -44,8 +44,8 @@ def clear_session(response: Response) -> None:
     response.delete_cookie(SESSION_COOKIE)
 
 
-def set_admin_session(response: Response) -> None:
-    token = admin_serializer.dumps({"admin": True})
+def set_admin_session(response: Response, admin_id: int) -> None:
+    token = admin_serializer.dumps({"admin_id": admin_id})
     response.set_cookie(
         key=ADMIN_SESSION_COOKIE,
         value=token,
@@ -59,16 +59,33 @@ def clear_admin_session(response: Response) -> None:
     response.delete_cookie(ADMIN_SESSION_COOKIE)
 
 
-async def require_admin(request: Request) -> None:
+async def require_admin(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AdminAccount:
     token = request.cookies.get(ADMIN_SESSION_COOKIE)
     if not token:
         raise HTTPException(status_code=401, detail="Admin not authenticated")
     try:
         data = admin_serializer.loads(token)
-        if not data.get("admin"):
+        admin_id = data.get("admin_id")
+        if not admin_id:
             raise HTTPException(status_code=401, detail="Invalid admin session")
     except BadSignature:
         raise HTTPException(status_code=401, detail="Invalid admin session")
+
+    account = await db.get(AdminAccount, admin_id)
+    if not account:
+        raise HTTPException(status_code=401, detail="Admin account not found")
+    return account
+
+
+async def require_admin_role(
+    account: Annotated[AdminAccount, Depends(require_admin)],
+) -> AdminAccount:
+    if account.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin role required")
+    return account
 
 
 async def get_current_user(

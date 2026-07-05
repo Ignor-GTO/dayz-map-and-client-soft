@@ -92,6 +92,68 @@
 .card-desc { margin: 0.5rem 0 0; font-size: 0.9rem; }
 .card-actions { display: flex; gap: 0.5rem; margin-top: 0.75rem; }
 
+.card-nicknames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+}
+
+.nickname-chip {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  background: #1e2a3a;
+  border: 1px solid #2a3848;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.users-table-wrap {
+  margin-top: 1rem;
+  overflow-x: auto;
+}
+
+.users-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.users-table th,
+.users-table td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid #2a3848;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.users-table th {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: #141c28;
+}
+
+.users-table input,
+.users-table select {
+  width: 100%;
+  min-width: 110px;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid #2a3848;
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.users-actions {
+  white-space: nowrap;
+  display: flex;
+  gap: 0.35rem;
+}
+
 .badge {
   font-size: 0.75rem;
   padding: 0.15rem 0.5rem;

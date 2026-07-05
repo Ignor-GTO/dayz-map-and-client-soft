@@ -3,19 +3,21 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import delete, func, select, update
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
     clear_admin_session,
     require_admin,
+    require_admin_role,
     set_admin_session,
 )
 from app.database import get_db
 from app.models import (
+    AdminAccount,
     DayZMap,
     MapPoi,
     Room,
-    Setting,
     Trader,
     TraderItem,
     TraderSection,
@@ -32,10 +34,15 @@ from app.radiation_service import (
 from app.radiation_upload import delete_overlay_file, save_radiation_overlay
 from app.roads_service import create_segment, delete_segment, list_segments, update_segment, clear_segments, create_segments_bulk
 from app.schemas import (
+    AdminAccountCreateRequest,
+    AdminAccountResponse,
+    AdminAccountUpdateRequest,
     AdminLoginRequest,
     AdminPasswordRequest,
     AdminPinCreateRequest,
     AdminPinPolicyRequest,
+    AdminUserResponse,
+    AdminUserUpdateRequest,
     MapCreateRequest,
     MapUpdateRequest,
     PoiCreateRequest,
@@ -56,7 +63,7 @@ from app.schemas import (
     TraderSubsectionResponse,
     TraderUpdateRequest,
 )
-from app.seed import ADMIN_PASSWORD_KEY, hash_admin_password, verify_admin_password
+from app.seed import hash_admin_password, verify_admin_password
 from app.settings_service import is_public_pin_creation, set_public_pin_creation
 
 router = APIRouter(prefix="/api/admin")
@@ -134,17 +141,36 @@ def _item_response(item: TraderItem, subsection: TraderSubsection, section: Trad
     )
 
 
+MAP_USER_ROLES = {"user", "vip", "moderator", "admin"}
+ADMIN_PANEL_ROLES = {"admin", "moderator"}
+
+
+def _user_response(user: User, room: Room, game_map: DayZMap) -> AdminUserResponse:
+    return AdminUserResponse(
+        id=user.id,
+        nickname=user.nickname,
+        role=user.role or "user",
+        room_id=room.id,
+        pin=room.pin,
+        map_slug=game_map.slug,
+        map_name=game_map.name,
+        created_at=user.created_at,
+    )
+
+
 @router.post("/login")
 async def admin_login(
     payload: AdminLoginRequest,
     response: Response,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    setting = await db.get(Setting, ADMIN_PASSWORD_KEY)
-    if not setting or not verify_admin_password(payload.password, setting.value):
-        raise HTTPException(status_code=401, detail="Invalid password")
-    set_admin_session(response)
-    return {"ok": True}
+    login = payload.login.strip().lower()
+    result = await db.execute(select(AdminAccount).where(AdminAccount.login == login))
+    account = result.scalar_one_or_none()
+    if not account or not verify_admin_password(payload.password, account.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid login or password")
+    set_admin_session(response, account.id)
+    return {"ok": True, "login": account.login, "role": account.role}
 
 
 @router.post("/logout")
@@ -154,8 +180,8 @@ async def admin_logout(response: Response):
 
 
 @router.get("/me")
-async def admin_me(_: Annotated[None, Depends(require_admin)]):
-    return {"ok": True}
+async def admin_me(account: Annotated[AdminAccount, Depends(require_admin)]):
+    return {"ok": True, "login": account.login, "role": account.role}
 
 
 @router.get("/settings")
@@ -180,14 +206,13 @@ async def admin_set_pin_policy(
 async def admin_list_rooms(
     map_slug: str,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[None, Depends(require_admin)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
 ):
     game_map = await _get_map(db, map_slug)
     result = await db.execute(
-        select(Room, func.count(User.id))
-        .outerjoin(User, User.room_id == Room.id)
+        select(Room)
+        .options(selectinload(Room.users))
         .where(Room.map_id == game_map.id)
-        .group_by(Room.id)
         .order_by(Room.pin)
     )
     return [
@@ -195,10 +220,11 @@ async def admin_list_rooms(
             "id": room.id,
             "pin": room.pin,
             "map_slug": game_map.slug,
-            "user_count": count,
+            "user_count": len(room.users),
+            "nicknames": sorted(u.nickname for u in room.users),
             "created_at": room.created_at.isoformat(),
         }
-        for room, count in result.all()
+        for room in result.scalars().all()
     ]
 
 
@@ -238,12 +264,188 @@ async def admin_delete_room(
 async def change_password(
     payload: AdminPasswordRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[None, Depends(require_admin)],
+    account: Annotated[AdminAccount, Depends(require_admin)],
 ):
-    setting = await db.get(Setting, ADMIN_PASSWORD_KEY)
-    if not setting or not verify_admin_password(payload.current_password, setting.value):
+    if not verify_admin_password(payload.current_password, account.password_hash):
         raise HTTPException(status_code=401, detail="Wrong current password")
-    setting.value = hash_admin_password(payload.new_password)
+    account.password_hash = hash_admin_password(payload.new_password)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/users", response_model=list[AdminUserResponse])
+async def admin_list_users(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+    map_slug: str | None = None,
+):
+    query = (
+        select(User, Room, DayZMap)
+        .join(Room, User.room_id == Room.id)
+        .join(DayZMap, Room.map_id == DayZMap.id)
+        .order_by(DayZMap.sort_order, DayZMap.name, Room.pin, User.nickname)
+    )
+    if map_slug:
+        query = query.where(DayZMap.slug == map_slug.strip().lower())
+    rows = (await db.execute(query)).all()
+    return [_user_response(user, room, game_map) for user, room, game_map in rows]
+
+
+@router.put("/users/{user_id}", response_model=AdminUserResponse)
+async def admin_update_user(
+    user_id: int,
+    payload: AdminUserUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+):
+    result = await db.execute(
+        select(User, Room, DayZMap)
+        .join(Room, User.room_id == Room.id)
+        .join(DayZMap, Room.map_id == DayZMap.id)
+        .where(User.id == user_id)
+    )
+    row = result.first()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    user, room, game_map = row
+
+    if payload.room_id is not None and payload.room_id != user.room_id:
+        new_room = await db.get(Room, payload.room_id)
+        if not new_room:
+            raise HTTPException(status_code=404, detail="Room not found")
+        user.room_id = new_room.id
+        room = new_room
+        map_result = await db.execute(select(DayZMap).where(DayZMap.id == new_room.map_id))
+        game_map = map_result.scalar_one()
+
+    if payload.role is not None:
+        if payload.role not in MAP_USER_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        user.role = payload.role
+
+    if payload.nickname is not None:
+        nickname = payload.nickname.strip()
+        if not nickname:
+            raise HTTPException(status_code=400, detail="Nickname is required")
+        user.nickname = nickname
+
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Nickname already exists in this PIN group")
+    await db.refresh(user)
+    return _user_response(user, room, game_map)
+
+
+@router.delete("/users/{user_id}")
+async def admin_delete_user(
+    user_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+):
+    user = await db.get(User, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    await db.delete(user)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.get("/admin-accounts", response_model=list[AdminAccountResponse])
+async def admin_list_accounts(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin_role)],
+):
+    rows = (await db.execute(select(AdminAccount).order_by(AdminAccount.login))).scalars().all()
+    return [
+        AdminAccountResponse(
+            id=row.id,
+            login=row.login,
+            role=row.role,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
+
+
+@router.post("/admin-accounts", response_model=AdminAccountResponse)
+async def admin_create_account(
+    payload: AdminAccountCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin_role)],
+):
+    login = payload.login.strip().lower()
+    if not login:
+        raise HTTPException(status_code=400, detail="Login is required")
+    if payload.role not in ADMIN_PANEL_ROLES:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    exists = await db.execute(select(AdminAccount).where(AdminAccount.login == login))
+    if exists.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Login already exists")
+    account = AdminAccount(
+        login=login,
+        password_hash=hash_admin_password(payload.password),
+        role=payload.role,
+    )
+    db.add(account)
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="Login already exists")
+    await db.refresh(account)
+    return AdminAccountResponse(
+        id=account.id,
+        login=account.login,
+        role=account.role,
+        created_at=account.created_at,
+    )
+
+
+@router.put("/admin-accounts/{account_id}", response_model=AdminAccountResponse)
+async def admin_update_account(
+    account_id: int,
+    payload: AdminAccountUpdateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[AdminAccount, Depends(require_admin_role)],
+):
+    account = await db.get(AdminAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    if payload.role is not None:
+        if payload.role not in ADMIN_PANEL_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        if account.id == current.id and payload.role != "admin":
+            raise HTTPException(status_code=400, detail="Cannot demote your own account")
+        account.role = payload.role
+    if payload.password:
+        account.password_hash = hash_admin_password(payload.password)
+    await db.commit()
+    await db.refresh(account)
+    return AdminAccountResponse(
+        id=account.id,
+        login=account.login,
+        role=account.role,
+        created_at=account.created_at,
+    )
+
+
+@router.delete("/admin-accounts/{account_id}")
+async def admin_delete_account(
+    account_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current: Annotated[AdminAccount, Depends(require_admin_role)],
+):
+    if account_id == current.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+    account = await db.get(AdminAccount, account_id)
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+    total = await db.scalar(select(func.count()).select_from(AdminAccount)) or 0
+    if total <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete the last admin account")
+    await db.delete(account)
     await db.commit()
     return {"ok": True}
 

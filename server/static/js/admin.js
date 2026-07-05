@@ -35,6 +35,34 @@ function switchTab(name) {
     window.RadiationEditor.ensureLoaded();
     window.RadiationEditor.setMode?.(name === "psi" ? "psi" : "radiation");
   }
+  if (name === "users") loadUsers();
+  if (name === "password") loadAdminAccounts();
+}
+
+const MAP_USER_ROLE_LABELS = {
+  user: "Игрок",
+  vip: "VIP",
+  moderator: "Модератор",
+  admin: "Админ",
+};
+
+const ADMIN_PANEL_ROLE_LABELS = {
+  admin: "Администратор",
+  moderator: "Модератор",
+};
+
+function mapUserRoleOptions(selected) {
+  return Object.entries(MAP_USER_ROLE_LABELS).map(([value, label]) =>
+    `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`
+  ).join("");
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function poiIconBadge(iconKey) {
@@ -45,6 +73,9 @@ function poiIconBadge(iconKey) {
 
 let mapsCache = [];
 let poisCache = [];
+let usersCache = [];
+let roomsByMap = {};
+let currentAdmin = null;
 let selectedPoiIcon = "star";
 let poiImageFile = null;
 let poiImageRemovePending = false;
@@ -189,6 +220,15 @@ async function loadMaps() {
     pinSel.innerHTML = mapsCache.map((m) => `<option value="${m.slug}">${m.name}</option>`).join("");
   }
 
+  const usersSel = document.getElementById("users-map-select");
+  if (usersSel) {
+    const current = usersSel.value;
+    usersSel.innerHTML = `<option value="">Все карты</option>${mapsCache.map((m) =>
+      `<option value="${m.slug}">${m.name}</option>`
+    ).join("")}`;
+    if (current) usersSel.value = current;
+  }
+
   if (window.RadiationEditor) {
     window.RadiationEditor.refreshMapSelect();
   }
@@ -221,23 +261,137 @@ async function loadPinPolicy() {
   if (cb) cb.checked = !!data.public_pin_creation;
 }
 
+async function loadRoomsForMap(slug) {
+  if (!slug) return [];
+  if (roomsByMap[slug]) return roomsByMap[slug];
+  const rooms = await api(`/api/admin/rooms?map_slug=${encodeURIComponent(slug)}`);
+  roomsByMap[slug] = rooms;
+  return rooms;
+}
+
 async function loadRooms() {
   const slug = document.getElementById("pin-map-select")?.value;
   if (!slug) return;
-  const rooms = await api(`/api/admin/rooms?map_slug=${encodeURIComponent(slug)}`);
+  const rooms = await loadRoomsForMap(slug);
+  roomsByMap[slug] = rooms;
   const list = document.getElementById("rooms-list");
   if (!list) return;
   list.innerHTML = rooms.length
     ? rooms.map((r) => `
       <div class="card" data-id="${r.id}">
-        <div class="card-head"><strong>PIN: ${r.pin}</strong></div>
+        <div class="card-head"><strong>PIN: ${escapeHtml(r.pin)}</strong></div>
         <div class="card-meta">Участников: ${r.user_count}</div>
+        ${r.nicknames?.length
+          ? `<div class="card-nicknames">${r.nicknames.map((n) =>
+              `<span class="nickname-chip">${escapeHtml(n)}</span>`
+            ).join("")}</div>`
+          : `<p class="muted card-nicknames-empty">Нет участников</p>`}
         <div class="card-actions">
           <button type="button" class="danger delete-room" data-id="${r.id}">Удалить</button>
         </div>
       </div>
     `).join("")
     : "<p class='muted'>Нет групп на этой карте. Создайте PIN ниже.</p>";
+}
+
+async function loadUsers() {
+  const slug = document.getElementById("users-map-select")?.value || "";
+  const query = slug ? `?map_slug=${encodeURIComponent(slug)}` : "";
+  usersCache = await api(`/api/admin/users${query}`);
+  const mapSlugs = [...new Set(usersCache.map((u) => u.map_slug))];
+  await Promise.all(mapSlugs.map((s) => loadRoomsForMap(s)));
+
+  const list = document.getElementById("users-list");
+  if (!list) return;
+  if (!usersCache.length) {
+    list.innerHTML = "<p class='muted'>Пользователей пока нет</p>";
+    return;
+  }
+
+  list.innerHTML = `
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>Ник</th>
+          <th>Карта</th>
+          <th>PIN группа</th>
+          <th>Роль</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        ${usersCache.map((u) => {
+          const rooms = roomsByMap[u.map_slug] || [];
+          const roomOptions = rooms.map((r) =>
+            `<option value="${r.id}" ${r.id === u.room_id ? "selected" : ""}>${escapeHtml(r.pin)}</option>`
+          ).join("");
+          return `
+            <tr data-user-id="${u.id}">
+              <td><input class="user-nickname" type="text" value="${escapeHtml(u.nickname)}" maxlength="64"></td>
+              <td>${escapeHtml(u.map_name)}</td>
+              <td><select class="user-room">${roomOptions}</select></td>
+              <td><select class="user-role">${mapUserRoleOptions(u.role || "user")}</select></td>
+              <td class="users-actions">
+                <button type="button" class="secondary small save-user" data-id="${u.id}">Сохранить</button>
+                <button type="button" class="danger small delete-user" data-id="${u.id}">Удалить</button>
+              </td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+async function loadAdminAccounts() {
+  const info = document.getElementById("admin-self-info");
+  const section = document.getElementById("admin-accounts-section");
+  if (info && currentAdmin) {
+    info.textContent = `Вы вошли как ${currentAdmin.login} (${ADMIN_PANEL_ROLE_LABELS[currentAdmin.role] || currentAdmin.role})`;
+  }
+  if (!currentAdmin || currentAdmin.role !== "admin") {
+    section?.classList.add("hidden");
+    return;
+  }
+  section?.classList.remove("hidden");
+  const accounts = await api("/api/admin/admin-accounts");
+  const list = document.getElementById("admin-accounts-list");
+  if (!list) return;
+  list.innerHTML = accounts.length
+    ? accounts.map((a) => `
+      <div class="card" data-id="${a.id}">
+        <div class="card-head">
+          <strong>${escapeHtml(a.login)}</strong>
+          <span class="badge on">${ADMIN_PANEL_ROLE_LABELS[a.role] || a.role}</span>
+        </div>
+        <div class="card-actions">
+          <button type="button" class="secondary edit-admin-account" data-id="${a.id}" data-login="${escapeHtml(a.login)}" data-role="${a.role}">Изменить</button>
+          <button type="button" class="danger delete-admin-account" data-id="${a.id}" ${a.id === currentAdmin.id ? "disabled" : ""}>Удалить</button>
+        </div>
+      </div>
+    `).join("")
+    : "<p class='muted'>Нет аккаунтов</p>";
+}
+
+async function refreshAdminSession() {
+  currentAdmin = await api("/api/admin/me");
+  const header = document.querySelector(".admin-header h1");
+  if (header && currentAdmin?.login) {
+    header.textContent = `Админка · ${currentAdmin.login}`;
+  }
+}
+
+async function initAdminPanel() {
+  await refreshAdminSession();
+  initPoiIconPicker("star");
+  await loadMaps();
+  await loadPois();
+  await loadPinPolicy();
+  await loadRooms();
+  const savedTab = localStorage.getItem("admin_active_tab");
+  if (savedTab) {
+    switchTab(savedTab);
+  }
 }
 
 document.getElementById("pin-policy-form")?.addEventListener("submit", async (e) => {
@@ -275,6 +429,7 @@ document.getElementById("pin-form")?.addEventListener("submit", async (e) => {
       }),
     });
     e.target.reset();
+    delete roomsByMap[document.getElementById("pin-map-select").value];
     await loadRooms();
   } catch (err) {
     alert(err.message);
@@ -286,7 +441,97 @@ document.getElementById("rooms-list")?.addEventListener("click", async (e) => {
   if (!del) return;
   if (!confirm("Удалить группу и всех участников?")) return;
   await api(`/api/admin/rooms/${del.dataset.id}`, { method: "DELETE" });
+  delete roomsByMap[document.getElementById("pin-map-select")?.value];
   await loadRooms();
+});
+
+document.getElementById("users-map-select")?.addEventListener("change", loadUsers);
+
+document.getElementById("users-list")?.addEventListener("click", async (e) => {
+  const saveBtn = e.target.closest(".save-user");
+  const delBtn = e.target.closest(".delete-user");
+  if (saveBtn) {
+    const row = saveBtn.closest("tr");
+    if (!row) return;
+    const userId = Number(saveBtn.dataset.id);
+    try {
+      await api(`/api/admin/users/${userId}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          nickname: row.querySelector(".user-nickname")?.value?.trim(),
+          room_id: Number(row.querySelector(".user-room")?.value),
+          role: row.querySelector(".user-role")?.value,
+        }),
+      });
+      delete roomsByMap[document.getElementById("users-map-select")?.value || ""];
+      Object.keys(roomsByMap).forEach((k) => delete roomsByMap[k]);
+      await loadUsers();
+      await loadRooms();
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+  if (!delBtn) return;
+  if (!confirm("Удалить пользователя?")) return;
+  try {
+    await api(`/api/admin/users/${delBtn.dataset.id}`, { method: "DELETE" });
+    Object.keys(roomsByMap).forEach((k) => delete roomsByMap[k]);
+    await loadUsers();
+    await loadRooms();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById("admin-account-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  try {
+    await api("/api/admin/admin-accounts", {
+      method: "POST",
+      body: JSON.stringify({
+        login: String(fd.get("login")).trim(),
+        password: String(fd.get("password")),
+        role: String(fd.get("role")),
+      }),
+    });
+    e.target.reset();
+    await loadAdminAccounts();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById("admin-accounts-list")?.addEventListener("click", async (e) => {
+  const editBtn = e.target.closest(".edit-admin-account");
+  const delBtn = e.target.closest(".delete-admin-account");
+  if (editBtn) {
+    const login = editBtn.dataset.login;
+    const role = prompt(`Роль для ${login}: admin или moderator`, editBtn.dataset.role);
+    if (!role) return;
+    const password = prompt("Новый пароль (оставьте пустым, чтобы не менять)") || null;
+    const payload = { role: role.trim() };
+    if (password) payload.password = password;
+    try {
+      await api(`/api/admin/admin-accounts/${editBtn.dataset.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      await loadAdminAccounts();
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+  if (!delBtn || delBtn.disabled) return;
+  if (!confirm("Удалить аккаунт?")) return;
+  try {
+    await api(`/api/admin/admin-accounts/${delBtn.dataset.id}`, { method: "DELETE" });
+    await loadAdminAccounts();
+  } catch (err) {
+    alert(err.message);
+  }
 });
 
 document.getElementById("admin-login-form").addEventListener("submit", async (e) => {
@@ -296,12 +541,13 @@ document.getElementById("admin-login-form").addEventListener("submit", async (e)
   try {
     await api("/api/admin/login", {
       method: "POST",
-      body: JSON.stringify({ password: document.getElementById("admin-password").value }),
+      body: JSON.stringify({
+        login: document.getElementById("admin-login-input").value.trim(),
+        password: document.getElementById("admin-password").value,
+      }),
     });
     showPanel();
-    initPoiIconPicker("star");
-    await loadMaps();
-    await loadPois();
+    await initAdminPanel();
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.remove("hidden");
@@ -487,15 +733,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   try {
     await api("/api/admin/me");
     showPanel();
-    initPoiIconPicker("star");
-    await loadMaps();
-    await loadPois();
-    await loadPinPolicy();
-    await loadRooms();
-    const savedTab = localStorage.getItem("admin_active_tab");
-    if (savedTab) {
-      switchTab(savedTab);
-    }
+    await initAdminPanel();
   } catch {
     showLogin();
   }

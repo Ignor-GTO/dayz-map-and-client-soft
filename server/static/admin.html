@@ -15,6 +15,10 @@
       <h1>Админка DayZ Map</h1>
       <form id="admin-login-form">
         <label>
+          Логин
+          <input type="text" id="admin-login-input" required autocomplete="username" placeholder="admin">
+        </label>
+        <label>
           Пароль
           <input type="password" id="admin-password" required autocomplete="current-password">
         </label>
@@ -41,7 +45,8 @@
         <button type="button" class="tab" data-tab="psi">Пси зоны</button>
         <button type="button" class="tab" data-tab="roads">🛣 Дороги</button>
         <button type="button" class="tab" data-tab="pins">PIN группы</button>
-        <button type="button" class="tab" data-tab="password">Пароль</button>
+        <button type="button" class="tab" data-tab="users">Пользователи</button>
+        <button type="button" class="tab" data-tab="password">Аккаунты</button>
       </nav>
 
       <div id="tab-maps" class="tab-panel">
@@ -341,14 +346,48 @@
         </form>
       </div>
 
+      <div id="tab-users" class="tab-panel hidden">
+        <h2>Пользователи карты</h2>
+        <p class="muted">Все игроки, вошедшие по PIN. Можно сменить группу и назначить роль.</p>
+        <label>
+          Карта
+          <select id="users-map-select">
+            <option value="">Все карты</option>
+          </select>
+        </label>
+        <div id="users-list" class="users-table-wrap"></div>
+      </div>
+
       <div id="tab-password" class="tab-panel hidden">
-        <h2>Сменить пароль</h2>
+        <h2>Аккаунты админки</h2>
+        <p id="admin-self-info" class="muted"></p>
+
         <form id="password-form" class="admin-form">
-          <label>Текущий пароль <input name="current_password" type="password" required></label>
-          <label>Новый пароль <input name="new_password" type="password" required minlength="6"></label>
+          <h3>Сменить свой пароль</h3>
+          <label>Текущий пароль <input name="current_password" type="password" required autocomplete="current-password"></label>
+          <label>Новый пароль <input name="new_password" type="password" required minlength="6" autocomplete="new-password"></label>
           <button type="submit">Сохранить</button>
         </form>
         <p id="password-msg" class="success hidden"></p>
+
+        <div id="admin-accounts-section" class="hidden">
+          <h3>Управление аккаунтами</h3>
+          <div id="admin-accounts-list" class="card-list"></div>
+          <form id="admin-account-form" class="admin-form">
+            <h3>Добавить аккаунт</h3>
+            <div class="form-grid">
+              <label>Логин <input name="login" required minlength="2" maxlength="64" autocomplete="off"></label>
+              <label>Пароль <input name="password" type="password" required minlength="6" autocomplete="new-password"></label>
+              <label>Роль
+                <select name="role">
+                  <option value="moderator">Модератор</option>
+                  <option value="admin">Администратор</option>
+                </select>
+              </label>
+            </div>
+            <button type="submit">Создать аккаунт</button>
+          </form>
+        </div>
       </div>
 
       <!-- =================== ROADS EDITOR =================== -->
@@ -416,7 +455,7 @@
   </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=3"></script>
-  <script src="/js/admin.js?v=7"></script>
+  <script src="/js/admin.js?v=8"></script>
   <script src="/js/admin-radiation.js?v=9"></script>
   <script src="/js/admin-roads.js?v=8"></script>
   <script src="/js/admin-traders.js?v=4"></script>

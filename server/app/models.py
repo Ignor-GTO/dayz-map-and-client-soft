@@ -92,6 +92,8 @@ class User(Base):
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), index=True)
     nickname: Mapped[str] = mapped_column(String(64))
     client_key_hash: Mapped[str] = mapped_column(String(128))
+    # user | vip | moderator | admin — privileges on the live map
+    role: Mapped[str] = mapped_column(String(16), default="user", server_default="user")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     room: Mapped["Room"] = relationship(back_populates="users")
@@ -199,3 +201,14 @@ class TraderItem(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
     subsection: Mapped["TraderSubsection"] = relationship(back_populates="items")
+
+
+class AdminAccount(Base):
+    __tablename__ = "admin_accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    login: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(128))
+    # admin — full panel access; moderator — panel without account management
+    role: Mapped[str] = mapped_column(String(16), default="admin", server_default="admin")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

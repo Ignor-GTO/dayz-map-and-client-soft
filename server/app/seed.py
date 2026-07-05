@@ -13,7 +13,7 @@ from app.config import (
 )
 from app.locations_service import DEFAULT_IZURVIVE_URLS
 from app.radiation_service import DEFAULT_RADIATION_FILES
-from app.models import DayZMap, Setting
+from app.models import AdminAccount, DayZMap, Setting
 from app.settings_service import PUBLIC_PIN_CREATION_KEY
 
 logger = logging.getLogger(__name__)
@@ -164,6 +164,24 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_trader_items_name ON trader_items (name COLLATE NOCASE)"))
         logger.info("Created trader_items table")
 
+    user_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()}
+    if user_cols and "role" not in user_cols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR(16) DEFAULT 'user'"))
+        logger.info("Added users.role column")
+
+    if "admin_accounts" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE admin_accounts ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  login VARCHAR(64) NOT NULL UNIQUE,"
+            "  password_hash VARCHAR(128) NOT NULL,"
+            "  role VARCHAR(16) NOT NULL DEFAULT 'admin',"
+            "  created_at DATETIME"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_admin_accounts_login ON admin_accounts (login)"))
+        logger.info("Created admin_accounts table")
+
 
 
 def default_map_kwargs() -> dict:
@@ -207,6 +225,13 @@ async def seed_defaults(db: AsyncSession) -> None:
     if setting is None:
         db.add(Setting(key=ADMIN_PASSWORD_KEY, value=hash_admin_password(DEFAULT_ADMIN_PASSWORD)))
         logger.info("Created default admin password setting")
+
+    admin_count = await db.scalar(select(func.count()).select_from(AdminAccount)) or 0
+    if admin_count == 0:
+        legacy = await db.get(Setting, ADMIN_PASSWORD_KEY)
+        password_hash = legacy.value if legacy else hash_admin_password(DEFAULT_ADMIN_PASSWORD)
+        db.add(AdminAccount(login="admin", password_hash=password_hash, role="admin"))
+        logger.info("Created default admin account (login: admin)")
 
     pin_setting = await db.get(Setting, PUBLIC_PIN_CREATION_KEY)
     if pin_setting is None:
