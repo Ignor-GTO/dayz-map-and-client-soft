@@ -1550,6 +1550,47 @@ button.secondary.small {
 }
 
 /* In-popup image thumbnail */
+.marker-popup-head {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.35rem;
+}
+
+.marker-popup-avatar-wrap {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--user-color, #3d9ee5);
+  overflow: hidden;
+  background: #e8edf4;
+}
+
+.marker-popup-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.marker-popup-head-text {
+  min-width: 0;
+  line-height: 1.25;
+}
+
+.marker-popup-head-text b {
+  display: block;
+  font-size: 0.95rem;
+}
+
+.marker-popup-author {
+  display: block;
+  color: #555;
+  font-size: 0.78rem;
+  margin-top: 1px;
+}
+
 .marker-popup-img {
   display: block;
   width: 100%;

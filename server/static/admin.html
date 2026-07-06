@@ -45,6 +45,7 @@
         <button type="button" class="tab" data-tab="radiation">Радиация</button>
         <button type="button" class="tab" data-tab="psi">Пси зоны</button>
         <button type="button" class="tab" data-tab="roads">🛣 Дороги</button>
+        <button type="button" class="tab" data-tab="buildings">🏢 Здания</button>
         <button type="button" class="tab" data-tab="pins">PIN группы</button>
         <button type="button" class="tab" data-tab="users">Пользователи</button>
         <button type="button" class="tab" data-tab="password">Аккаунты</button>
@@ -396,6 +397,69 @@
         </div>
       </div>
 
+      <!-- =================== BUILDINGS EDITOR =================== -->
+      <div id="tab-buildings" class="tab-panel hidden admin-roads-panel">
+        <div class="roads-editor-layout">
+          <aside class="roads-sidebar">
+            <h2>🏢 Здания сервера</h2>
+            <p class="roads-hint">Кастомные постройки, которых нет на ванильной карте. Нарисуйте прямоугольный контур двумя кликами на карте.</p>
+
+            <label>
+              Карта
+              <select id="buildings-map-select"></select>
+            </label>
+
+            <div class="roads-tools" style="margin-top: 0.75rem;">
+              <button id="buildings-draw-btn" class="roads-tool-btn">✏️ Нарисовать контур</button>
+              <button id="buildings-cancel-draw-btn" class="roads-tool-btn danger">✖ Отмена</button>
+              <button id="building-new-btn" class="roads-tool-btn">＋ Новое</button>
+              <button id="buildings-reload-btn" class="roads-tool-btn secondary">↻ Обновить</button>
+            </div>
+
+            <div class="roads-stats">
+              <span id="buildings-count">0 зданий</span>
+              <span id="buildings-status" class="draw-idle">Готов</span>
+            </div>
+
+            <form class="admin-form" style="margin-top: 0.75rem;" onsubmit="return false;">
+              <h3>Редактор <span id="building-form-id">новое</span></h3>
+              <label>Название <input id="building-title" required placeholder="База сталкеров"></label>
+              <label>Classname <input id="building-classname" placeholder="Land_Mil_Barracks"></label>
+              <label>Тип
+                <select id="building-type">
+                  <option value="structure">Строение</option>
+                  <option value="residential">Жилое</option>
+                  <option value="industrial">Промышленное</option>
+                  <option value="military">Военное</option>
+                  <option value="commercial">Коммерческое</option>
+                  <option value="other">Прочее</option>
+                </select>
+              </label>
+              <label>Описание <textarea id="building-description" rows="2"></textarea></label>
+              <div class="form-grid">
+                <label>X <input id="building-x" type="number" step="any"></label>
+                <label>Y <input id="building-y" type="number" step="any"></label>
+                <label>Ширина <input id="building-width" type="number" step="any" min="1"></label>
+                <label>Глубина <input id="building-depth" type="number" step="any" min="1"></label>
+                <label>Поворот ° <input id="building-yaw" type="number" step="any"></label>
+              </div>
+              <label class="checkbox"><input id="building-enabled" type="checkbox" checked> Показывать на карте</label>
+              <div class="form-actions">
+                <button type="button" id="building-save-btn">Сохранить</button>
+                <button type="button" id="building-delete-btn" class="secondary danger">Удалить</button>
+              </div>
+            </form>
+
+            <div class="roads-list-header">
+              <h3>Список</h3>
+            </div>
+            <div id="buildings-list" class="roads-segment-list"></div>
+            <p id="buildings-error" class="error hidden"></p>
+          </aside>
+          <div id="buildings-map" class="roads-map-container"></div>
+        </div>
+      </div>
+
       <!-- =================== ROADS EDITOR =================== -->
       <div id="tab-roads" class="tab-panel hidden admin-roads-panel">
         <div class="roads-editor-layout">
@@ -466,6 +530,7 @@
   <script src="/js/admin.js?v=11"></script>
   <script src="/js/admin-radiation.js?v=11"></script>
   <script src="/js/admin-roads.js?v=11"></script>
+  <script src="/js/admin-buildings.js?v=1"></script>
   <script src="/js/admin-traders.js?v=4"></script>
 </body>
 </html>

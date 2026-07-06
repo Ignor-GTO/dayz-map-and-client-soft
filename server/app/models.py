@@ -31,6 +31,30 @@ class DayZMap(Base):
     rooms: Mapped[list["Room"]] = relationship(back_populates="map")
     pois: Mapped[list["MapPoi"]] = relationship(back_populates="map", cascade="all, delete-orphan")
     road_segments: Mapped[list["RoadSegment"]] = relationship(back_populates="map", cascade="all, delete-orphan")
+    buildings: Mapped[list["MapBuilding"]] = relationship(back_populates="map", cascade="all, delete-orphan")
+
+
+class MapBuilding(Base):
+    """Custom server building footprint (mod structures not on vanilla map)."""
+    __tablename__ = "map_buildings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    title: Mapped[str] = mapped_column(String(128))
+    classname: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    description: Mapped[str] = mapped_column(Text, default="")
+    building_type: Mapped[str] = mapped_column(String(32), default="structure")
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    width: Mapped[float] = mapped_column(Float, default=20.0)
+    depth: Mapped[float] = mapped_column(Float, default=15.0)
+    yaw: Mapped[float] = mapped_column(Float, default=0.0)
+    stroke_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    fill_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    map: Mapped["DayZMap"] = relationship(back_populates="buildings")
 
 
 class RoadSegment(Base):

@@ -34,6 +34,13 @@ from app.radiation_service import (
 )
 from app.radiation_upload import delete_overlay_file, save_radiation_overlay
 from app.routes import _marker_response
+from app.buildings_service import (
+    BUILDING_TYPES,
+    create_building,
+    delete_building,
+    list_buildings,
+    update_building,
+)
 from app.roads_service import create_segment, delete_segment, list_segments, update_segment, clear_segments, create_segments_bulk
 from app.schemas import (
     AdminAccountCreateRequest,
@@ -47,6 +54,9 @@ from app.schemas import (
     AdminUserUpdateRequest,
     MapCreateRequest,
     MapUpdateRequest,
+    MapBuildingCreate,
+    MapBuildingResponse,
+    MapBuildingUpdate,
     PoiCreateRequest,
     PoiUpdateRequest,
     RadiationSaveRequest,
@@ -1362,4 +1372,66 @@ async def admin_create_roads_bulk(
     segments_data = [{"road_type": p.road_type, "points": p.points} for p in payload]
     return await create_segments_bulk(db, game_map.id, segments_data)
 
+
+# ---------------------------------------------------------------------------
+# Server buildings admin CRUD
+# ---------------------------------------------------------------------------
+
+@router.get("/building-types")
+async def admin_building_types(_: Annotated[None, Depends(require_admin)]):
+    return [{"id": k, "label": v} for k, v in BUILDING_TYPES.items()]
+
+
+@router.get("/maps/{map_slug}/buildings", response_model=list[MapBuildingResponse])
+async def admin_list_buildings(
+    map_slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    return await list_buildings(db, game_map.id)
+
+
+@router.post("/maps/{map_slug}/buildings", response_model=MapBuildingResponse)
+async def admin_create_building(
+    map_slug: str,
+    payload: MapBuildingCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    try:
+        return await create_building(db, game_map.id, payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.put("/maps/{map_slug}/buildings/{building_id}", response_model=MapBuildingResponse)
+async def admin_update_building(
+    map_slug: str,
+    building_id: int,
+    payload: MapBuildingUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    data = payload.model_dump(exclude_unset=True)
+    result = await update_building(db, building_id, game_map.id, data)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Building not found")
+    return result
+
+
+@router.delete("/maps/{map_slug}/buildings/{building_id}")
+async def admin_delete_building(
+    map_slug: str,
+    building_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[None, Depends(require_admin)],
+):
+    game_map = await _get_map(db, map_slug)
+    ok = await delete_building(db, building_id, game_map.id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Building not found")
+    return {"ok": True}
 

@@ -16,6 +16,7 @@ const state = {
   radiationOverlay: null,
   // Roads & Navigator
   roadLayer: null,          // L.layerGroup for road polylines
+  buildingLayer: null,      // L.layerGroup for server building footprints
   navActive: false,         // navigator mode on/off
   navStep: "from",          // "from" | "to"
   navFrom: null,            // {x, y} game coords
@@ -49,6 +50,7 @@ const state = {
     radiation: true,
     psi: true,
     roads: false,
+    buildings: true,
   },
   draw: {
     mode: null, // null | "point" | "circle" | "line"
@@ -311,6 +313,10 @@ function initMapPanes(map) {
     map.createPane("labelsPane");
     map.getPane("labelsPane").style.zIndex = 480;
   }
+  if (!map.getPane("buildingsPane")) {
+    map.createPane("buildingsPane");
+    map.getPane("buildingsPane").style.zIndex = 360;
+  }
 }
 
 function initLeaflet(config) {
@@ -332,6 +338,7 @@ function initLeaflet(config) {
   state.radiationLayer = L.layerGroup().addTo(state.map);
   state.psiLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
+  state.buildingLayer = L.layerGroup().addTo(state.map);
   state.map.on("zoomend", updateLocationVisibility);
   state.map.on("moveend", () => {
     // Keep anchor synced with where user is currently looking
@@ -1133,10 +1140,23 @@ function upsertPin(m) {
       ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Точек: ${Array.isArray(m.points) ? m.points.length : 0}</div>`
       : "");
 
+  const isStash = markerCategory === "stash";
+  const popupHeadHtml = isStash
+    ? `<b>${markerEscapeHtml(title)}</b>`
+    : `<div class="marker-popup-head">
+        <span class="marker-popup-avatar-wrap" style="--user-color:${color}">
+          ${userAvatarHtml(m.user_id, m.avatar_url, 36, "marker-popup-avatar")}
+        </span>
+        <div class="marker-popup-head-text">
+          <b>${markerEscapeHtml(title)}</b>
+          <span class="marker-popup-author">${markerEscapeHtml(m.nickname)} · ${roundedX} / ${roundedY}</span>
+        </div>
+      </div>`;
+
   const popupHtml = `
-    <b>${title}</b><br>
-    <span style="color:#555;font-size:0.82rem">${m.nickname} · ${roundedX} / ${roundedY}</span>
-    ${markerCategory === "stash" ? `<div style="font-size:0.78rem;color:#6b102e;margin-top:3px;">Категория: Тайник</div>` : ""}
+    ${popupHeadHtml}
+    ${isStash ? `<span style="color:#555;font-size:0.82rem;display:block;margin-top:2px">${markerEscapeHtml(m.nickname)} · ${roundedX} / ${roundedY}</span>` : ""}
+    ${isStash ? `<div style="font-size:0.78rem;color:#6b102e;margin-top:3px;">Категория: Тайник</div>` : ""}
     ${shapeInfo}
     ${descHtml}
     ${imgHtml}
@@ -1304,13 +1324,17 @@ function updateMarkersList() {
         : "");
     const subLabel = `${m.nickname}${extra}`;
     const userColor = colorForUser(m.user_id);
+    const isStash = (m.marker_category || "group") === "stash";
+    const rowIconHtml = isStash
+      ? `<span class="sidebar-dot" style="background: ${userColor}"></span>`
+      : `<span class="sidebar-avatar-wrap" style="--user-color: ${userColor}">
+            ${userAvatarHtml(m.user_id, m.avatar_url, 22, "sidebar-avatar")}
+          </span>`;
 
     const rowHtml = `
       <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
         <div class="sidebar-row-left">
-          <span class="sidebar-avatar-wrap" style="--user-color: ${userColor}">
-            ${userAvatarHtml(m.user_id, m.avatar_url, 22, "sidebar-avatar")}
-          </span>
+          ${rowIconHtml}
           <div style="min-width:0">
             <div class="sidebar-name" title="${markerEscapeHtml(label)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${markerEscapeHtml(label)}</div>
             <div class="sidebar-info">${markerEscapeHtml(subLabel)}</div>
@@ -1322,7 +1346,7 @@ function updateMarkersList() {
         </div>
       </div>
     `;
-    if ((m.marker_category || "group") === "stash") {
+    if (isStash) {
       stashRows.push(rowHtml);
     } else {
       groupRows.push(rowHtml);
@@ -2111,8 +2135,10 @@ async function bootstrapMapView() {
   syncStashCategoryControls();
   const roadsFilter = document.getElementById("filter-roads");
   if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
+  const buildingsFilter = document.getElementById("filter-buildings");
+  if (buildingsFilter) buildingsFilter.checked = !!state.filters.buildings;
   syncStashVisibilityControls();
-  await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation(), loadRoads()]);
+  await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation(), loadRoads(), loadBuildings()]);
   connectWebSocket();
   initNavigatorButton();
 }
@@ -2256,6 +2282,7 @@ function performMapLogoutCleanup() {
   if (state.locationLayer) state.locationLayer.clearLayers();
   clearRadiationLayers();
   if (state.roadLayer) state.roadLayer.clearLayers();
+  if (state.buildingLayer) state.buildingLayer.clearLayers();
   stopGeometryEdit({ restoreMarker: false, silent: true });
   setDrawMode(null);
   showLogin();
@@ -2376,6 +2403,12 @@ document.getElementById("filter-roads")?.addEventListener("change", (e) => {
   state.filters.roads = e.target.checked;
   saveFilterPrefs();
   applyRoadsVisibility();
+});
+
+document.getElementById("filter-buildings")?.addEventListener("change", (e) => {
+  state.filters.buildings = e.target.checked;
+  saveFilterPrefs();
+  applyBuildingsVisibility();
 });
 
 document.getElementById("stashes-visible-toggle")?.addEventListener("change", (e) => {
@@ -2515,6 +2548,110 @@ function applyRoadsVisibility() {
     if (!state.map.hasLayer(state.roadLayer)) state.roadLayer.addTo(state.map);
   } else {
     state.map.removeLayer(state.roadLayer);
+  }
+}
+
+// ============================================================
+//  SERVER BUILDINGS — load & display
+// ============================================================
+
+const BUILDING_TYPE_COLORS = {
+  structure: { stroke: "#e67e22", fill: "#e67e22" },
+  residential: { stroke: "#3498db", fill: "#3498db" },
+  industrial: { stroke: "#95a5a6", fill: "#95a5a6" },
+  military: { stroke: "#c0392b", fill: "#c0392b" },
+  commercial: { stroke: "#9b59b6", fill: "#9b59b6" },
+  other: { stroke: "#f1c40f", fill: "#f1c40f" },
+};
+
+const BUILDING_TYPE_LABELS = {
+  structure: "Строение",
+  residential: "Жилое",
+  industrial: "Промышленное",
+  military: "Военное",
+  commercial: "Коммерческое",
+  other: "Прочее",
+};
+
+function buildingFootprintCorners(b) {
+  const hw = (b.width || 20) / 2;
+  const hd = (b.depth || 15) / 2;
+  const rad = ((b.yaw || 0) * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const local = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]];
+  return local.map(([lx, ly]) => ({
+    x: b.x + lx * cos - ly * sin,
+    y: b.y + lx * sin + ly * cos,
+  }));
+}
+
+function buildingColors(b) {
+  const preset = BUILDING_TYPE_COLORS[b.building_type] || BUILDING_TYPE_COLORS.structure;
+  return {
+    stroke: b.stroke_color || preset.stroke,
+    fill: b.fill_color || preset.fill,
+  };
+}
+
+function buildingPopupHtml(b) {
+  const typeLabel = BUILDING_TYPE_LABELS[b.building_type] || b.building_type;
+  const classname = b.classname ? `<div style="font-size:0.82rem;color:#888;margin-top:2px">${markerEscapeHtml(b.classname)}</div>` : "";
+  const desc = b.description ? `<div style="margin-top:6px;font-size:0.9rem">${markerEscapeHtml(b.description)}</div>` : "";
+  return `
+    <b>${markerEscapeHtml(b.title)}</b>
+    <div style="font-size:0.82rem;color:#666;margin-top:2px">${markerEscapeHtml(typeLabel)} · ${Math.round(b.x)} / ${Math.round(b.y)}</div>
+    ${classname}
+    ${desc}
+    <div style="margin-top:8px">
+      <button class="marker-route" data-x="${b.x}" data-y="${b.y}">Маршрут</button>
+    </div>
+  `;
+}
+
+async function loadBuildings() {
+  if (!state.me || !state.buildingLayer) return;
+  try {
+    const buildings = await api(`/api/maps/${state.me.map_slug}/buildings`);
+    renderBuildings(buildings);
+  } catch {
+    /* optional layer */
+  }
+}
+
+function renderBuildings(buildings) {
+  if (!state.buildingLayer) return;
+  state.buildingLayer.clearLayers();
+  if (!buildings || !buildings.length) {
+    applyBuildingsVisibility();
+    return;
+  }
+
+  buildings.forEach((b) => {
+    const corners = buildingFootprintCorners(b).map((p) => gameToLatLng(p.x, p.y));
+    const { stroke, fill } = buildingColors(b);
+    const layer = L.polygon(corners, {
+      color: stroke,
+      fillColor: fill,
+      fillOpacity: 0.24,
+      weight: 2,
+      opacity: 0.9,
+      pane: "buildingsPane",
+    });
+    layer.bindPopup(buildingPopupHtml(b));
+    layer.bindTooltip(markerEscapeHtml(b.title), { sticky: true });
+    layer.addTo(state.buildingLayer);
+  });
+
+  applyBuildingsVisibility();
+}
+
+function applyBuildingsVisibility() {
+  if (!state.map || !state.buildingLayer) return;
+  if (state.filters.buildings) {
+    if (!state.map.hasLayer(state.buildingLayer)) state.buildingLayer.addTo(state.map);
+  } else {
+    state.map.removeLayer(state.buildingLayer);
   }
 }
 

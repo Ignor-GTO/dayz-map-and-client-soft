@@ -384,6 +384,54 @@ class NavigateResponse(BaseModel):
     error: str | None = None
 
 
+class MapBuildingResponse(BaseModel):
+    id: int
+    map_id: int
+    title: str
+    classname: str | None = None
+    description: str = ""
+    building_type: str = "structure"
+    x: float
+    y: float
+    width: float
+    depth: float
+    yaw: float = 0.0
+    stroke_color: str | None = None
+    fill_color: str | None = None
+    enabled: bool = True
+    created_at: str | None = None
+
+
+class MapBuildingCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=128)
+    classname: str | None = Field(default=None, max_length=128)
+    description: str = ""
+    building_type: str = "structure"
+    x: float
+    y: float
+    width: float = Field(default=20.0, gt=0)
+    depth: float = Field(default=15.0, gt=0)
+    yaw: float = 0.0
+    stroke_color: str | None = None
+    fill_color: str | None = None
+    enabled: bool = True
+
+
+class MapBuildingUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=128)
+    classname: str | None = Field(default=None, max_length=128)
+    description: str | None = None
+    building_type: str | None = None
+    x: float | None = None
+    y: float | None = None
+    width: float | None = Field(default=None, gt=0)
+    depth: float | None = Field(default=None, gt=0)
+    yaw: float | None = None
+    stroke_color: str | None = None
+    fill_color: str | None = None
+    enabled: bool | None = None
+
+
 class TraderResponse(BaseModel):
     id: int
     map_id: int

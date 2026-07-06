@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=31">
+  <link rel="stylesheet" href="/css/style.css?v=33">
 </head>
 <body>
   <div id="app">
@@ -310,6 +310,10 @@
               <input type="checkbox" id="filter-roads">
               <span class="filter-label">🛣 Дороги</span>
             </label>
+            <label class="filter-row">
+              <input type="checkbox" id="filter-buildings" checked>
+              <span class="filter-label">🏢 Здания сервера</span>
+            </label>
             <div id="radiation-legend" class="hidden"></div>
 
             <h3>Легенда</h3>
@@ -320,6 +324,7 @@
               <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Трасса</li>
               <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Посёлковая</li>
               <li><span style="display:inline-block;width:20px;height:3px;background:#f5c900;border-radius:2px;vertical-align:middle"></span> Городская</li>
+              <li><span style="display:inline-block;width:14px;height:10px;background:rgba(230,126,34,.45);border:2px solid #e67e22;border-radius:1px;vertical-align:middle"></span> Здания сервера</li>
             </ul>
           </div>
           <div id="mouse-coords-box" class="legend-mouse-coords">
@@ -467,6 +472,6 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/poi-icons.js?v=3"></script>
   <script src="/js/profile-ui.js?v=4"></script>
-  <script src="/js/map.js?v=53"></script>
+  <script src="/js/map.js?v=55"></script>
 </body>
 </html>

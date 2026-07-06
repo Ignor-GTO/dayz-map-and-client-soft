@@ -107,6 +107,29 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_road_segments_map_id ON road_segments (map_id)"))
         logger.info("Created road_segments table")
 
+    if "map_buildings" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE map_buildings ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  map_id INTEGER NOT NULL REFERENCES dayz_maps(id),"
+            "  title VARCHAR(128) NOT NULL,"
+            "  classname VARCHAR(128),"
+            "  description TEXT DEFAULT '',"
+            "  building_type VARCHAR(32) NOT NULL DEFAULT 'structure',"
+            "  x FLOAT NOT NULL,"
+            "  y FLOAT NOT NULL,"
+            "  width FLOAT NOT NULL DEFAULT 20,"
+            "  depth FLOAT NOT NULL DEFAULT 15,"
+            "  yaw FLOAT NOT NULL DEFAULT 0,"
+            "  stroke_color VARCHAR(16),"
+            "  fill_color VARCHAR(16),"
+            "  enabled BOOLEAN NOT NULL DEFAULT 1,"
+            "  created_at DATETIME"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_map_buildings_map_id ON map_buildings (map_id)"))
+        logger.info("Created map_buildings table")
+
     if "traders" not in road_tables:
         conn.execute(text(
             "CREATE TABLE traders ("

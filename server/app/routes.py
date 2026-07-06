@@ -38,6 +38,7 @@ from app.schemas import (
     MapListItem,
     MapLocationsResponse,
     MapRadiationResponse,
+    MapBuildingResponse,
     MarkerCreateRequest,
     MarkerResponse,
     MarkerUpdateRequest,
@@ -52,6 +53,7 @@ from app.schemas import (
     RoomStateResponse,
     TraderItemResponse,
 )
+from app.buildings_service import list_buildings
 from app.seed import DEFAULT_MAP_SLUG
 from app.settings_service import is_public_pin_creation
 from app.websocket import manager
@@ -984,6 +986,13 @@ async def get_map_roads(slug: str, db: Annotated[AsyncSession, Depends(get_db)])
     """Return all road segments for the given map."""
     game_map = await get_map_by_slug(db, slug)
     return await list_segments(db, game_map.id)
+
+
+@router.get("/maps/{slug}/buildings", response_model=list[MapBuildingResponse])
+async def get_map_buildings(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Return custom server building footprints for the given map."""
+    game_map = await get_map_by_slug(db, slug)
+    return await list_buildings(db, game_map.id, enabled_only=True)
 
 
 @router.post("/maps/{slug}/navigate", response_model=NavigateResponse)
