@@ -119,14 +119,13 @@ function poiGlyphUsesEmojiStyle(glyph) {
 
 function poiGlyphHtml(icon) {
   const glyph = icon?.glyph || "?";
-  if (poiGlyphUsesEmojiStyle(glyph)) {
-    return `<span class="poi-glyph poi-glyph-emoji" aria-hidden="true">${glyph}</span>`;
-  }
-  return `<span class="poi-glyph" style="background:${icon.color}" aria-hidden="true">${glyph}</span>`;
+  const color = icon?.color || "#3498db";
+  const emojiClass = poiGlyphUsesEmojiStyle(glyph) ? " poi-glyph-map--emoji" : "";
+  return `<span class="poi-glyph-map${emojiClass}" style="background:${color}" aria-hidden="true">${glyph}</span>`;
 }
 
 function poiMapIconOptions() {
-  return { iconSize: [240, 28], iconAnchor: [14, 14] };
+  return { iconSize: [240, 36], iconAnchor: [18, 18] };
 }
 
 function poiLabelHtml(iconKey, title) {

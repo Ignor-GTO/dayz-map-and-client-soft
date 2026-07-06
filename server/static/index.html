@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=37">
+  <link rel="stylesheet" href="/css/style.css?v=40">
 </head>
 <body>
   <div id="app">
@@ -253,24 +253,11 @@
         </div>
 
         <div id="map"></div>
-        <aside id="legend">
-          <div class="legend-tabs">
-            <button type="button" id="tab-btn-group" class="legend-tab-btn active" onclick="switchLegendTab('group')">
-              👥 Группа
-            </button>
-            <button type="button" id="tab-btn-filters" class="legend-tab-btn" onclick="switchLegendTab('filters')">
-              ⚙️ Фильтры
-            </button>
-          </div>
 
-          <div id="tab-content-group">
-            <h3>Игроки онлайн</h3>
-            <div id="web-players-list" class="sidebar-list">
-              <div class="list-empty">Никого онлайн</div>
-            </div>
-
-            <h3>Свои фигуры</h3>
-            <div class="draw-tools">
+        <div id="map-context-menu" class="map-context-menu hidden" role="menu" aria-hidden="true">
+          <div id="ctx-shapes-section" class="map-context-section">
+            <div class="map-context-heading">Свои фигуры</div>
+            <div class="draw-tools map-context-draw-tools">
               <div class="draw-tool-row">
                 <button type="button" id="draw-point-btn" class="secondary small">📌 Метка</button>
                 <button type="button" id="draw-circle-btn" class="secondary small">⭕ Круг</button>
@@ -315,6 +302,29 @@
                 <button type="button" id="geo-edit-cancel-btn" class="secondary small hidden">✖ Отменить правки</button>
               </div>
               <div id="draw-hint" class="draw-hint">Выберите инструмент и кликните по карте</div>
+            </div>
+          </div>
+          <div class="map-context-section">
+            <div class="map-context-heading">Координаты</div>
+            <div id="ctx-coords-display" class="map-context-coords">—</div>
+            <button type="button" id="ctx-copy-coords-btn" class="map-context-action">📋 Скопировать координаты</button>
+          </div>
+        </div>
+
+        <aside id="legend">
+          <div class="legend-tabs">
+            <button type="button" id="tab-btn-group" class="legend-tab-btn active" onclick="switchLegendTab('group')">
+              👥 Группа
+            </button>
+            <button type="button" id="tab-btn-filters" class="legend-tab-btn" onclick="switchLegendTab('filters')">
+              ⚙️ Фильтры
+            </button>
+          </div>
+
+          <div id="tab-content-group">
+            <h3>Игроки онлайн</h3>
+            <div id="web-players-list" class="sidebar-list">
+              <div class="list-empty">Никого онлайн</div>
             </div>
 
             <h3>Метки и фигуры группы</h3>
@@ -512,8 +522,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/poi-icons.js?v=8"></script>
+  <script src="/js/poi-icons.js?v=10"></script>
   <script src="/js/profile-ui.js?v=6"></script>
-  <script src="/js/map.js?v=63"></script>
+  <script src="/js/map.js?v=64"></script>
 </body>
 </html>

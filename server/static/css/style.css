@@ -418,6 +418,77 @@ button.secondary:hover { background: #3a4858; }
   background: #1a2332;
 }
 
+#map.leaflet-container,
+.leaflet-container#map {
+  cursor: default;
+}
+
+#map.leaflet-container.leaflet-dragging,
+#map.leaflet-container.leaflet-dragging.leaflet-grab {
+  cursor: grabbing !important;
+}
+
+.map-context-menu {
+  position: fixed;
+  z-index: 2500;
+  min-width: 240px;
+  max-width: 300px;
+  padding: 0.35rem 0;
+  background: rgba(26, 35, 50, 0.98);
+  border: 1px solid #2a3848;
+  border-radius: 10px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.5);
+}
+
+.map-context-section + .map-context-section {
+  border-top: 1px solid #2a3848;
+  margin-top: 0.15rem;
+  padding-top: 0.15rem;
+}
+
+.map-context-heading {
+  padding: 0.4rem 0.85rem 0.3rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.map-context-coords {
+  padding: 0.15rem 0.85rem 0.45rem;
+  font-size: 0.95rem;
+  font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+  color: var(--text);
+}
+
+.map-context-action {
+  display: block;
+  width: calc(100% - 1rem);
+  margin: 0 0.5rem 0.45rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: rgba(42, 56, 72, 0.55);
+  color: var(--text);
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.map-context-action:hover {
+  border-color: var(--accent);
+  background: rgba(61, 158, 229, 0.15);
+}
+
+.map-context-draw-tools {
+  margin: 0;
+  padding: 0 0.5rem 0.55rem;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+}
+
 #legend {
   flex-shrink: 0;
   width: 280px;
@@ -749,15 +820,25 @@ button.secondary:hover { background: #3a4858; }
   line-height: 1;
 }
 
-.poi-glyph-emoji {
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  font-size: 22px;
+.poi-glyph-map {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2.5px solid #fff;
+  flex-shrink: 0;
+  font-size: 19px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.6);
+}
+
+.poi-glyph-map--emoji {
+  font-size: 17px;
   font-weight: 400;
-  color: inherit;
-  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9));
-  box-shadow: none;
 }
 
 .poi-title {

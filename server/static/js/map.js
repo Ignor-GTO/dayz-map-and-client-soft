@@ -31,6 +31,7 @@ const state = {
   navSimDistanceCovered: 0,
   navSimMarker: null,
   coordLookupMarker: null,
+  contextMenuCoords: null,
   lastMouseGameCoords: null,
   navLastAnnouncedIndex: -1,
   navLastAnnouncedPrepIndex: -1,
@@ -351,6 +352,7 @@ function initLeaflet(config) {
   state.map.on("zoomend", saveMapView);
 
   state.map.on("click", (e) => {
+    closeMapContextMenu();
     rememberCommandZoomAnchor(e.latlng);
     const gameCoords = latLngToGame(e.latlng);
     if (state.draw.mode) {
@@ -380,6 +382,11 @@ function initLeaflet(config) {
   state.map.on("mouseout", () => {
     hideZoneHoverTooltip();
     updateMouseCoordsDisplay(null);
+  });
+  state.map.on("contextmenu", (e) => {
+    L.DomEvent.preventDefault(e);
+    const gameCoords = latLngToGame(e.latlng);
+    showMapContextMenu(e.originalEvent.clientX, e.originalEvent.clientY, gameCoords);
   });
 
   // Handle popup action button clicks
@@ -446,7 +453,7 @@ function initLeaflet(config) {
   const center = gameToLatLng(mapSize(config) / 2, mapSize(config) / 2, config);
   state.map.setView(center, 3);
   restoreMapView();
-
+  updateMapCursor();
 }
 
 function upsertLive(pos) {
@@ -744,6 +751,85 @@ function drawHint(text) {
   if (el) el.textContent = text;
 }
 
+function updateMapCursor() {
+  if (!state.map) return;
+  const el = state.map.getContainer();
+  if (state.navActive || state.draw.mode) {
+    el.style.cursor = "crosshair";
+  } else {
+    el.style.cursor = "";
+  }
+}
+
+function closeMapContextMenu() {
+  const menu = document.getElementById("map-context-menu");
+  if (!menu) return;
+  menu.classList.add("hidden");
+  menu.setAttribute("aria-hidden", "true");
+}
+
+function showMapContextMenu(clientX, clientY, gameCoords) {
+  const menu = document.getElementById("map-context-menu");
+  if (!menu) return;
+
+  document.getElementById("ctx-shapes-section")?.classList.toggle("hidden", !state.me);
+
+  const coordsEl = document.getElementById("ctx-coords-display");
+  if (coordsEl && gameCoords) {
+    coordsEl.textContent = formatCoordLookupValue(gameCoords.x, gameCoords.y);
+  }
+  state.contextMenuCoords = gameCoords;
+
+  menu.classList.remove("hidden");
+  menu.setAttribute("aria-hidden", "false");
+  menu.style.visibility = "hidden";
+  menu.style.left = "0px";
+  menu.style.top = "0px";
+
+  const pad = 8;
+  const mw = menu.offsetWidth;
+  const mh = menu.offsetHeight;
+  let left = clientX;
+  let top = clientY;
+  if (left + mw > window.innerWidth - pad) left = Math.max(pad, window.innerWidth - mw - pad);
+  if (top + mh > window.innerHeight - pad) top = Math.max(pad, window.innerHeight - mh - pad);
+  if (left < pad) left = pad;
+  if (top < pad) top = pad;
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.style.visibility = "";
+}
+
+function initMapContextMenu() {
+  const menu = document.getElementById("map-context-menu");
+  if (!menu) return;
+
+  document.getElementById("ctx-copy-coords-btn")?.addEventListener("click", async () => {
+    const c = state.contextMenuCoords;
+    if (!c) return;
+    const text = formatCoordLookupValue(c.x, c.y);
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = document.getElementById("ctx-copy-coords-btn");
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = "✓ Скопировано";
+        setTimeout(() => { btn.textContent = orig; }, 1400);
+      }
+    } catch {
+      alert("Не удалось скопировать координаты");
+    }
+    closeMapContextMenu();
+  });
+
+  document.addEventListener("mousedown", (e) => {
+    if (menu.classList.contains("hidden")) return;
+    if (menu.contains(e.target)) return;
+    closeMapContextMenu();
+  });
+}
+
 function openMarkerImageModal(src) {
   const modal = document.getElementById("marker-image-modal");
   const img = document.getElementById("marker-image-full");
@@ -809,10 +895,11 @@ function setDrawMode(mode) {
   if (mode === "line") document.getElementById("draw-line-btn")?.classList.add("active");
   document.getElementById("draw-cancel-btn")?.classList.toggle("hidden", !mode);
   document.getElementById("draw-finish-btn")?.classList.toggle("hidden", mode !== "line");
-  if (!mode) drawHint("Выберите инструмент и кликните по карте");
+  if (!mode) drawHint("ПКМ по карте — инструменты и координаты");
   else if (mode === "point") drawHint("Кликните по карте для установки метки");
-  else if (mode === "circle") drawHint("Кликните центр круга. Радиус и цвет берутся из панели.");
+  else if (mode === "circle") drawHint("Кликните центр круга. Радиус и цвет — в меню (ПКМ).");
   else drawHint("Кликайте точки линии, затем нажмите 'Сохранить линию'");
+  updateMapCursor();
 }
 
 async function createUserShape(payload) {
@@ -935,8 +1022,9 @@ function stopGeometryEdit({ restoreMarker = false, silent = false } = {}) {
     upsertPin(markerMeta);
   }
   if (!silent) {
-    drawHint("Выберите инструмент и кликните по карте");
+    drawHint("ПКМ по карте — инструменты и координаты");
   }
+  updateMapCursor();
 }
 
 function startGeometryEdit(markerId) {
@@ -1003,6 +1091,7 @@ function startGeometryEdit(markerId) {
     });
     state.geoEdit.handles = [centerHandle, edgeHandle];
     syncCircleVisuals();
+    updateMapCursor();
     return;
   }
 
@@ -1035,6 +1124,7 @@ function startGeometryEdit(markerId) {
     state.geoEdit.handles.push(handle);
   });
   drawHint(`Редактирование линии: ${state.geoEdit.points.length} точек. Перетащите маркеры и сохраните.`);
+  updateMapCursor();
 }
 
 async function saveGeometryEdit() {
@@ -2322,6 +2412,7 @@ async function bootstrapMapView() {
   await Promise.all([loadRoomState(), loadMapLocations(), loadMapRadiation(), loadRoads(), loadBuildings()]);
   connectWebSocket();
   initNavigatorButton();
+  initMapContextMenu();
 }
 
 async function loadMapOptions() {
@@ -2534,6 +2625,11 @@ document.getElementById("coord-lookup-input")?.addEventListener("keydown", (e) =
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
+    const ctxMenu = document.getElementById("map-context-menu");
+    if (ctxMenu && !ctxMenu.classList.contains("hidden")) {
+      closeMapContextMenu();
+      return;
+    }
     const poiModal = document.getElementById("poi-edit-modal");
     if (poiModal && !poiModal.classList.contains("hidden")) {
       closePoiEditModal();
@@ -2615,11 +2711,20 @@ document.getElementById("stashes-collapse-btn")?.addEventListener("click", () =>
   btn.innerHTML = `${collapsed ? "▸" : "▾"} Тайники (<span id="stashes-total-count">${count}</span>)`;
 });
 
-document.getElementById("draw-point-btn")?.addEventListener("click", () => setDrawMode("point"));
+document.getElementById("draw-point-btn")?.addEventListener("click", () => {
+  setDrawMode("point");
+  closeMapContextMenu();
+});
 document.getElementById("draw-circle-btn")?.addEventListener("click", () => setDrawMode("circle"));
 document.getElementById("draw-line-btn")?.addEventListener("click", () => setDrawMode("line"));
-document.getElementById("draw-cancel-btn")?.addEventListener("click", () => setDrawMode(null));
-document.getElementById("draw-finish-btn")?.addEventListener("click", finishLineDrawing);
+document.getElementById("draw-cancel-btn")?.addEventListener("click", () => {
+  setDrawMode(null);
+  closeMapContextMenu();
+});
+document.getElementById("draw-finish-btn")?.addEventListener("click", () => {
+  finishLineDrawing();
+  closeMapContextMenu();
+});
 document.getElementById("geo-edit-save-btn")?.addEventListener("click", saveGeometryEdit);
 document.getElementById("geo-edit-cancel-btn")?.addEventListener("click", () => {
   stopGeometryEdit({ restoreMarker: true });
@@ -2927,7 +3032,7 @@ function navReset() {
 
 function navRouteTo(x, y) {
   state.navActive = true;
-  state.map.getContainer().style.cursor = "crosshair";
+  updateMapCursor();
 
   state.navTo = { x, y };
   if (state.navToMarker) state.map.removeLayer(state.navToMarker);
@@ -3061,10 +3166,10 @@ function updateNavUI(statusText) {
 function toggleNavigator() {
   state.navActive = !state.navActive;
   if (state.navActive) {
-    state.map.getContainer().style.cursor = "crosshair";
+    updateMapCursor();
     updateNavUI();
   } else {
-    state.map.getContainer().style.cursor = "";
+    updateMapCursor();
     navReset();
     updateNavUI();
   }
@@ -3081,7 +3186,7 @@ function initNavigatorButton() {
     clearBtn.addEventListener("click", () => {
       navReset();
       if (state.navActive) {
-        state.map.getContainer().style.cursor = "crosshair";
+        updateMapCursor();
         updateNavUI("Кликните точку старта на карте");
       }
     });
@@ -3091,7 +3196,7 @@ function initNavigatorButton() {
   if (closeBtn) {
     closeBtn.addEventListener("click", () => {
       state.navActive = false;
-      state.map.getContainer().style.cursor = "";
+      updateMapCursor();
       navReset();
     });
   }
