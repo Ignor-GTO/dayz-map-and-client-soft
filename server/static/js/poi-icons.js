@@ -133,23 +133,104 @@ function poiPopupHtml(poi, options = {}) {
   return `<b>${escapeHtml(titleText)}</b>${desc}${img}<br><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span>${traderLink}<br><button class="marker-route" data-x="${poi.x}" data-y="${poi.y}" style="margin-top: 8px;">Маршрут</button>${staffActions}`;
 }
 
-function renderPoiIconPicker(container, selectedKey, onChange) {
-  if (!container) return;
-  const key = normalizePoiIcon(selectedKey);
-  container.innerHTML = Object.entries(POI_ICONS)
-    .map(([id, icon]) => `
-      <button type="button" class="icon-option${id === key ? " active" : ""}" data-icon="${id}" title="${icon.label}">
-        <span class="icon-option-glyph" style="background:${icon.color}">${icon.glyph}</span>
-        <span class="icon-option-label">${icon.label}</span>
-      </button>
-    `)
-    .join("");
-
-  container.querySelectorAll(".icon-option").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      container.querySelectorAll(".icon-option").forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      onChange(btn.dataset.icon);
-    });
+function filterIconEntries(entries, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter(([id, item]) => {
+    const label = String(item?.label || "").toLowerCase();
+    return String(id).toLowerCase().includes(q) || label.includes(q);
   });
+}
+
+function setupSearchableIconPicker(container, config) {
+  if (!container) return null;
+
+  const {
+    entries,
+    selectedKey,
+    onSelect,
+    gridClass = "icon-picker icon-picker-grid",
+    renderOption,
+  } = config;
+
+  let searchInput;
+  let grid;
+  let currentSelected = selectedKey;
+
+  if (container.dataset.searchPickerReady === "1") {
+    searchInput = container.querySelector(".icon-picker-search");
+    grid = container.querySelector(".icon-picker-grid");
+  } else {
+    container.innerHTML = "";
+    container.classList.add("icon-picker-wrap");
+    container.dataset.searchPickerReady = "1";
+    searchInput = document.createElement("input");
+    searchInput.type = "search";
+    searchInput.className = "icon-picker-search";
+    searchInput.placeholder = "Поиск по названию…";
+    searchInput.autocomplete = "off";
+    searchInput.setAttribute("aria-label", "Поиск иконки");
+    grid = document.createElement("div");
+    grid.className = gridClass;
+    container.appendChild(searchInput);
+    container.appendChild(grid);
+  }
+
+  function paintGrid() {
+    if (!grid) return;
+    const filtered = filterIconEntries(entries, searchInput.value);
+    grid.innerHTML = filtered.length
+      ? filtered.map(([id, item]) => renderOption(id, item, id === currentSelected)).join("")
+      : `<div class="icon-picker-empty">Ничего не найдено</div>`;
+
+    grid.querySelectorAll("[data-icon], [data-type]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const value = btn.dataset.icon || btn.dataset.type;
+        currentSelected = value;
+        grid.querySelectorAll(".active, .selected").forEach((el) => {
+          el.classList.remove("active", "selected");
+        });
+        btn.classList.add(btn.classList.contains("marker-icon-btn") ? "selected" : "active");
+        onSelect(value);
+      });
+    });
+  }
+
+  searchInput.oninput = paintGrid;
+  currentSelected = selectedKey;
+  paintGrid();
+
+  return {
+    setSelected(key) {
+      currentSelected = key;
+      paintGrid();
+    },
+    resetSearch() {
+      searchInput.value = "";
+      paintGrid();
+    },
+    getSelected() {
+      return currentSelected;
+    },
+  };
+}
+
+function renderPoiIconPicker(container, selectedKey, onChange) {
+  if (!container) return null;
+  const key = normalizePoiIcon(selectedKey);
+  const api = setupSearchableIconPicker(container, {
+    entries: Object.entries(POI_ICONS),
+    selectedKey: key,
+    onSelect: onChange,
+    gridClass: "icon-picker icon-picker-grid",
+    renderOption: (id, icon, active) => `
+      <button type="button" class="icon-option${active ? " active" : ""}" data-icon="${id}" title="${escapeHtml(icon.label)}">
+        <span class="icon-option-glyph" style="background:${icon.color}">${icon.glyph}</span>
+        <span class="icon-option-label">${escapeHtml(icon.label)}</span>
+      </button>
+    `,
+  });
+  api?.resetSearch();
+  api?.setSelected(key);
+  return api;
 }

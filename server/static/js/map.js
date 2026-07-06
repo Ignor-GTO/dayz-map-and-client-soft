@@ -689,23 +689,49 @@ function buildMarkerIconDefs() {
 }
 
 const MARKER_ICON_DEFS = buildMarkerIconDefs();
+let markerIconPickerApi = null;
 
-function renderMarkerIconGrid() {
-  const grid = document.getElementById("marker-icon-grid");
-  if (!grid) return;
-  const options = Object.entries(MARKER_ICON_DEFS)
-    .map(([type, def]) => `
-      <button type="button" class="marker-icon-btn" data-type="${type}">
+function renderMarkerIconGrid(selectedType = "marker") {
+  const container = document.getElementById("marker-icon-grid");
+  if (!container) return null;
+
+  markerIconPickerApi = setupSearchableIconPicker(container, {
+    entries: Object.entries(MARKER_ICON_DEFS),
+    selectedKey: selectedType,
+    onSelect: () => {},
+    gridClass: "marker-icon-grid icon-picker-grid",
+    renderOption: (type, def, active) => `
+      <button type="button" class="marker-icon-btn${active ? " selected" : ""}" data-type="${type}" title="${markerEscapeHtml(def.label)}">
         <span class="icon-emoji">${markerEscapeHtml(def.glyph || def.emoji || "📌")}</span>
         <span>${markerEscapeHtml(def.label)}</span>
       </button>
-    `)
-    .join("");
-  grid.innerHTML = options;
+    `,
+  });
+  return markerIconPickerApi;
 }
 
 function markerTypeLabel(type) {
   return (MARKER_ICON_DEFS[type] || MARKER_ICON_DEFS.marker).label;
+}
+
+function markerTypeToPoiIcon(markerType) {
+  const key = String(markerType || "marker").trim().toLowerCase();
+  if (typeof POI_ICONS === "object" && POI_ICONS && POI_ICONS[key]) {
+    return normalizePoiIcon(key);
+  }
+  const aliases = {
+    marker: "star",
+    point: "star",
+    chest: "loot",
+    danger: "warning",
+    death: "skull",
+    screenshot: "camera",
+  };
+  const mapped = aliases[key];
+  if (mapped && POI_ICONS?.[mapped]) {
+    return normalizePoiIcon(mapped);
+  }
+  return "star";
 }
 
 function markerIconHtml(type, color) {
@@ -1654,9 +1680,8 @@ function openMarkerEditModal(markerId) {
   updateMarkerEditGeometryFields(kind);
 
   // Set icon selection
-  document.querySelectorAll(".marker-icon-btn").forEach((btn) => {
-    btn.classList.toggle("selected", btn.dataset.type === (m.type || "marker"));
-  });
+  markerIconPickerApi?.resetSearch();
+  markerIconPickerApi?.setSelected(m.type || "marker");
 
   // Image preview
   const previewWrap = document.getElementById("marker-img-preview");
@@ -1784,8 +1809,7 @@ async function promoteMarkerToPoi() {
   if (!m || (m.geometry_kind || "point") !== "point") return;
   if (!confirm("Преобразовать метку в серверную? Исходная метка игрока будет удалена.")) return;
 
-  const selectedIconBtn = document.querySelector(".marker-icon-btn.selected");
-  const icon = selectedIconBtn?.dataset.type === "trader" ? "trader" : "star";
+  const icon = markerTypeToPoiIcon(markerIconPickerApi?.getSelected() || m.type || "marker");
   try {
     const poi = await api(`/api/markers/${_editMarkerId}/promote-to-poi`, {
       method: "POST",
@@ -1807,12 +1831,6 @@ window.openPoiEditModal = openPoiEditModal;
 
 // Icon buttons
 renderMarkerIconGrid();
-document.getElementById("marker-icon-grid").addEventListener("click", (e) => {
-  const btn = e.target.closest(".marker-icon-btn");
-  if (!btn) return;
-  document.querySelectorAll(".marker-icon-btn").forEach((b) => b.classList.remove("selected"));
-  btn.classList.add("selected");
-});
 
 // Image file input
 const markerImgFile = document.getElementById("marker-img-file");
@@ -1892,7 +1910,7 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
   const markerId = Number(_editMarkerId);
   const existingMarker = state.pinMarkers.get(markerId);
   const existingMeta = existingMarker?._markerMeta || null;
-  const selectedTypeBtn = document.querySelector(".marker-icon-btn.selected");
+  const selectedType = markerIconPickerApi?.getSelected() || "marker";
   const saveBtn = document.getElementById("marker-edit-save");
   saveBtn.disabled = true;
   saveBtn.textContent = "⏳ Сохраняю…";
@@ -1906,7 +1924,7 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
     const patchBody = {
       title: document.getElementById("marker-edit-title").value.trim() || null,
       description: document.getElementById("marker-edit-desc").value.trim() || null,
-      type: selectedTypeBtn ? selectedTypeBtn.dataset.type : "marker",
+      type: selectedType,
       marker_category: document.getElementById("marker-edit-category")?.value || "group",
     };
     if (markerKind === "circle") {
@@ -1954,6 +1972,7 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
 });
 
 document.getElementById("poi-edit-cancel")?.addEventListener("click", closePoiEditModal);
+document.getElementById("poi-edit-close")?.addEventListener("click", closePoiEditModal);
 document.getElementById("poi-edit-save")?.addEventListener("click", savePoiEdit);
 document.getElementById("poi-edit-delete")?.addEventListener("click", () => {
   if (_editPoiId) deletePoi(_editPoiId);
@@ -2526,6 +2545,11 @@ document.getElementById("coord-lookup-input")?.addEventListener("keydown", (e) =
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
+    const poiModal = document.getElementById("poi-edit-modal");
+    if (poiModal && !poiModal.classList.contains("hidden")) {
+      closePoiEditModal();
+      return;
+    }
     const imgModal = document.getElementById("marker-image-modal");
     if (imgModal && !imgModal.classList.contains("hidden")) {
       closeMarkerImageModal();

@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=33">
+  <link rel="stylesheet" href="/css/style.css?v=35">
 </head>
 <body>
   <div id="app">
@@ -103,7 +103,7 @@
 
           <div class="marker-edit-field">
             <label>Тип иконки</label>
-            <div class="marker-icon-grid" id="marker-icon-grid"></div>
+            <div id="marker-icon-grid" class="icon-picker-wrap"></div>
           </div>
 
           <div class="marker-edit-field marker-geo-field">
@@ -167,29 +167,38 @@
       </div>
 
       <div id="poi-edit-modal" class="modal hidden">
-        <div class="modal-content">
-          <h2>✏️ Серверная метка</h2>
-          <div class="marker-edit-field">
-            <label for="poi-edit-title">Название</label>
-            <input type="text" id="poi-edit-title" maxlength="128" required>
+        <div class="modal-content poi-edit-modal-content">
+          <div class="profile-modal-header">
+            <h2>✏️ Серверная метка</h2>
+            <button type="button" id="poi-edit-close" class="profile-modal-close secondary" aria-label="Закрыть">✕</button>
           </div>
-          <div class="marker-edit-field">
-            <label for="poi-edit-desc">Описание</label>
-            <textarea id="poi-edit-desc" rows="3"></textarea>
+          <div class="poi-edit-body">
+            <div class="poi-edit-top-grid">
+              <div class="marker-edit-field">
+                <label for="poi-edit-title">Название</label>
+                <input type="text" id="poi-edit-title" maxlength="128" required>
+              </div>
+              <div class="poi-edit-coords">
+                <label for="poi-edit-x">X</label>
+                <input id="poi-edit-x" type="number" step="any">
+                <label for="poi-edit-y">Y</label>
+                <input id="poi-edit-y" type="number" step="any">
+              </div>
+            </div>
+            <div class="marker-edit-field">
+              <label for="poi-edit-desc">Описание</label>
+              <textarea id="poi-edit-desc" rows="2" placeholder="Необязательно"></textarea>
+            </div>
+            <div class="marker-edit-field">
+              <label>Иконка</label>
+              <div id="poi-edit-icon-picker"></div>
+            </div>
+            <div class="marker-edit-field poi-edit-file-field">
+              <label for="poi-edit-image-file">Картинка к описанию</label>
+              <input type="file" id="poi-edit-image-file" accept="image/jpeg,image/png,image/webp,image/gif">
+            </div>
           </div>
-          <div class="marker-edit-field">
-            <label>Иконка</label>
-            <div id="poi-edit-icon-picker" class="icon-picker"></div>
-          </div>
-          <div class="form-grid marker-edit-field">
-            <label>X <input id="poi-edit-x" type="number" step="any"></label>
-            <label>Y <input id="poi-edit-y" type="number" step="any"></label>
-          </div>
-          <div class="marker-edit-field">
-            <label>Картинка к описанию</label>
-            <input type="file" id="poi-edit-image-file" accept="image/jpeg,image/png,image/webp,image/gif">
-          </div>
-          <div class="marker-edit-actions">
+          <div class="poi-edit-footer marker-edit-actions">
             <button type="button" class="secondary" id="poi-edit-cancel">Отмена</button>
             <button type="button" class="danger" id="poi-edit-delete">Удалить</button>
             <button type="button" id="poi-edit-save">💾 Сохранить</button>
@@ -503,8 +512,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/poi-icons.js?v=4"></script>
+  <script src="/js/poi-icons.js?v=5"></script>
   <script src="/js/profile-ui.js?v=6"></script>
-  <script src="/js/map.js?v=57"></script>
+  <script src="/js/map.js?v=60"></script>
 </body>
 </html>

@@ -168,6 +168,36 @@ button.danger:hover { background: #e74c3c; }
 .success { color: #2ed573; margin-top: 1rem; }
 .muted { color: var(--muted); }
 
+.icon-picker-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin-top: 0.5rem;
+}
+
+.icon-picker-search {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.icon-picker-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.icon-picker-empty {
+  grid-column: 1 / -1;
+  padding: 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .icon-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
