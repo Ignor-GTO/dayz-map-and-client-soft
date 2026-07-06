@@ -1267,8 +1267,7 @@ function upsertPoi(p) {
   const icon = L.divIcon({
     className: "poi-map-pin",
     html: poiLabelHtml(p.icon || "star", p.title),
-    iconSize: [240, 24],
-    iconAnchor: [11, 12],
+    ...poiMapIconOptions(),
   });
 
   if (marker) {

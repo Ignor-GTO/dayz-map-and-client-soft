@@ -106,10 +106,33 @@ function escapeHtml(text) {
     .replace(/"/g, "&quot;");
 }
 
+function poiGlyphUsesEmojiStyle(glyph) {
+  const g = String(glyph || "").trim();
+  if (!g) return false;
+  for (const ch of g) {
+    const cp = ch.codePointAt(0);
+    if (cp == null) continue;
+    if (cp >= 0x1f000 || (cp >= 0x2600 && cp <= 0x27bf)) return true;
+  }
+  return [...g].length > 1;
+}
+
+function poiGlyphHtml(icon) {
+  const glyph = icon?.glyph || "?";
+  if (poiGlyphUsesEmojiStyle(glyph)) {
+    return `<span class="poi-glyph poi-glyph-emoji" aria-hidden="true">${glyph}</span>`;
+  }
+  return `<span class="poi-glyph" style="background:${icon.color}" aria-hidden="true">${glyph}</span>`;
+}
+
+function poiMapIconOptions() {
+  return { iconSize: [240, 28], iconAnchor: [14, 14] };
+}
+
 function poiLabelHtml(iconKey, title) {
   const key = normalizePoiIcon(iconKey);
   const icon = POI_ICONS[key];
-  return `<div class="poi-pin"><span class="poi-glyph" style="background:${icon.color}">${icon.glyph}</span><span class="poi-title">${escapeHtml(title)}</span></div>`;
+  return `<div class="poi-pin">${poiGlyphHtml(icon)}<span class="poi-title">${escapeHtml(title)}</span></div>`;
 }
 
 function poiPopupHtml(poi, options = {}) {

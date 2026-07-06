@@ -8,8 +8,7 @@
     return L.divIcon({
       className: "poi-map-pin admin-poi-ref",
       html: poiLabelHtml(poi.icon || "star", poi.title),
-      iconSize: [240, 24],
-      iconAnchor: [11, 12],
+      ...poiMapIconOptions(),
     });
   }
 

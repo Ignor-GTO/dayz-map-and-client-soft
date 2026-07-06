@@ -737,16 +737,27 @@ button.secondary:hover { background: #3a4858; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  border: 2px solid #fff;
-  font-size: 11px;
+  border: 2.5px solid #fff;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.55);
   line-height: 1;
+}
+
+.poi-glyph-emoji {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  font-size: 22px;
+  font-weight: 400;
+  color: inherit;
+  filter: drop-shadow(0 0 3px rgba(0, 0, 0, 0.9));
+  box-shadow: none;
 }
 
 .poi-title {
