@@ -423,8 +423,12 @@ button.secondary:hover { background: #3a4858; }
   cursor: default;
 }
 
+#map.leaflet-container.map-cursor-crosshair:not(.leaflet-dragging) {
+  cursor: crosshair;
+}
+
 #map.leaflet-container.leaflet-dragging,
-#map.leaflet-container.leaflet-dragging.leaflet-grab {
+#map.leaflet-container.leaflet-dragging .leaflet-pane {
   cursor: grabbing !important;
 }
 

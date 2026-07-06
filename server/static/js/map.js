@@ -454,6 +454,7 @@ function initLeaflet(config) {
   state.map.setView(center, 3);
   restoreMapView();
   updateMapCursor();
+  initMapDragCursor();
 }
 
 function upsertLive(pos) {
@@ -754,11 +755,21 @@ function drawHint(text) {
 function updateMapCursor() {
   if (!state.map) return;
   const el = state.map.getContainer();
-  if (state.navActive || state.draw.mode) {
-    el.style.cursor = "crosshair";
-  } else {
+  el.classList.toggle("map-cursor-crosshair", !!(state.navActive || state.draw.mode));
+  if (!el.classList.contains("leaflet-dragging")) {
     el.style.cursor = "";
   }
+}
+
+function initMapDragCursor() {
+  if (!state.map) return;
+  const el = state.map.getContainer();
+  state.map.on("dragstart", () => {
+    el.style.cursor = "grabbing";
+  });
+  state.map.on("dragend", () => {
+    updateMapCursor();
+  });
 }
 
 function closeMapContextMenu() {
@@ -923,7 +934,8 @@ async function handleDrawMapClick(x, y) {
         geometry_kind: "point",
         title: null,
       });
-      drawHint("Метка добавлена. Можно изменить через кнопку 'Изменить'");
+      setDrawMode(null);
+      drawHint("Метка добавлена. ПКМ — ещё инструменты");
       return;
     }
     if (mode === "circle") {
