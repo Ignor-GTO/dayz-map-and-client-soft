@@ -259,6 +259,12 @@
     }
   }
 
+  function avatarImgHtml(url, size = 24, className = "user-avatar") {
+    const src = resolveAvatarUrl(url);
+    const fallback = DEFAULT_AVATAR_URL.replace(/"/g, "&quot;");
+    return `<img class="${className}" src="${src.replace(/"/g, "&quot;")}" alt="" width="${size}" height="${size}" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'">`;
+  }
+
   window.ProfileUi = {
     init(options = {}) {
       hooks = options;
@@ -268,6 +274,8 @@
     refreshSession,
     syncAvatarUi,
     openProfileModal,
+    resolveAvatarUrl,
+    avatarImgHtml,
     DEFAULT_AVATAR_URL,
   };
 })();

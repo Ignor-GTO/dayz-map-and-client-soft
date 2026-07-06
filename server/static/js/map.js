@@ -5,6 +5,7 @@ const state = {
   config: null,
   me: null,
   clientKey: null,
+  userAvatars: new Map(),
   liveMarkers: new Map(),
   pinMarkers: new Map(),
   poiMarkers: new Map(),
@@ -436,16 +437,15 @@ function upsertLive(pos) {
 
   const isMe = state.me && pos.user_id === state.me.user_id;
   const routeBtn = isMe ? "" : `<br><button class="marker-route" data-x="${pos.x}" data-y="${pos.y}" style="margin-top: 8px;">Маршрут</button>`;
-  const popup = `<b>${pos.nickname}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
+  const popup = `<b>${markerEscapeHtml(pos.nickname)}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
 
+  const avatarSrc = resolveUserAvatarUrl(pos.user_id, pos.avatar_url);
   const iconHtml = `
-    <div style="display:flex;align-items:center;white-space:nowrap;filter:drop-shadow(0 0 3px rgba(0,0,0,0.8));">
-      <div style="background:${color};width:24px;height:24px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;box-shadow:0 0 4px #000;">
-        👤
+    <div class="live-player-pin">
+      <div class="live-player-avatar-wrap" style="border-color:${color}">
+        <img class="live-player-avatar" src="${markerEscapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='${(window.ProfileUi?.DEFAULT_AVATAR_URL || '/img/default-avatar.svg?v=2').replace(/'/g, '')}'">
       </div>
-      <div style="margin-left:5px;background:rgba(0,0,0,0.75);color:#fff;font-family:sans-serif;font-size:11px;font-weight:bold;padding:2px 6px;border-radius:4px;border:1px solid rgba(255,255,255,0.25);">
-        ${pos.nickname}
-      </div>
+      <div class="live-player-name">${markerEscapeHtml(pos.nickname)}</div>
     </div>
   `;
 
@@ -487,6 +487,32 @@ function markerEscapeHtml(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+function resolveUserAvatarUrl(userId, avatarUrl) {
+  if (avatarUrl !== undefined && avatarUrl !== null) {
+    state.userAvatars.set(userId, avatarUrl);
+  }
+  const cached = state.userAvatars.get(userId);
+  const url = avatarUrl !== undefined && avatarUrl !== null ? avatarUrl : cached;
+  return window.ProfileUi?.resolveAvatarUrl?.(url) || url || "/img/default-avatar.svg?v=2";
+}
+
+function userAvatarHtml(userId, avatarUrl, size = 22, className = "sidebar-avatar") {
+  const src = resolveUserAvatarUrl(userId, avatarUrl);
+  const fallback = (window.ProfileUi?.DEFAULT_AVATAR_URL || "/img/default-avatar.svg?v=2").replace(/"/g, "&quot;");
+  return `<img class="${className}" src="${markerEscapeHtml(src)}" alt="" width="${size}" height="${size}" loading="lazy" onerror="this.onerror=null;this.src='${fallback}'">`;
+}
+
+function refreshUserAvatars(userId) {
+  const live = state.liveMarkers.get(userId);
+  if (live?._playerMeta) upsertLive(live._playerMeta);
+  state.pinMarkers.forEach((layer, markerId) => {
+    const meta = layer._markerMeta;
+    if (meta?.user_id === userId) upsertPin(meta);
+  });
+  updatePlayersList();
+  updateMarkersList();
 }
 
 function collectZonesAtGamePoint(x, y) {
@@ -1083,6 +1109,9 @@ function syncStashCategoryControls() {
 
 function upsertPin(m) {
   const color = colorForUser(m.user_id);
+  if (m.avatar_url !== undefined) {
+    state.userAvatars.set(m.user_id, m.avatar_url);
+  }
   let layer = state.pinMarkers.get(m.id);
 
   const inGroup = canEditMarker(m);
@@ -1236,8 +1265,10 @@ function updatePlayersList() {
     rows.push(`
       <div class="sidebar-row" onclick="focusOnPlayer(${pos.user_id})">
         <div class="sidebar-row-left">
-          <span class="sidebar-dot" style="background: ${color}"></span>
-          <span class="sidebar-name" title="${pos.nickname}">${nameLabel}</span>
+          <span class="sidebar-avatar-wrap" style="--user-color: ${color}">
+            ${userAvatarHtml(pos.user_id, pos.avatar_url, 22, "sidebar-avatar")}
+          </span>
+          <span class="sidebar-name" title="${markerEscapeHtml(pos.nickname)}">${markerEscapeHtml(nameLabel)}</span>
         </div>
         <span class="sidebar-info">${Math.round(pos.x)} / ${Math.round(pos.y)}</span>
       </div>
@@ -1272,14 +1303,17 @@ function updateMarkersList() {
         ? ` · pts:${Array.isArray(m.points) ? m.points.length : 0}`
         : "");
     const subLabel = `${m.nickname}${extra}`;
+    const userColor = colorForUser(m.user_id);
 
     const rowHtml = `
       <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
         <div class="sidebar-row-left">
-          <span class="sidebar-dot" style="background: ${colorForUser(m.user_id)}"></span>
+          <span class="sidebar-avatar-wrap" style="--user-color: ${userColor}">
+            ${userAvatarHtml(m.user_id, m.avatar_url, 22, "sidebar-avatar")}
+          </span>
           <div style="min-width:0">
-            <div class="sidebar-name" title="${label}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${label}</div>
-            <div class="sidebar-info">${subLabel}</div>
+            <div class="sidebar-name" title="${markerEscapeHtml(label)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${markerEscapeHtml(label)}</div>
+            <div class="sidebar-info">${markerEscapeHtml(subLabel)}</div>
           </div>
         </div>
         <div style="display: flex; align-items: center; gap: 4px;">
@@ -1748,6 +1782,13 @@ function connectWebSocket() {
     if (msg.type === "marker_added") upsertPin(msg.data);
     if (msg.type === "marker_updated") upsertPin(msg.data);
     if (msg.type === "marker_deleted") removePin(msg.data.id);
+    if (msg.type === "user_profile") {
+      const data = msg.data || {};
+      if (data.user_id != null) {
+        state.userAvatars.set(data.user_id, data.avatar_url ?? null);
+        refreshUserAvatars(data.user_id);
+      }
+    }
     if (msg.type === "map_command") {
       const action = msg.data?.action;
       console.log("Executing map command:", action);
@@ -2202,6 +2243,7 @@ function performMapLogoutCleanup() {
   }
   state.me = null;
   state.clientKey = null;
+  state.userAvatars.clear();
   state.liveMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
   state.liveMarkers.clear();
   state.pinMarkers.forEach((m) => { if (state.map) state.map.removeLayer(m); });
@@ -2386,7 +2428,13 @@ async function initClientDownloadLinks() {
 (async () => {
   window.ProfileUi?.init({
     getUser: () => state.me,
-    setUser: (user) => { state.me = user; },
+    setUser: (user) => {
+      state.me = user;
+      if (user?.user_id != null) {
+        state.userAvatars.set(user.user_id, user.avatar_url ?? null);
+        refreshUserAvatars(user.user_id);
+      }
+    },
     onRoomPinChange: (pin) => {
       if (!state.me) return;
       state.me.pin = pin;

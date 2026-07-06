@@ -61,6 +61,7 @@ class MarkerResponse(BaseModel):
     id: int
     user_id: int
     nickname: str
+    avatar_url: str | None = None
     x: float
     y: float
     type: str = "marker"
@@ -120,6 +121,7 @@ class PoiResponse(BaseModel):
 class PositionResponse(BaseModel):
     user_id: int
     nickname: str
+    avatar_url: str | None = None
     x: float
     y: float
     updated_at: datetime

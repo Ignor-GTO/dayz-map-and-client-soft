@@ -162,12 +162,19 @@ def _normalize_marker_category(value: str | None) -> str:
     return category
 
 
-def _marker_response(marker: Marker, nickname: str) -> MarkerResponse:
+def _marker_response(
+    marker: Marker,
+    nickname: str,
+    avatar_url: str | None = None,
+) -> MarkerResponse:
     points = _load_marker_points(marker)
+    if avatar_url is None and marker.user:
+        avatar_url = marker.user.avatar_url
     return MarkerResponse(
         id=marker.id,
         user_id=marker.user_id,
         nickname=nickname,
+        avatar_url=avatar_url,
         x=marker.x,
         y=marker.y,
         type=marker.type,
@@ -482,6 +489,14 @@ async def upload_profile_avatar(
     delete_avatar_file(user.avatar_url)
     user.avatar_url = await save_avatar_image(user.id, file)
     await db.commit()
+    ch = channel_key(user.room.map_id, user.room_id)
+    await manager.broadcast(
+        ch,
+        {
+            "type": "user_profile",
+            "data": {"user_id": user.id, "avatar_url": user.avatar_url},
+        },
+    )
     return {"ok": True, "avatar_url": user.avatar_url}
 
 
@@ -493,6 +508,14 @@ async def remove_profile_avatar(
     delete_avatar_file(user.avatar_url)
     user.avatar_url = None
     await db.commit()
+    ch = channel_key(user.room.map_id, user.room_id)
+    await manager.broadcast(
+        ch,
+        {
+            "type": "user_profile",
+            "data": {"user_id": user.id, "avatar_url": None},
+        },
+    )
     return {"ok": True, "avatar_url": None}
 
 
@@ -587,6 +610,7 @@ async def update_position(
         "data": {
             "user_id": user.id,
             "nickname": user.nickname,
+            "avatar_url": user.avatar_url,
             "x": position.x,
             "y": position.y,
             "updated_at": position.updated_at.isoformat(),
@@ -615,7 +639,7 @@ async def add_marker(
     await db.refresh(marker)
 
     ch = channel_key(user.room.map_id, user.room_id)
-    resp = _marker_response(marker, user.nickname)
+    resp = _marker_response(marker, user.nickname, user.avatar_url)
     await manager.broadcast(ch, {"type": "marker_added", "data": resp.model_dump(mode="json")})
     return resp
 
@@ -674,7 +698,7 @@ async def create_marker(
     await db.commit()
     await db.refresh(marker)
 
-    resp = _marker_response(marker, _marker_nickname(marker))
+    resp = _marker_response(marker, user.nickname, user.avatar_url)
     await _broadcast_marker_event(
         db,
         user,
@@ -898,6 +922,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                 PositionResponse(
                     user_id=u.id,
                     nickname=u.nickname,
+                    avatar_url=u.avatar_url,
                     x=u.position.x,
                     y=u.position.y,
                     updated_at=u.position.updated_at,
@@ -906,7 +931,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
         for m in u.markers:
             if (m.marker_category or "group") == "stash":
                 continue
-            markers.append(_marker_response(m, u.nickname))
+            markers.append(_marker_response(m, u.nickname, u.avatar_url))
 
     stash_result = await db.execute(
         select(Marker)
