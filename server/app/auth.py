@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, Request, Response
 from itsdangerous import BadSignature, URLSafeSerializer
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -111,6 +111,42 @@ async def require_admin_role(
     if account.role != "admin":
         raise HTTPException(status_code=403, detail="Admin role required")
     return account
+
+
+async def get_optional_admin_account(
+    request: Request,
+    db: AsyncSession,
+) -> AdminAccount | None:
+    token = request.cookies.get(ADMIN_SESSION_COOKIE)
+    if not token:
+        return None
+    try:
+        data = admin_serializer.loads(token)
+        admin_id = data.get("admin_id")
+        if not admin_id:
+            return None
+    except BadSignature:
+        return None
+    return await db.get(AdminAccount, admin_id)
+
+
+async def user_has_admin_panel_access(
+    request: Request,
+    db: AsyncSession,
+    user: User,
+) -> bool:
+    if (user.role or "user") in {"admin", "moderator"}:
+        return True
+    if await get_optional_admin_account(request, db):
+        return True
+    nickname = user.nickname.strip().lower()
+    if nickname:
+        result = await db.execute(
+            select(AdminAccount).where(func.lower(AdminAccount.login) == nickname)
+        )
+        if result.scalar_one_or_none():
+            return True
+    return False
 
 
 async def get_current_user(

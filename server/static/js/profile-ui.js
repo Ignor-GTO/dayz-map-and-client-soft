@@ -57,7 +57,12 @@
     const me = getUser();
     const link = document.getElementById("admin-panel-link");
     if (!link) return;
-    const show = !!(me && (me.role === "admin" || me.role === "moderator"));
+    const show = !!(
+      me &&
+      (me.can_access_admin_panel ||
+        me.role === "admin" ||
+        me.role === "moderator")
+    );
     link.classList.toggle("hidden", !show);
   }
 
@@ -73,6 +78,7 @@
   function setToolbarVisible(visible) {
     document.getElementById("profile-btn")?.classList.toggle("hidden", !visible);
     document.getElementById("logout-btn")?.classList.toggle("hidden", !visible);
+    if (!visible) syncAdminPanelLink();
   }
 
   function closeProfileModal() {
@@ -282,6 +288,7 @@
     },
     refreshSession,
     syncAvatarUi,
+    syncAdminPanelLink,
     openProfileModal,
     resolveAvatarUrl,
     avatarImgHtml,

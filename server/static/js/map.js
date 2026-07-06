@@ -2131,6 +2131,7 @@ async function bootstrapMapView() {
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
   window.ProfileUi?.syncAvatarUi();
+  window.ProfileUi?.syncAdminPanelLink?.();
   await ensureClientKey();
   syncStashCategoryControls();
   const roadsFilter = document.getElementById("filter-roads");

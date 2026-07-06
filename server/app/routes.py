@@ -18,6 +18,7 @@ from app.auth import (
     hash_password,
     read_session_client_key,
     set_session,
+    user_has_admin_panel_access,
     verify_password,
 )
 from app.database import get_db
@@ -440,7 +441,11 @@ async def get_client_key(
 
 
 @router.get("/auth/me")
-async def me(user: Annotated[User, Depends(get_current_user)]):
+async def me(
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
     return {
         "nickname": user.nickname,
         "pin": user.room.pin,
@@ -449,6 +454,7 @@ async def me(user: Annotated[User, Depends(get_current_user)]):
         "user_id": user.id,
         "role": user.role or "user",
         "can_manage_stashes": _can_manage_stashes(user),
+        "can_access_admin_panel": await user_has_admin_panel_access(request, db, user),
         "has_profile_password": bool(user.profile_password_hash),
         "can_manage_room": _can_manage_room(user),
         "room_entry_password_enabled": bool(user.room.entry_password_hash),
