@@ -53,12 +53,21 @@
     img.src = url;
   }
 
+  function syncAdminPanelLink() {
+    const me = getUser();
+    const link = document.getElementById("admin-panel-link");
+    if (!link) return;
+    const show = !!(me && (me.role === "admin" || me.role === "moderator"));
+    link.classList.toggle("hidden", !show);
+  }
+
   function syncAvatarUi() {
     const me = getUser();
     const url = me ? resolveAvatarUrl(me.avatar_url) : DEFAULT_AVATAR_FILE_URL;
     setAvatarImage(document.getElementById("toolbar-avatar"), url);
     setAvatarImage(document.getElementById("profile-avatar-preview"), url);
     document.getElementById("profile-avatar-remove-btn")?.classList.toggle("hidden", !me?.avatar_url);
+    syncAdminPanelLink();
   }
 
   function setToolbarVisible(visible) {

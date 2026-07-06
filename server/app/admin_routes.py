@@ -154,6 +154,7 @@ def _item_response(item: TraderItem, subsection: TraderSubsection, section: Trad
 
 
 MAP_USER_ROLES = {"user", "vip", "moderator", "admin"}
+PRIVILEGED_MAP_ROLES = {"admin", "moderator"}
 ADMIN_PANEL_ROLES = {"admin", "moderator"}
 
 
@@ -308,7 +309,7 @@ async def admin_update_user(
     user_id: int,
     payload: AdminUserUpdateRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[AdminAccount, Depends(require_admin)],
+    current: Annotated[AdminAccount, Depends(require_admin)],
 ):
     result = await db.execute(
         select(User, Room, DayZMap)
@@ -333,6 +334,13 @@ async def admin_update_user(
     if payload.role is not None:
         if payload.role not in MAP_USER_ROLES:
             raise HTTPException(status_code=400, detail="Invalid role")
+        if current.role == "moderator":
+            current_role = user.role or "user"
+            if payload.role in PRIVILEGED_MAP_ROLES or current_role in PRIVILEGED_MAP_ROLES:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Moderators cannot assign or change admin/moderator roles",
+                )
         user.role = payload.role
 
     if payload.nickname is not None:

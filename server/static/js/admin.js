@@ -54,10 +54,22 @@ const ADMIN_PANEL_ROLE_LABELS = {
   moderator: "Модератор",
 };
 
-function mapUserRoleOptions(selected) {
-  return Object.entries(MAP_USER_ROLE_LABELS).map(([value, label]) =>
-    `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`
-  ).join("");
+function mapUserRoleOptions(selected, forModerator = false) {
+  return Object.entries(MAP_USER_ROLE_LABELS)
+    .filter(([value]) => !forModerator || (value !== "admin" && value !== "moderator"))
+    .map(([value, label]) =>
+      `<option value="${value}" ${value === selected ? "selected" : ""}>${label}</option>`
+    )
+    .join("");
+}
+
+function isPrivilegedMapRole(role) {
+  return role === "admin" || role === "moderator";
+}
+
+function applyAdminRoleUi() {
+  const isAdmin = currentAdmin?.role === "admin";
+  document.getElementById("admin-accounts-section")?.classList.toggle("hidden", !isAdmin);
 }
 
 function escapeHtml(value) {
@@ -391,6 +403,8 @@ async function loadUsers() {
     return;
   }
 
+  const isModerator = currentAdmin?.role === "moderator";
+
   list.innerHTML = `
     <table class="users-table">
       <thead>
@@ -408,12 +422,13 @@ async function loadUsers() {
           const roomOptions = rooms.map((r) =>
             `<option value="${r.id}" ${r.id === u.room_id ? "selected" : ""}>${escapeHtml(r.pin)}</option>`
           ).join("");
+          const roleLocked = isModerator && isPrivilegedMapRole(u.role || "user");
           return `
             <tr data-user-id="${u.id}">
               <td><input class="user-nickname" type="text" value="${escapeHtml(u.nickname)}" maxlength="64"></td>
               <td>${escapeHtml(u.map_name)}</td>
               <td><select class="user-room">${roomOptions}</select></td>
-              <td><select class="user-role">${mapUserRoleOptions(u.role || "user")}</select></td>
+              <td><select class="user-role" ${roleLocked ? "disabled title=\"Роль admin/moderator может менять только администратор\"" : ""}>${mapUserRoleOptions(u.role || "user", isModerator)}</select></td>
               <td class="users-actions">
                 <button type="button" class="secondary small save-user" data-id="${u.id}">Сохранить</button>
                 <button type="button" class="danger small delete-user" data-id="${u.id}">Удалить</button>
@@ -424,6 +439,8 @@ async function loadUsers() {
       </tbody>
     </table>
   `;
+  const hintEl = document.getElementById("users-role-hint");
+  if (hintEl) hintEl.classList.toggle("hidden", !isModerator);
 }
 
 async function loadAdminAccounts() {
@@ -462,6 +479,7 @@ async function refreshAdminSession() {
   if (header && currentAdmin?.login) {
     header.textContent = `Админка · ${currentAdmin.login}`;
   }
+  applyAdminRoleUi();
 }
 
 async function initAdminPanel() {
@@ -538,13 +556,17 @@ document.getElementById("users-list")?.addEventListener("click", async (e) => {
     if (!row) return;
     const userId = Number(saveBtn.dataset.id);
     try {
+      const roleEl = row.querySelector(".user-role");
+      const payload = {
+        nickname: row.querySelector(".user-nickname")?.value?.trim(),
+        room_id: Number(row.querySelector(".user-room")?.value),
+      };
+      if (roleEl && !roleEl.disabled) {
+        payload.role = roleEl.value;
+      }
       await api(`/api/admin/users/${userId}`, {
         method: "PUT",
-        body: JSON.stringify({
-          nickname: row.querySelector(".user-nickname")?.value?.trim(),
-          room_id: Number(row.querySelector(".user-room")?.value),
-          role: row.querySelector(".user-role")?.value,
-        }),
+        body: JSON.stringify(payload),
       });
       delete roomsByMap[document.getElementById("users-map-select")?.value || ""];
       Object.keys(roomsByMap).forEach((k) => delete roomsByMap[k]);
