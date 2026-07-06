@@ -85,6 +85,12 @@ const POI_ICONS = {
   gas: { glyph: "☁", label: "Газ", color: "#90a4ae" },
   night: { glyph: "☾", label: "Ночь", color: "#3949ab" },
   day: { glyph: "☀", label: "День", color: "#ffb300" },
+  marker: { glyph: "📌", label: "Метка", color: "#e74c3c" },
+  chest: { glyph: "📦", label: "Сундук", color: "#d35400" },
+  point: { glyph: "🔵", label: "Точка", color: "#3498db" },
+  death: { glyph: "💀", label: "Смерть", color: "#2c3e50" },
+  danger: { glyph: "⚠", label: "Опасность", color: "#f39c12" },
+  screenshot: { glyph: "❓", label: "Снимок", color: "#9b59b6" },
 };
 
 function normalizePoiIcon(key) {
@@ -122,15 +128,18 @@ function poiPopupHtml(poi, options = {}) {
     const traderLabel = poi.trader_name.trim().toLowerCase() === titleText.toLowerCase()
       ? "🛒 Открыть у торговца"
       : `🛒 Открыть у торговца «${escapeHtml(poi.trader_name)}»`;
-    traderLink = `<br><a class="poi-trader-link" href="${url}" target="_blank" rel="noopener">${traderLabel}</a>`;
+    traderLink = `<a class="poi-trader-link" href="${url}" target="_blank" rel="noopener">${traderLabel}</a>`;
   }
-  const staffActions = options.canManage
-    ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
-        <button type="button" class="poi-edit-btn" data-id="${poi.id}">✏️ Изменить</button>
-        <button type="button" class="poi-delete-btn" data-id="${poi.id}">Удалить</button>
-      </div>`
-    : "";
-  return `<b>${escapeHtml(titleText)}</b>${desc}${img}<br><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span>${traderLink}<br><button class="marker-route" data-x="${poi.x}" data-y="${poi.y}" style="margin-top: 8px;">Маршрут</button>${staffActions}`;
+  const actionButtons = [
+    `<button type="button" class="marker-route" data-x="${poi.x}" data-y="${poi.y}">Маршрут</button>`,
+  ];
+  if (options.canManage) {
+    actionButtons.push(`<button type="button" class="poi-edit-btn" data-id="${poi.id}">✏️ Изменить</button>`);
+    actionButtons.push(`<button type="button" class="poi-delete-btn" data-id="${poi.id}">Удалить</button>`);
+  }
+  const meta = `<div class="marker-popup-meta"><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span>${traderLink}</div>`;
+  const actions = `<div class="marker-popup-actions">${actionButtons.join("")}</div>`;
+  return `<b>${escapeHtml(titleText)}</b>${desc}${img}${meta}${actions}`;
 }
 
 function filterIconEntries(entries, query) {

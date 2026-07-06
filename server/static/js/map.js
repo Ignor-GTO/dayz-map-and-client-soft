@@ -456,7 +456,9 @@ function upsertLive(pos) {
   let marker = state.liveMarkers.get(pos.user_id);
 
   const isMe = state.me && pos.user_id === state.me.user_id;
-  const routeBtn = isMe ? "" : `<br><button class="marker-route" data-x="${pos.x}" data-y="${pos.y}" style="margin-top: 8px;">Маршрут</button>`;
+  const routeBtn = isMe
+    ? ""
+    : `<div class="marker-popup-actions"><button class="marker-route" data-x="${pos.x}" data-y="${pos.y}">Маршрут</button></div>`;
   const popup = `<b>${markerEscapeHtml(pos.nickname)}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
 
   const avatarSrc = resolveUserAvatarUrl(pos.user_id, pos.avatar_url);
@@ -718,18 +720,6 @@ function markerTypeToPoiIcon(markerType) {
   const key = String(markerType || "marker").trim().toLowerCase();
   if (typeof POI_ICONS === "object" && POI_ICONS && POI_ICONS[key]) {
     return normalizePoiIcon(key);
-  }
-  const aliases = {
-    marker: "star",
-    point: "star",
-    chest: "loot",
-    danger: "warning",
-    death: "skull",
-    screenshot: "camera",
-  };
-  const mapped = aliases[key];
-  if (mapped && POI_ICONS?.[mapped]) {
-    return normalizePoiIcon(mapped);
   }
   return "star";
 }
@@ -1204,7 +1194,7 @@ function upsertPin(m) {
     ${shapeInfo}
     ${descHtml}
     ${imgHtml}
-    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+    <div class="marker-popup-actions">
       <button class="marker-route" data-x="${m.x}" data-y="${m.y}">Маршрут</button>
       ${inGroup ? `<button class="marker-edit-btn" data-id="${m.id}">✏️ Изменить</button>` : ""}
       ${canGeoEdit ? `<button class="marker-geo-edit-btn" data-id="${m.id}">🧩 Геометрия</button>` : ""}
@@ -1533,7 +1523,7 @@ function showCoordLookup() {
   const { x, y } = coords;
   const latlng = gameToLatLng(x, y);
   const label = `${Math.round(x)} / ${Math.round(y)}`;
-  const popup = `<b>${label}</b><br><button class="marker-route" data-x="${x}" data-y="${y}" style="margin-top: 8px;">Маршрут</button>`;
+  const popup = `<b>${label}</b><div class="marker-popup-actions"><button class="marker-route" data-x="${x}" data-y="${y}">Маршрут</button></div>`;
 
   state.coordLookupMarker = L.marker(latlng, {
     icon: L.divIcon({
@@ -2800,7 +2790,7 @@ function buildingPopupHtml(b) {
     <div style="font-size:0.82rem;color:#666;margin-top:2px">${markerEscapeHtml(typeLabel)} · ${Math.round(b.x)} / ${Math.round(b.y)}</div>
     ${classname}
     ${desc}
-    <div style="margin-top:8px">
+    <div class="marker-popup-actions">
       <button class="marker-route" data-x="${b.x}" data-y="${b.y}">Маршрут</button>
     </div>
   `;

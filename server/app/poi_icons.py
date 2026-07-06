@@ -87,6 +87,13 @@ POI_ICONS: dict[str, dict[str, str]] = {
     "gas": {"glyph": "☁", "label": "Газ", "color": "#90a4ae"},
     "night": {"glyph": "☾", "label": "Ночь", "color": "#3949ab"},
     "day": {"glyph": "☀", "label": "День", "color": "#ffb300"},
+    # Player marker icons (available for server POI too)
+    "marker": {"glyph": "📌", "label": "Метка", "color": "#e74c3c"},
+    "chest": {"glyph": "📦", "label": "Сундук", "color": "#d35400"},
+    "point": {"glyph": "🔵", "label": "Точка", "color": "#3498db"},
+    "death": {"glyph": "💀", "label": "Смерть", "color": "#2c3e50"},
+    "danger": {"glyph": "⚠", "label": "Опасность", "color": "#f39c12"},
+    "screenshot": {"glyph": "❓", "label": "Снимок", "color": "#9b59b6"},
 }
 
 DEFAULT_POI_ICON = "star"

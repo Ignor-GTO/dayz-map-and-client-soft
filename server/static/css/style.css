@@ -781,9 +781,15 @@ button.secondary:hover { background: #3a4858; }
   font-size: 0.85rem;
 }
 
+.marker-popup-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.35rem;
+}
+
 .poi-trader-link {
   display: inline-block;
-  margin-top: 0.35rem;
   color: #4fc3f7;
   font-size: 0.9rem;
   text-decoration: none;
@@ -872,12 +878,34 @@ select {
   overflow-wrap: anywhere;
 }
 
-.marker-delete, .marker-route {
-  margin-top: 0;
-  padding: 0.35rem 0.6rem;
+.marker-popup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.marker-popup-actions > button {
+  width: 100%;
+  margin: 0;
+  padding: 0.45rem 0.75rem;
   font-size: 0.8rem;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  line-height: 1.2;
+}
+
+.marker-delete, .marker-route {
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8rem;
+  border: none;
+  border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
   display: inline-flex;
@@ -1958,19 +1986,34 @@ button.secondary.small {
 }
 
 /* Popup edit button */
-.marker-edit-btn {
+.marker-edit-btn,
+.poi-edit-btn {
   background: #27ae60;
   color: #fff;
-  margin-top: 0;
-  padding: 0.35rem 0.6rem;
-  font-size: 0.8rem;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: 600;
 }
 
-.marker-edit-btn:hover { background: #2ecc71; }
+.marker-edit-btn:hover,
+.poi-edit-btn:hover {
+  background: #2ecc71;
+}
+
+.marker-geo-edit-btn {
+  background: #8e44ad;
+  color: #fff;
+}
+
+.marker-geo-edit-btn:hover {
+  background: #9b59b6;
+}
+
+.poi-delete-btn {
+  background: #c0392b;
+  color: #fff;
+}
+
+.poi-delete-btn:hover {
+  background: #e74c3c;
+}
 
 .marker-geo-field {
   padding: 0.7rem;
