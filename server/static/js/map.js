@@ -418,6 +418,19 @@ function initLeaflet(config) {
       };
     }
 
+    const poiEditBtn = container.querySelector(".poi-edit-btn");
+    if (poiEditBtn) {
+      poiEditBtn.onclick = () => {
+        e.popup.close();
+        openPoiEditModal(Number(poiEditBtn.dataset.id));
+      };
+    }
+
+    const poiDeleteBtn = container.querySelector(".poi-delete-btn");
+    if (poiDeleteBtn) {
+      poiDeleteBtn.onclick = () => deletePoi(Number(poiDeleteBtn.dataset.id));
+    }
+
     const popupImg = container.querySelector(".marker-popup-img");
     if (popupImg) {
       popupImg.onclick = () => {
@@ -1092,6 +1105,10 @@ function canManageStashes() {
   return !!state.me?.can_manage_stashes;
 }
 
+function canManageMapStaff() {
+  return canManageStashes();
+}
+
 function isStashMarker(meta) {
   return (meta?.marker_category || "group") === "stash";
 }
@@ -1103,6 +1120,7 @@ function canEditMarker(meta) {
 
 function canDeleteMarker(meta) {
   if (isStashMarker(meta)) return canManageStashes();
+  if (canManageMapStaff()) return true;
   return !!(state.me && meta?.user_id === state.me.user_id);
 }
 
@@ -1229,7 +1247,7 @@ function upsertPoi(p) {
   if (!state.filters.poi) return;
   const latlng = gameToLatLng(p.x, p.y);
   let marker = state.poiMarkers.get(p.id);
-  const popup = poiPopupHtml(p);
+  const popup = poiPopupHtml(p, { canManage: canManageMapStaff() });
   const icon = L.divIcon({
     className: "poi-map-pin",
     html: poiLabelHtml(p.icon || "star", p.title),
@@ -1241,10 +1259,25 @@ function upsertPoi(p) {
     marker.setLatLng(latlng);
     marker.setIcon(icon);
     marker.setPopupContent(popup);
+    marker._poiMeta = p;
   } else {
     marker = L.marker(latlng, { icon }).addTo(state.map);
     marker.bindPopup(popup);
+    marker._poiMeta = p;
     state.poiMarkers.set(p.id, marker);
+  }
+}
+
+async function reloadPois() {
+  try {
+    const data = await api("/api/room/state");
+    state.poiMarkers.forEach((layer) => {
+      if (state.map) state.map.removeLayer(layer);
+    });
+    state.poiMarkers.clear();
+    if (state.filters.poi) data.pois.forEach(upsertPoi);
+  } catch {
+    /* optional */
   }
 }
 
@@ -1567,6 +1600,9 @@ window.openMarkerEditModal = openMarkerEditModal;
 let _editMarkerId = null;
 let _editImageFile = null;
 let _editClearImage = false;
+let _editPoiId = null;
+let _editPoiIcon = "star";
+let _editPoiImageFile = null;
 
 function markerKindLabel(kind) {
   if (kind === "circle") return "Круг";
@@ -1636,6 +1672,12 @@ function openMarkerEditModal(markerId) {
     previewWrap.style.display = "none";
   }
 
+  const promoteBtn = document.getElementById("marker-promote-poi-btn");
+  if (promoteBtn) {
+    const showPromote = canManageMapStaff() && kind === "point" && !isStashMarker(m);
+    promoteBtn.classList.toggle("hidden", !showPromote);
+  }
+
   document.getElementById("marker-edit-modal").classList.remove("hidden");
   document.getElementById("marker-edit-title").focus();
 }
@@ -1646,6 +1688,122 @@ function closeMarkerEditModal() {
   _editImageFile = null;
   _editClearImage = false;
 }
+
+function getPoiMeta(poiId) {
+  const layer = state.poiMarkers.get(poiId);
+  return layer?._poiMeta || null;
+}
+
+function openPoiEditModal(poiId) {
+  const poi = getPoiMeta(poiId);
+  if (!poi || !canManageMapStaff()) return;
+  _editPoiId = poiId;
+  _editPoiIcon = poi.icon || "star";
+  _editPoiImageFile = null;
+  document.getElementById("poi-edit-title").value = poi.title || "";
+  document.getElementById("poi-edit-desc").value = poi.description || "";
+  document.getElementById("poi-edit-x").value = Math.round(poi.x * 10) / 10;
+  document.getElementById("poi-edit-y").value = Math.round(poi.y * 10) / 10;
+  document.getElementById("poi-edit-image-file").value = "";
+  renderPoiIconPicker(
+    document.getElementById("poi-edit-icon-picker"),
+    _editPoiIcon,
+    (iconKey) => { _editPoiIcon = iconKey; },
+  );
+  document.getElementById("poi-edit-modal").classList.remove("hidden");
+  document.getElementById("poi-edit-title").focus();
+}
+
+function closePoiEditModal() {
+  document.getElementById("poi-edit-modal")?.classList.add("hidden");
+  _editPoiId = null;
+  _editPoiImageFile = null;
+}
+
+async function savePoiEdit() {
+  if (!_editPoiId) return;
+  const title = document.getElementById("poi-edit-title")?.value.trim();
+  if (!title) {
+    alert("Укажите название");
+    return;
+  }
+  const payload = {
+    title,
+    description: document.getElementById("poi-edit-desc")?.value.trim() || "",
+    icon: _editPoiIcon || "star",
+    x: Number(document.getElementById("poi-edit-x")?.value),
+    y: Number(document.getElementById("poi-edit-y")?.value),
+  };
+  try {
+    const updated = await api(`/api/pois/${_editPoiId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    });
+    if (_editPoiImageFile) {
+      const fd = new FormData();
+      fd.append("file", _editPoiImageFile);
+      const res = await fetch(`/api/pois/${_editPoiId}/image`, {
+        method: "POST",
+        credentials: "same-origin",
+        body: fd,
+      });
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        if (data?.detail) msg = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+        throw new Error(msg);
+      }
+      upsertPoi(data);
+    } else {
+      upsertPoi(updated);
+    }
+    closePoiEditModal();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function deletePoi(poiId) {
+  if (!canManageMapStaff()) return;
+  if (!confirm("Удалить серверную метку?")) return;
+  try {
+    await api(`/api/pois/${poiId}`, { method: "DELETE" });
+    const layer = state.poiMarkers.get(poiId);
+    if (layer && state.map) state.map.removeLayer(layer);
+    state.poiMarkers.delete(poiId);
+    closePoiEditModal();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function promoteMarkerToPoi() {
+  if (!_editMarkerId || !canManageMapStaff()) return;
+  const leafletMarker = state.pinMarkers.get(_editMarkerId);
+  const m = leafletMarker?._markerMeta;
+  if (!m || (m.geometry_kind || "point") !== "point") return;
+  if (!confirm("Преобразовать метку в серверную? Исходная метка игрока будет удалена.")) return;
+
+  const selectedIconBtn = document.querySelector(".marker-icon-btn.selected");
+  const icon = selectedIconBtn?.dataset.type === "trader" ? "trader" : "star";
+  try {
+    const poi = await api(`/api/markers/${_editMarkerId}/promote-to-poi`, {
+      method: "POST",
+      body: JSON.stringify({
+        icon,
+        title: document.getElementById("marker-edit-title")?.value.trim() || m.title || "Метка",
+        description: document.getElementById("marker-edit-desc")?.value.trim() || m.description || "",
+      }),
+    });
+    removePin(_editMarkerId);
+    upsertPoi(poi);
+    closeMarkerEditModal();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+window.openPoiEditModal = openPoiEditModal;
 
 // Icon buttons
 renderMarkerIconGrid();
@@ -1720,6 +1878,7 @@ document.getElementById("marker-img-clear").addEventListener("click", () => {
 
 // Cancel
 document.getElementById("marker-edit-cancel").addEventListener("click", closeMarkerEditModal);
+document.getElementById("marker-promote-poi-btn")?.addEventListener("click", promoteMarkerToPoi);
 
 // Close on backdrop click
 document.getElementById("marker-edit-modal").addEventListener("click", (e) => {
@@ -1794,6 +1953,18 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
   }
 });
 
+document.getElementById("poi-edit-cancel")?.addEventListener("click", closePoiEditModal);
+document.getElementById("poi-edit-save")?.addEventListener("click", savePoiEdit);
+document.getElementById("poi-edit-delete")?.addEventListener("click", () => {
+  if (_editPoiId) deletePoi(_editPoiId);
+});
+document.getElementById("poi-edit-modal")?.addEventListener("click", (e) => {
+  if (e.target.id === "poi-edit-modal") closePoiEditModal();
+});
+document.getElementById("poi-edit-image-file")?.addEventListener("change", (e) => {
+  _editPoiImageFile = e.target.files?.[0] || null;
+});
+
 function connectWebSocket() {
   state.wsClosing = false;  // сбрасываем флаг при каждом новом подключении
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -1806,6 +1977,7 @@ function connectWebSocket() {
     if (msg.type === "marker_added") upsertPin(msg.data);
     if (msg.type === "marker_updated") upsertPin(msg.data);
     if (msg.type === "marker_deleted") removePin(msg.data.id);
+    if (msg.type === "pois_changed") reloadPois();
     if (msg.type === "user_profile") {
       const data = msg.data || {};
       if (data.user_id != null) {

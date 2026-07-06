@@ -106,8 +106,12 @@ function poiLabelHtml(iconKey, title) {
   return `<div class="poi-pin"><span class="poi-glyph" style="background:${icon.color}">${icon.glyph}</span><span class="poi-title">${escapeHtml(title)}</span></div>`;
 }
 
-function poiPopupHtml(poi) {
-  const desc = poi.description ? `<div class="poi-desc">${escapeHtml(poi.description)}</div>` : "";
+function poiPopupHtml(poi, options = {}) {
+  const titleText = String(poi.title || "").trim();
+  const descText = String(poi.description || "").trim();
+  const desc = descText && descText.toLowerCase() !== titleText.toLowerCase()
+    ? `<div class="poi-desc">${escapeHtml(descText)}</div>`
+    : "";
   const img = poi.description_image_url
     ? `<img class="poi-desc-image" src="${escapeHtml(poi.description_image_url)}" alt="" loading="lazy">`
     : "";
@@ -115,9 +119,18 @@ function poiPopupHtml(poi) {
   if (poi.trader_name) {
     const mapSlug = (typeof state !== "undefined" && state.me?.map_slug) || "";
     const url = `/traders.html?map=${encodeURIComponent(mapSlug)}&trader=${encodeURIComponent(poi.trader_name)}`;
-    traderLink = `<br><a class="poi-trader-link" href="${url}" target="_blank" rel="noopener">🛒 Открыть у торговца «${escapeHtml(poi.trader_name)}»</a>`;
+    const traderLabel = poi.trader_name.trim().toLowerCase() === titleText.toLowerCase()
+      ? "🛒 Открыть у торговца"
+      : `🛒 Открыть у торговца «${escapeHtml(poi.trader_name)}»`;
+    traderLink = `<br><a class="poi-trader-link" href="${url}" target="_blank" rel="noopener">${traderLabel}</a>`;
   }
-  return `<b>${escapeHtml(poi.title)}</b>${desc}${img}<br><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span>${traderLink}<br><button class="marker-route" data-x="${poi.x}" data-y="${poi.y}" style="margin-top: 8px;">Маршрут</button>`;
+  const staffActions = options.canManage
+    ? `<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <button type="button" class="poi-edit-btn" data-id="${poi.id}">✏️ Изменить</button>
+        <button type="button" class="poi-delete-btn" data-id="${poi.id}">Удалить</button>
+      </div>`
+    : "";
+  return `<b>${escapeHtml(titleText)}</b>${desc}${img}<br><span class="poi-coords">${Math.round(poi.x)} / ${Math.round(poi.y)}</span>${traderLink}<br><button class="marker-route" data-x="${poi.x}" data-y="${poi.y}" style="margin-top: 8px;">Маршрут</button>${staffActions}`;
 }
 
 function renderPoiIconPicker(container, selectedKey, onChange) {

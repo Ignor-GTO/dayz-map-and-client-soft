@@ -159,8 +159,40 @@
           </div>
 
           <div class="marker-edit-actions">
+            <button type="button" class="secondary hidden" id="marker-promote-poi-btn">⭐ Сделать серверной меткой</button>
             <button type="button" class="secondary" id="marker-edit-cancel">Отмена</button>
             <button type="button" id="marker-edit-save">💾 Сохранить</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="poi-edit-modal" class="modal hidden">
+        <div class="modal-content">
+          <h2>✏️ Серверная метка</h2>
+          <div class="marker-edit-field">
+            <label for="poi-edit-title">Название</label>
+            <input type="text" id="poi-edit-title" maxlength="128" required>
+          </div>
+          <div class="marker-edit-field">
+            <label for="poi-edit-desc">Описание</label>
+            <textarea id="poi-edit-desc" rows="3"></textarea>
+          </div>
+          <div class="marker-edit-field">
+            <label>Иконка</label>
+            <div id="poi-edit-icon-picker" class="icon-picker"></div>
+          </div>
+          <div class="form-grid marker-edit-field">
+            <label>X <input id="poi-edit-x" type="number" step="any"></label>
+            <label>Y <input id="poi-edit-y" type="number" step="any"></label>
+          </div>
+          <div class="marker-edit-field">
+            <label>Картинка к описанию</label>
+            <input type="file" id="poi-edit-image-file" accept="image/jpeg,image/png,image/webp,image/gif">
+          </div>
+          <div class="marker-edit-actions">
+            <button type="button" class="secondary" id="poi-edit-cancel">Отмена</button>
+            <button type="button" class="danger" id="poi-edit-delete">Удалить</button>
+            <button type="button" id="poi-edit-save">💾 Сохранить</button>
           </div>
         </div>
       </div>
@@ -471,8 +503,8 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="/js/poi-icons.js?v=3"></script>
+  <script src="/js/poi-icons.js?v=4"></script>
   <script src="/js/profile-ui.js?v=6"></script>
-  <script src="/js/map.js?v=56"></script>
+  <script src="/js/map.js?v=57"></script>
 </body>
 </html>

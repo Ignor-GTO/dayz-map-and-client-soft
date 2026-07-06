@@ -325,6 +325,28 @@ class PoiUpdateRequest(BaseModel):
     y: float | None = None
 
 
+class StaffPoiCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=128)
+    description: str = ""
+    icon: str = "star"
+    x: float
+    y: float
+
+
+class StaffPoiUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=128)
+    description: str | None = None
+    icon: str | None = None
+    x: float | None = None
+    y: float | None = None
+
+
+class PromoteMarkerToPoiRequest(BaseModel):
+    icon: str = "star"
+    title: str | None = Field(default=None, max_length=128)
+    description: str | None = None
+
+
 class RadiationBoundsInput(BaseModel):
     x1: float = 0
     y1: float = 0

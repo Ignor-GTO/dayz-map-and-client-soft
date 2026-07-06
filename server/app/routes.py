@@ -2,7 +2,7 @@ import json
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,6 +27,8 @@ from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.marker_upload import delete_marker_image_file, save_marker_image
 from app.avatar_upload import delete_avatar_file, save_avatar_image
+from app.poi_icons import normalize_poi_icon
+from app.poi_upload import delete_poi_image_file, save_poi_image
 from app.models import MapPoi, Marker, Position, Room, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.schemas import (
@@ -48,10 +50,13 @@ from app.schemas import (
     PoiResponse,
     PositionResponse,
     ProfilePasswordRequest,
+    PromoteMarkerToPoiRequest,
     RoadSegmentResponse,
     RoomSettingsResponse,
     RoomSettingsUpdateRequest,
     RoomStateResponse,
+    StaffPoiCreateRequest,
+    StaffPoiUpdateRequest,
     TraderItemResponse,
 )
 from app.buildings_service import list_buildings
@@ -66,6 +71,62 @@ STASH_MANAGER_ROLES = {"admin", "moderator"}
 
 def _can_manage_stashes(user: User) -> bool:
     return (user.role or "user") in STASH_MANAGER_ROLES
+
+
+def _can_manage_map_staff(user: User) -> bool:
+    return _can_manage_stashes(user)
+
+
+def _is_stash_marker(marker: Marker) -> bool:
+    return _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+
+
+def _marker_edit_allowed(user: User, marker: Marker) -> bool:
+    if _is_stash_marker(marker):
+        return _can_manage_stashes(user) and marker.map_id == user.room.map_id
+    if marker.user.room_id == user.room_id:
+        return True
+    return _can_manage_map_staff(user) and marker.user.room.map_id == user.room.map_id
+
+
+def _marker_delete_allowed(user: User, marker: Marker) -> bool:
+    if _is_stash_marker(marker):
+        return _can_manage_stashes(user) and marker.map_id == user.room.map_id
+    if marker.user_id == user.id:
+        return True
+    return _can_manage_map_staff(user) and marker.user.room.map_id == user.room.map_id
+
+
+async def _broadcast_pois_changed(db: AsyncSession, map_id: int) -> None:
+    await _broadcast_to_map(db, map_id, {"type": "pois_changed"})
+
+
+async def _trader_name_for_poi(db: AsyncSession, map_id: int, poi_id: int) -> str | None:
+    result = await db.execute(
+        select(Trader.name).where(Trader.map_id == map_id, Trader.poi_id == poi_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def _poi_response(db: AsyncSession, poi: MapPoi) -> PoiResponse:
+    trader_name = await _trader_name_for_poi(db, poi.map_id, poi.id)
+    return PoiResponse(
+        id=poi.id,
+        title=poi.title,
+        description=poi.description or "",
+        description_image_url=poi.description_image_url,
+        icon=poi.icon or "star",
+        x=poi.x,
+        y=poi.y,
+        trader_name=trader_name,
+    )
+
+
+async def _get_map_poi(db: AsyncSession, map_id: int, poi_id: int) -> MapPoi:
+    poi = await db.get(MapPoi, poi_id)
+    if not poi or poi.map_id != map_id:
+        raise HTTPException(status_code=404, detail="POI not found")
+    return poi
 
 
 def _can_manage_room(user: User) -> bool:
@@ -747,13 +808,13 @@ async def update_marker(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
 
-    is_stash = _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    is_stash = _is_stash_marker(marker)
     if is_stash:
         if not _can_manage_stashes(user):
             raise HTTPException(status_code=403, detail="Only admins and moderators can edit stashes")
         if marker.map_id != user.room.map_id:
             raise HTTPException(status_code=403, detail="Stash not on this map")
-    elif marker.user.room_id != user.room_id:
+    elif not _marker_edit_allowed(user, marker):
         raise HTTPException(status_code=403, detail="Marker not in your group")
 
     if payload.type is not None:
@@ -835,13 +896,13 @@ async def upload_marker_image(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
 
-    is_stash = _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    is_stash = _is_stash_marker(marker)
     if is_stash:
         if not _can_manage_stashes(user):
             raise HTTPException(status_code=403, detail="Only admins and moderators can edit stashes")
         if marker.map_id != user.room.map_id:
             raise HTTPException(status_code=403, detail="Stash not on this map")
-    elif marker.user.room_id != user.room_id:
+    elif not _marker_edit_allowed(user, marker):
         raise HTTPException(status_code=403, detail="Marker not in your group")
 
     old_url = marker.image_url
@@ -877,13 +938,13 @@ async def delete_marker(
     if not marker:
         raise HTTPException(status_code=404, detail="Marker not found")
 
-    is_stash = _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    is_stash = _is_stash_marker(marker)
     if is_stash:
         if not _can_manage_stashes(user):
             raise HTTPException(status_code=403, detail="Only admins and moderators can delete stashes")
         if marker.map_id != user.room.map_id:
             raise HTTPException(status_code=403, detail="Stash not on this map")
-    elif marker.user_id != user.id:
+    elif not _marker_delete_allowed(user, marker):
         raise HTTPException(status_code=403, detail="Can only delete own markers")
 
     old_url = marker.image_url
@@ -981,6 +1042,151 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
             for p in pois
         ],
     )
+
+
+# ---------------------------------------------------------------------------
+# Server POIs — staff management on web map
+# ---------------------------------------------------------------------------
+
+
+@router.post("/pois", response_model=PoiResponse)
+async def create_poi(
+    payload: StaffPoiCreateRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if not _can_manage_map_staff(user):
+        raise HTTPException(status_code=403, detail="Only admins and moderators can manage server markers")
+    poi = MapPoi(
+        map_id=user.room.map_id,
+        title=payload.title.strip()[:128],
+        description=(payload.description or "").strip(),
+        icon=normalize_poi_icon(payload.icon),
+        x=float(payload.x),
+        y=float(payload.y),
+    )
+    db.add(poi)
+    await db.commit()
+    await db.refresh(poi)
+    await _broadcast_pois_changed(db, user.room.map_id)
+    return await _poi_response(db, poi)
+
+
+@router.put("/pois/{poi_id}", response_model=PoiResponse)
+async def update_poi(
+    poi_id: int,
+    payload: StaffPoiUpdateRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if not _can_manage_map_staff(user):
+        raise HTTPException(status_code=403, detail="Only admins and moderators can manage server markers")
+    poi = await _get_map_poi(db, user.room.map_id, poi_id)
+    if payload.title is not None:
+        title = payload.title.strip()
+        if not title:
+            raise HTTPException(status_code=400, detail="Title is required")
+        poi.title = title[:128]
+    if payload.description is not None:
+        poi.description = payload.description.strip()
+    if payload.icon is not None:
+        poi.icon = normalize_poi_icon(payload.icon)
+    if payload.x is not None:
+        poi.x = float(payload.x)
+    if payload.y is not None:
+        poi.y = float(payload.y)
+    await db.commit()
+    await db.refresh(poi)
+    await _broadcast_pois_changed(db, user.room.map_id)
+    return await _poi_response(db, poi)
+
+
+@router.delete("/pois/{poi_id}")
+async def delete_poi(
+    poi_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if not _can_manage_map_staff(user):
+        raise HTTPException(status_code=403, detail="Only admins and moderators can manage server markers")
+    poi = await _get_map_poi(db, user.room.map_id, poi_id)
+    delete_poi_image_file(poi.description_image_url)
+    await db.execute(update(Trader).where(Trader.poi_id == poi_id).values(poi_id=None))
+    await db.delete(poi)
+    await db.commit()
+    await _broadcast_pois_changed(db, user.room.map_id)
+    return {"ok": True}
+
+
+@router.post("/pois/{poi_id}/image", response_model=PoiResponse)
+async def upload_poi_image(
+    poi_id: int,
+    file: Annotated[UploadFile, File()],
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if not _can_manage_map_staff(user):
+        raise HTTPException(status_code=403, detail="Only admins and moderators can manage server markers")
+    poi = await _get_map_poi(db, user.room.map_id, poi_id)
+    delete_poi_image_file(poi.description_image_url)
+    poi.description_image_url = await save_poi_image(poi_id, file)
+    await db.commit()
+    await db.refresh(poi)
+    await _broadcast_pois_changed(db, user.room.map_id)
+    return await _poi_response(db, poi)
+
+
+@router.post("/markers/{marker_id}/promote-to-poi", response_model=PoiResponse)
+async def promote_marker_to_poi(
+    marker_id: int,
+    payload: PromoteMarkerToPoiRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    if not _can_manage_map_staff(user):
+        raise HTTPException(status_code=403, detail="Only admins and moderators can manage server markers")
+    result = await db.execute(
+        select(Marker).options(selectinload(Marker.user)).where(Marker.id == marker_id)
+    )
+    marker = result.scalar_one_or_none()
+    if not marker:
+        raise HTTPException(status_code=404, detail="Marker not found")
+    if not _marker_edit_allowed(user, marker):
+        raise HTTPException(status_code=403, detail="Marker not accessible")
+    if (marker.geometry_kind or "point") != "point":
+        raise HTTPException(status_code=400, detail="Only point markers can become server markers")
+
+    title = (payload.title or marker.title or "Метка").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+    description = payload.description if payload.description is not None else (marker.description or "")
+    description = description.strip()
+    if description.lower() == title.lower():
+        description = ""
+
+    poi = MapPoi(
+        map_id=user.room.map_id,
+        title=title[:128],
+        description=description,
+        icon=normalize_poi_icon(payload.icon),
+        x=float(marker.x),
+        y=float(marker.y),
+        description_image_url=marker.image_url,
+    )
+    db.add(poi)
+    marker_id_value = marker.id
+    map_id = user.room.map_id
+    await db.delete(marker)
+    await db.commit()
+    await db.refresh(poi)
+
+    await _broadcast_to_map(
+        db,
+        map_id,
+        {"type": "marker_deleted", "data": {"id": marker_id_value}},
+    )
+    await _broadcast_pois_changed(db, map_id)
+    return await _poi_response(db, poi)
 
 
 # ---------------------------------------------------------------------------
