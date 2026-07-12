@@ -56,6 +56,7 @@ DEFAULT_CONFIG = {
     "map_slug": "pripyat",
     "inventory_poll_ms": 450,
     "inventory_price_enabled": True,
+    "inventory_price_debug_frame": False,
     "item_tooltip_search": {
         "mode": "cursor",
         "left": 120,

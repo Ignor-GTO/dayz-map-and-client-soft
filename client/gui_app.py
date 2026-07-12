@@ -17,6 +17,7 @@ from clipboard_util import grab_clipboard_image, grab_clipboard_text, prepare_co
 from config import load_config, normalize_hotkey_token, save_config
 from ocr import extract_coordinates, extract_coordinates_with_text, parse_coordinates
 from price_overlay import ItemPriceOverlay
+from item_tooltip_debug_overlay import TooltipDebugOverlay
 from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
 from item_tooltip_ocr import read_item_name_at_cursor
@@ -84,6 +85,7 @@ class ClientApp(tk.Tk):
         self._region_editor: OcrRegionEditor | None = None
         self._hud: GameHudOverlay | None = None
         self._price_overlay: ItemPriceOverlay | None = None
+        self._tooltip_debug_overlay: TooltipDebugOverlay | None = None
         self._inventory_watch = False
         self._inventory_stop = threading.Event()
         self._inventory_thread: threading.Thread | None = None
@@ -717,6 +719,25 @@ class ClientApp(tk.Tk):
 
         hotkey_lf.columnconfigure(1, weight=1)
 
+        # Inventory prices panel
+        inv_lf = ttk.LabelFrame(scrollable_frame, text=" Цены инвентаря ", padding=10)
+        inv_lf.pack(fill="x", padx=10, pady=5)
+
+        self.inventory_debug_frame_var = tk.BooleanVar()
+        ttk.Checkbutton(
+            inv_lf,
+            text="Тестировать: показывать рамку захвата названия предмета (Tab)",
+            variable=self.inventory_debug_frame_var,
+            command=self._on_inventory_debug_frame_toggle,
+            style="Card.TCheckbutton",
+        ).pack(anchor="w", pady=(2, 4))
+        ttk.Label(
+            inv_lf,
+            text="Включите Tab в игре. Голубая рамка — область поиска, зелёная — основной захват, жёлтые — запасные.",
+            style="CardMuted.TLabel",
+            wraplength=520,
+        ).pack(anchor="w")
+
         # Mouse Nudge Panel
         nudge_lf = ttk.LabelFrame(scrollable_frame, text=" Сдвиг курсора мыши перед OCR ", padding=10)
         nudge_lf.pack(fill="x", padx=10, pady=5)
@@ -1055,6 +1076,7 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_delay_var.set(str(self.cfg.get("mouse_nudge_delay_ms", 400)))
         self.mouse_nudge_offset_var.set(str(self.cfg.get("mouse_nudge_edge_offset", 8)))
         self.mouse_nudge_restore_var.set(self.cfg.get("mouse_nudge_restore", True))
+        self.inventory_debug_frame_var.set(self.cfg.get("inventory_price_debug_frame", False))
         self._update_help_labels()
 
     def _update_help_labels(self) -> None:
@@ -1336,6 +1358,7 @@ class ClientApp(tk.Tk):
                 "mouse_nudge_delay_ms": delay,
                 "mouse_nudge_edge_offset": offset,
                 "mouse_nudge_restore": self.mouse_nudge_restore_var.get(),
+                "inventory_price_debug_frame": self.inventory_debug_frame_var.get(),
             }
         )
         save_config(self.cfg)
@@ -1565,6 +1588,31 @@ class ClientApp(tk.Tk):
         else:
             overlay.show_not_found(item_name)
 
+    def _ensure_tooltip_debug_overlay(self) -> TooltipDebugOverlay:
+        if self._tooltip_debug_overlay is None:
+            self._tooltip_debug_overlay = TooltipDebugOverlay(self, self._monitor_index)
+        return self._tooltip_debug_overlay
+
+    def _on_inventory_debug_frame_toggle(self) -> None:
+        enabled = bool(self.inventory_debug_frame_var.get())
+        self.cfg["inventory_price_debug_frame"] = enabled
+        if not enabled:
+            self._ensure_tooltip_debug_overlay().hide()
+
+    def _show_tooltip_debug_frames(
+        self,
+        regions: list[tuple[int, int, int, int]],
+        search: tuple[int, int, int, int] | None,
+    ) -> None:
+        if not self.cfg.get("inventory_price_debug_frame") or not self._inventory_watch:
+            self._ensure_tooltip_debug_overlay().hide()
+            return
+        overlay = self._ensure_tooltip_debug_overlay()
+        if not regions and search is None:
+            overlay.hide()
+            return
+        overlay.show(search, regions)
+
     def _inventory_search_status(self, phase: str) -> None:
         if not self._inventory_watch or phase != "hint":
             return
@@ -1583,6 +1631,10 @@ class ClientApp(tk.Tk):
                 name = read_item_name_at_cursor(
                     self.cfg,
                     on_search=lambda t: self.after(0, lambda msg=t: self._inventory_search_status(msg)),
+                    on_debug_regions=lambda regions, search: self.after(
+                        0,
+                        lambda r=regions, s=search: self._show_tooltip_debug_frames(r, s),
+                    ),
                 )
                 if name != last_name:
                     last_name = name
@@ -1638,6 +1690,7 @@ class ClientApp(tk.Tk):
         self._inventory_watch = False
         self._inventory_stop.set()
         self._ensure_price_overlay().hide()
+        self._ensure_tooltip_debug_overlay().hide()
         if self._hud:
             self._hud.hide()
         if log and was_active:
@@ -2384,6 +2437,9 @@ class ClientApp(tk.Tk):
         if self._price_overlay:
             self._price_overlay.destroy()
             self._price_overlay = None
+        if self._tooltip_debug_overlay:
+            self._tooltip_debug_overlay.destroy()
+            self._tooltip_debug_overlay = None
         if self._hud:
             self._hud.destroy()
         if self.hotkeys_active:

@@ -160,16 +160,17 @@ def pick_best_name(names: list[str]) -> str | None:
     return valid[0]
 
 
-def _ocr_regions(search: SearchArea) -> list[str]:
+def _sorted_title_regions(search: SearchArea) -> list[tuple[int, int, int, int]]:
     from item_tooltip_locator import region_ocr_priority
 
-    names: list[str] = []
     regions = find_title_regions_in_search(search)
-    regions.sort(
-        key=lambda box: region_ocr_priority(search, box),
-        reverse=True,
-    )
-    for box in regions[:6]:
+    regions.sort(key=lambda box: region_ocr_priority(search, box), reverse=True)
+    return regions
+
+
+def _ocr_regions(search: SearchArea) -> list[str]:
+    names: list[str] = []
+    for box in _sorted_title_regions(search)[:6]:
         crop = search.image.crop(box)
         name = recognize_tooltip_text(crop)
         if name and is_valid_item_name(name):
@@ -181,14 +182,34 @@ def read_item_name_at_cursor(
     cfg: dict,
     *,
     on_search: Callable[[str], None] | None = None,
+    on_debug_regions: Callable[
+        [list[tuple[int, int, int, int]], tuple[int, int, int, int] | None],
+        None,
+    ]
+    | None = None,
 ) -> str | None:
+    debug = bool(cfg.get("inventory_price_debug_frame")) and on_debug_regions is not None
+
     search = grab_tooltip_search_area(cfg)
     if search is None:
+        if debug:
+            on_debug_regions([], None)
         if on_search:
             on_search("hint")
         return None
 
-    names = _ocr_regions(search)
+    regions = _sorted_title_regions(search)
+    if debug:
+        w, h = search.image.size
+        search_box = (search.origin_x, search.origin_y, search.origin_x + w, search.origin_y + h)
+        on_debug_regions(regions[:6], search_box)
+
+    names: list[str] = []
+    for box in regions[:6]:
+        crop = search.image.crop(box)
+        name = recognize_tooltip_text(crop)
+        if name and is_valid_item_name(name):
+            names.append(name)
     name = pick_best_name(names)
     if not is_valid_item_name(name):
         if on_search:
