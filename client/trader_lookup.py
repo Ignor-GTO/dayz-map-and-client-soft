@@ -85,5 +85,14 @@ def lookup_item_price(server_url: str, map_slug: str, item_name: str) -> dict | 
     short = name.split()[0] if " " in name else name
     if short != name and len(short) >= 3:
         items = search_trader_items(server_url, map_slug, short, limit=15)
-        return pick_best_match(name, items)
+        match = pick_best_match(name, items)
+        if match:
+            return match
+    if "/" in name:
+        token = name.split("/")[-1].split()[0]
+        if len(token) >= 3:
+            items = search_trader_items(server_url, map_slug, token, limit=15)
+            match = pick_best_match(name, items)
+            if match:
+                return match
     return None

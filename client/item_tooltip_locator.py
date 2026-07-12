@@ -20,17 +20,47 @@ class SearchArea:
     cursor_y: int
 
 
-# Typical tooltip title offsets in DayZ / STALKER inventory UI.
-_CANDIDATE_TITLE_BOXES = (
-    (18, -96, 520, 56),
+# Cursor-relative title strips (grid hover / hands / center tooltip).
+_CURSOR_TITLE_BOXES = (
+    (-320, -50, 420, 52),
+    (-280, -20, 440, 48),
+    (-360, 10, 400, 50),
+    (-240, 30, 460, 54),
+    (20, -96, 520, 56),
     (28, -82, 540, 54),
-    (10, -112, 500, 58),
-    (36, -68, 520, 52),
     (-110, 24, 540, 56),
-    (-140, -36, 520, 54),
     (-40, 48, 520, 56),
-    (60, -88, 480, 50),
 )
+
+
+def region_ocr_priority(box: tuple[int, int, int, int], w: int, h: int) -> float:
+    x0, y0, x1, y1 = box
+    bw = x1 - x0
+    bh = y1 - y0
+    mid_y = (y0 + y1) / 2.0 / max(h, 1)
+    score = 0.0
+    if y0 < h * 0.13:
+        score -= 5000
+    if y0 < h * 0.2 and x0 > w * 0.5:
+        score -= 4000
+    if 0.2 <= mid_y <= 0.78:
+        score += 1200
+    if 120 <= bw <= 520:
+        score += 900
+    if bw > 560:
+        score -= 400
+    if 36 <= bh <= 72:
+        score += 300
+    return score
+
+
+def _region_excluded(box: tuple[int, int, int, int], w: int, h: int) -> bool:
+    x0, y0, x1, y1 = box
+    if y1 <= h * 0.12:
+        return True
+    if y0 < h * 0.18 and x0 > w * 0.52:
+        return True
+    return False
 
 
 def _dark_mask(rgb: np.ndarray) -> np.ndarray:
@@ -65,14 +95,12 @@ def grab_tooltip_search_area(cfg: dict) -> SearchArea | None:
     mode = str(search_cfg.get("mode", "center")).strip().lower()
 
     if mode == "center":
-        # Inventory tooltip in DayZ/STALKER mods often opens in screen center,
-        # far from the hovered grid cell — grab a large central band.
-        mx = int(search_cfg.get("margin_x", max(48, int(mon.width * 0.12))))
-        my = int(search_cfg.get("margin_y", max(36, int(mon.height * 0.06))))
+        mx = int(search_cfg.get("margin_x", max(48, int(mon.width * 0.10))))
+        my = int(search_cfg.get("margin_y", max(72, int(mon.height * 0.14))))
         left = mx
         top = my
         right = mon.width - mx
-        bottom = mon.height - my
+        bottom = mon.height - max(36, int(mon.height * 0.05))
     else:
         pad_left = int(search_cfg.get("left", 420))
         pad_right = int(search_cfg.get("right", 220))
@@ -266,14 +294,16 @@ def _find_title_row_boxes(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
                 continue
 
             score = pixels + bw + bg * 100.0 + row_span * 20.0 - top * 2.5
-            if top < 72:
-                score -= 220
+            if top < h * 0.13:
+                score -= 800
+            if top < h * 0.2 and x0 > w * 0.5:
+                score -= 700
             if bw > w * 0.75:
                 score -= 350
-            if 100 <= bw <= 620:
-                score += 160
-            if top >= 100:
-                score += 80
+            if 120 <= bw <= 520:
+                score += 420
+            if 0.22 * h <= top <= 0.78 * h:
+                score += 350
 
             box = _clamp_box(max(0, x0 - 10), top, min(w, x1 + 12), max(top + 40, bottom), w, h)
             if box:
@@ -290,26 +320,29 @@ def find_title_regions_in_search(search: SearchArea) -> list[tuple[int, int, int
     h, w = rgb.shape[:2]
     boxes: list[tuple[int, int, int, int]] = []
 
-    panel = _find_dark_panel_bbox(rgb, search.cursor_x, search.cursor_y)
-    if panel and panel[1] >= 80:
-        title = _title_box_from_panel(panel, w, h)
-        if title:
-            boxes.append(title)
-
-    for box in _find_title_row_boxes(rgb):
-        boxes.append(box)
-
-    for dx, dy, rw, rh in _CANDIDATE_TITLE_BOXES:
+    for dx, dy, rw, rh in _CURSOR_TITLE_BOXES:
         x0 = search.cursor_x + dx
         y0 = search.cursor_y + dy
         box = _clamp_box(x0, y0, x0 + rw, y0 + rh, w, h)
-        if box:
+        if box and not _region_excluded(box, w, h):
             x0, y0, x1, y1 = box
             band = rgb[y0:y1, x0:x1]
             if _title_only_mask(band).sum() >= 24:
                 boxes.append(box)
 
-    return _dedupe_boxes(boxes)
+    panel = _find_dark_panel_bbox(rgb, search.cursor_x, search.cursor_y)
+    if panel and panel[1] >= int(h * 0.12):
+        title = _title_box_from_panel(panel, w, h)
+        if title and not _region_excluded(title, w, h):
+            boxes.append(title)
+
+    for box in _find_title_row_boxes(rgb):
+        if not _region_excluded(box, w, h):
+            boxes.append(box)
+
+    deduped = _dedupe_boxes(boxes)
+    deduped.sort(key=lambda b: region_ocr_priority(b, w, h), reverse=True)
+    return deduped
 
 
 def find_tooltip_region(cfg: dict) -> tuple[tuple[int, int, int, int] | None, str]:

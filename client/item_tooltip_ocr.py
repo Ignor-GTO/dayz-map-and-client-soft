@@ -11,9 +11,16 @@ from item_tooltip_locator import SearchArea, find_title_regions_in_search, grab_
 from item_tooltip_preprocess import preprocess_tooltip_variants
 
 
+_HUD_GARBAGE_RE = re.compile(
+    r"(\[\s*T\s*\d|floor|удержив|tab\b|shift|ctrl|alt\b|win\b|esc\b|page\s*up|page\s*down|"
+    r"num\s*lock|caps|space|enter|click|double|mouse|клавиш|нажмите|удерж)",
+    re.IGNORECASE,
+)
 _SKIP_LINE_RE = re.compile(
     r"(нетронуто|не\s*тронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+|"
-    r"техническ|раскач|отдач|урон|состоян|снаряжение|экипиров|сервопривод|контейнер|руки|поблизости)",
+    r"техническ|раскач|отдач|урон|состоян|снаряжение|экипиров|сервопривод|контейнер|руки|поблизости|"
+    r"штан|артефакт|floor|удержив|какая-то\s+дичь|passive|battery|magnification|"
+    r"generation|optical|required|operation|army|container|artifact)",
     re.IGNORECASE,
 )
 _DESC_LINE_RE = re.compile(
@@ -50,6 +57,21 @@ def _line_score(line: str) -> tuple[int, int, int]:
     latin = len(re.findall(r"[A-Za-z]", line))
     alnum = len(re.findall(r"[\wА-Яа-яЁё]", line))
     return (cyr + latin, alnum, len(line))
+
+
+def _name_quality_score(name: str) -> tuple[int, int, int]:
+    line = name.strip()
+    score = _line_score(line)
+    bonus = 0
+    if _HUD_GARBAGE_RE.search(line):
+        bonus -= 1000
+    if "[" in line or "]" in line:
+        bonus -= 500
+    if "/" in line or "-" in line:
+        bonus += 80
+    if re.search(r"\d", line) and re.search(r"[A-Za-zА-Яа-яЁё]", line):
+        bonus += 40
+    return (score[0] + bonus, score[1], score[2])
 
 
 def _upscale_raw(image: Image.Image) -> Image.Image:
@@ -105,6 +127,10 @@ def is_valid_item_name(name: str | None) -> bool:
         return False
     if _DESC_LINE_RE.match(line):
         return False
+    if _HUD_GARBAGE_RE.search(line):
+        return False
+    if re.search(r"[\[\]]", line):
+        return False
     return bool(re.search(r"[\wА-Яа-яЁё]", line))
 
 
@@ -130,16 +156,23 @@ def pick_best_name(names: list[str]) -> str | None:
         valid.append(name)
     if not valid:
         return None
-    valid.sort(key=_line_score, reverse=True)
+    valid.sort(key=_name_quality_score, reverse=True)
     return valid[0]
 
 
 def _ocr_regions(search: SearchArea) -> list[str]:
+    from item_tooltip_locator import region_ocr_priority
+
     names: list[str] = []
-    for box in find_title_regions_in_search(search)[:5]:
+    regions = find_title_regions_in_search(search)
+    regions.sort(
+        key=lambda box: region_ocr_priority(box, search.image.width, search.image.height),
+        reverse=True,
+    )
+    for box in regions[:6]:
         crop = search.image.crop(box)
         name = recognize_tooltip_text(crop)
-        if name:
+        if name and is_valid_item_name(name):
             names.append(name)
     return names
 
