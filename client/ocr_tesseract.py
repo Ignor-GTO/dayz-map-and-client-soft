@@ -62,3 +62,33 @@ def recognize_digits_all(image: Image.Image) -> list[str]:
 def recognize_digits(image: Image.Image) -> str:
     parts = recognize_digits_all(image)
     return parts[0] if parts else ""
+
+
+_TESS_TEXT_CONFIGS = (
+    ("rus+eng", "--oem 1 --psm 7"),
+    ("rus+eng", "--oem 1 --psm 6"),
+    ("eng+rus", "--oem 1 --psm 13"),
+    ("rus", "--oem 1 --psm 7"),
+    ("eng", "--oem 1 --psm 7"),
+)
+
+
+def recognize_general_text(image: Image.Image) -> str:
+    """Full-text OCR for item names (not digit-only)."""
+    import pytesseract
+
+    cmd = tesseract_cmd()
+    if not cmd:
+        return ""
+    pytesseract.pytesseract.tesseract_cmd = cmd
+    rgb = image.convert("RGB")
+    seen: set[str] = set()
+    for lang, cfg in _TESS_TEXT_CONFIGS:
+        try:
+            text = pytesseract.image_to_string(rgb, lang=lang, config=cfg).strip()
+        except Exception:
+            continue
+        if text and text not in seen:
+            seen.add(text)
+            return text
+    return ""

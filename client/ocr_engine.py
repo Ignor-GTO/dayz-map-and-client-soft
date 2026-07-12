@@ -18,7 +18,9 @@ _ocr_loop: asyncio.AbstractEventLoop | None = None
 _ocr_thread: threading.Thread | None = None
 _ocr_lock = threading.Lock()
 _windows_engine = None
+_windows_general_engine = None
 _engine_lock = threading.Lock()
+_general_engine_lock = threading.Lock()
 _backend_name: str | None = None
 _use_windows = False
 
@@ -200,16 +202,41 @@ def recognize_text_all(image: Image.Image) -> list[str]:
     return out
 
 
+def _get_windows_general_engine():
+    """Windows OCR for arbitrary text, independent of digit-only Tesseract."""
+    global _windows_general_engine
+    with _general_engine_lock:
+        if _windows_general_engine is None:
+            try:
+                _windows_general_engine = _create_windows_ocr_engine()
+            except Exception:
+                _windows_general_engine = False
+        if _windows_general_engine is False:
+            return None
+        return _windows_general_engine
+
+
 def recognize_general_text(image: Image.Image) -> str:
-    """OCR for arbitrary text (item names, labels). Skips digit-only Tesseract."""
-    ensure_ocr_backend()
-    if _use_windows:
+    """OCR for arbitrary text (item names). Never uses digit-only Tesseract."""
+    engine = _get_windows_general_engine()
+    if engine is not None:
         try:
             loop = _ensure_ocr_loop()
             future = asyncio.run_coroutine_threadsafe(_recognize_windows_async(image), loop)
-            return future.result(timeout=30).strip()
+            text = future.result(timeout=30).strip()
+            if text:
+                return text
         except Exception:
             pass
+
+    from ocr_tesseract import is_available as tesseract_available
+    from ocr_tesseract import recognize_general_text as tesseract_general_text
+
+    if tesseract_available():
+        text = tesseract_general_text(image)
+        if text:
+            return text
+
     try:
         return recognize_text_fallback(image).strip()
     except Exception:

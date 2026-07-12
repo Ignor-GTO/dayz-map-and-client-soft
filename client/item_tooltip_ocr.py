@@ -7,13 +7,13 @@ from typing import Callable
 
 from PIL import Image, ImageEnhance
 
-from capture import grab_region
-from item_tooltip_locator import find_tooltip_region
+from item_tooltip_locator import SearchArea, find_title_regions_in_search, grab_tooltip_search_area
 from item_tooltip_preprocess import preprocess_tooltip_variants
 
 
 _SKIP_LINE_RE = re.compile(
-    r"(нетронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+)",
+    r"(нетронуто|не\s*тронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+|"
+    r"техническ|раскач|отдач|урон|состоян|снаряжение|экипиров|сервопривод|контейнер|руки|поблизости)",
     re.IGNORECASE,
 )
 _DESC_LINE_RE = re.compile(
@@ -49,16 +49,16 @@ def _line_score(line: str) -> tuple[int, int, int]:
     cyr = len(re.findall(r"[А-Яа-яЁё]", line))
     latin = len(re.findall(r"[A-Za-z]", line))
     alnum = len(re.findall(r"[\wА-Яа-яЁё]", line))
-    return (cyr, alnum, -latin)
+    return (cyr + latin, alnum, len(line))
 
 
 def _upscale_raw(image: Image.Image) -> Image.Image:
     rgb = image.convert("RGB")
     w, h = rgb.size
-    scale = max(3, min(4, 220 // max(h, 1)))
+    scale = max(3, min(5, 260 // max(h, 1)))
     if scale > 1:
         rgb = rgb.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
-    return ImageEnhance.Contrast(rgb).enhance(1.12)
+    return ImageEnhance.Contrast(rgb).enhance(1.15)
 
 
 def _recognize_tooltip_variant(prepared: Image.Image) -> str:
@@ -80,12 +80,12 @@ def recognize_tooltip_text(image: Image.Image) -> str:
         if name:
             names.append(name)
 
-    best = pick_best_name(names)
-    return best or ""
+    return pick_best_name(names) or ""
 
 
 def normalize_item_name(name: str) -> str:
     cleaned = re.sub(r"\s+", " ", str(name or "").strip())
+    cleaned = cleaned.strip("·|•-— ")
     return cleaned.translate(_LATIN_CONFUSABLES)
 
 
@@ -109,25 +109,39 @@ def is_valid_item_name(name: str | None) -> bool:
 
 
 def extract_item_name(ocr_text: str) -> str | None:
+    """Tooltip title is always the first valid line top-to-bottom."""
     lines = [ln.strip() for ln in ocr_text.replace("\r", "\n").split("\n") if ln.strip()]
-    candidates: list[str] = []
     for line in lines:
         cleaned = normalize_item_name(line)
-        if not is_valid_item_name(cleaned):
-            continue
-        candidates.append(cleaned)
-    if not candidates:
-        return None
-    candidates.sort(key=_line_score, reverse=True)
-    return candidates[0]
+        if is_valid_item_name(cleaned):
+            return cleaned
+    return None
 
 
 def pick_best_name(names: list[str]) -> str | None:
-    valid = [normalize_item_name(n) for n in names if is_valid_item_name(normalize_item_name(n))]
+    valid: list[str] = []
+    seen: set[str] = set()
+    for raw in names:
+        name = normalize_item_name(raw)
+        key = name.casefold()
+        if not is_valid_item_name(name) or key in seen:
+            continue
+        seen.add(key)
+        valid.append(name)
     if not valid:
         return None
     valid.sort(key=_line_score, reverse=True)
     return valid[0]
+
+
+def _ocr_regions(search: SearchArea) -> list[str]:
+    names: list[str] = []
+    for box in find_title_regions_in_search(search)[:5]:
+        crop = search.image.crop(box)
+        name = recognize_tooltip_text(crop)
+        if name:
+            names.append(name)
+    return names
 
 
 def read_item_name_at_cursor(
@@ -135,16 +149,16 @@ def read_item_name_at_cursor(
     *,
     on_search: Callable[[str], None] | None = None,
 ) -> str | None:
-    region, _method = find_tooltip_region(cfg)
-    if region is None:
+    search = grab_tooltip_search_area(cfg)
+    if search is None:
         if on_search:
             on_search("hint")
         return None
 
-    image = grab_region(int(cfg.get("monitor_index", 1)), region)
-    if image is None:
-        return None
-    name = recognize_tooltip_text(image)
+    names = _ocr_regions(search)
+    name = pick_best_name(names)
     if not is_valid_item_name(name):
+        if on_search:
+            on_search("hint")
         return None
     return normalize_item_name(name or "")

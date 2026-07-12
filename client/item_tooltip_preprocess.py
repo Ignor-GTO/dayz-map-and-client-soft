@@ -48,8 +48,19 @@ def preprocess_tooltip_color_boost(image: Image.Image) -> Image.Image:
     return _upscale(gray)
 
 
+def preprocess_tooltip_white(image: Image.Image) -> Image.Image:
+    """White item title on dark tooltip (e.g. ASH-12)."""
+    rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    white = (red >= 175) & (green >= 175) & (blue >= 175)
+    binary = np.where(white, 255, 0).astype(np.uint8)
+    gray = Image.fromarray(binary, mode="L")
+    return _upscale(gray)
+
+
 def preprocess_tooltip_variants(image: Image.Image) -> list[Image.Image]:
     return [
+        preprocess_tooltip_white(image),
         preprocess_tooltip_color_boost(image),
         preprocess_tooltip_orange(image),
         preprocess_tooltip_high_contrast(image),
