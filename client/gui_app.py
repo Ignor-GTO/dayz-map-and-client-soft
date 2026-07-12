@@ -1676,7 +1676,7 @@ class ClientApp(tk.Tk):
             to_monitor_boxes,
         )
 
-        display_regions = regions[:6] or _cursor_fallback_regions(search, limit=4)
+        display_regions = regions[:3] or _cursor_fallback_regions(search, limit=2)
         self._show_tooltip_debug_frames(
             to_monitor_boxes(search, display_regions),
             search_monitor_rect(search),

@@ -235,23 +235,37 @@ def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> f
         score -= 4000
     if title_px < 35 or title_run < 24:
         score -= 12000
-    if title_px > 700:
+    if title_px > 2500:
         score -= 15000
-    if 60 <= title_px <= 420:
+    if 60 <= title_px <= 1200:
         score += 1200
+    if orange_px >= 80:
+        score += 2000
     if dark_ratio < 0.42:
         score -= 8000
-    if 120 <= bw <= 560 and 28 <= bh <= 78:
-        score += 900
+    if 140 <= bw <= 620 and 36 <= bh <= 78:
+        score += 1200
+    if bw < 100:
+        score -= 8000
     if _is_hud_strip(box, w_img):
         score -= 20000
     if _is_client_overlay_zone(search, box):
         score -= 30000
-    # Tooltip title is often horizontally aligned with hovered item.
     score -= x_delta * 1.8
     score -= dist * 0.6
+    y_mid = (y0 + y1) / 2.0
+    y_delta = abs(y_mid - search.cursor_y)
+    score -= y_delta * 1.0
     if x_delta <= 180:
         score += 500
+    if y_delta <= 90:
+        score += 700
+    if y0 > rgb.shape[0] * 0.72:
+        score -= 15000
+    if search.cursor_x > w_img * 0.52 and box_cx >= search.cursor_x - 60:
+        score += 900
+    if search.cursor_x > w_img * 0.52 and box_cx < search.cursor_x - 220:
+        score -= 2000
     if abs_y0 < 110:
         score -= 15000
     return score
@@ -268,11 +282,15 @@ def _region_excluded(search: SearchArea, box: tuple[int, int, int, int], rgb: np
     title_px, dark_ratio, title_run, orange_px = _title_stats(rgb, box)
     if title_px < 22 or title_run < 14:
         return True
-    if title_px > 700:
+    if title_px > 2500:
         return True
     if dark_ratio < 0.32:
         return True
     if (box[3] - box[1]) > 80 and orange_px < 20:
+        return True
+    if (box[2] - box[0]) < 90:
+        return True
+    if box[1] > rgb.shape[0] * 0.74:
         return True
     return False
 
@@ -286,8 +304,14 @@ def _finalize_title_region_box(
     x0, y0, x1, y1 = box
     if y1 - y0 > 64:
         y1 = y0 + 64
-    pad_x = 32
-    pad_y = 16
+    pad_x = 40
+    pad_y = 18
+    min_w = 200
+    bw = x1 - x0
+    if bw < min_w:
+        cx = (x0 + x1) // 2
+        x0 = max(0, cx - min_w // 2)
+        x1 = min(w, x0 + min_w)
     x0 = max(0, x0 - pad_x)
     x1 = min(w, x1 + pad_x)
     y0 = max(0, y0 - pad_y)
@@ -370,9 +394,9 @@ def _find_dark_panel_titles_global(search: SearchArea, *, step: int = 8) -> list
             title_px, dark_ratio, title_run, orange_px = _title_stats(rgb, title)
             if title_px < 35 or title_run < 20 or dark_ratio < 0.42:
                 continue
-            if orange_px < 12 and title_run < 48:
+            if title_px > 2500:
                 continue
-            if title_px > 700:
+            if orange_px < 12 and title_run < 48:
                 continue
 
             dist = _cursor_distance(title, rel_cursor_x, rel_cursor_y)
@@ -452,7 +476,7 @@ def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int
             if _is_client_overlay_zone(search, box):
                 continue
             title_px = int(title[top:bottom, x0 : x1 + 1].sum())
-            if title_px > 700:
+            if title_px > 2500:
                 continue
             dist = _cursor_distance(box, rel_cursor_x, rel_cursor_y)
             score = title_px * 10.0 + bw * 2.0 + bg * 800.0 - dist * 1.2

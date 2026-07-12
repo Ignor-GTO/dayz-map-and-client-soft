@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Callable
 
+import numpy as np
 from PIL import Image, ImageEnhance
 
 from item_tooltip_locator import (
