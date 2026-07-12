@@ -16,8 +16,11 @@ from capture import grab_region, list_monitors
 from clipboard_util import grab_clipboard_image, grab_clipboard_text, prepare_coord_image
 from config import load_config, normalize_hotkey_token, save_config
 from ocr import extract_coordinates, extract_coordinates_with_text, parse_coordinates
+from price_overlay import ItemPriceOverlay
 from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
+from item_tooltip_ocr import read_item_name_at_cursor
+from trader_lookup import lookup_item_price
 from ocr_preprocess import IZURVIVE_OCR_REGION
 from version import __version__
 
@@ -80,6 +83,11 @@ class ClientApp(tk.Tk):
         self._clipboard_watch_digest: str | None = None
         self._region_editor: OcrRegionEditor | None = None
         self._hud: GameHudOverlay | None = None
+        self._price_overlay: ItemPriceOverlay | None = None
+        self._inventory_watch = False
+        self._inventory_stop = threading.Event()
+        self._inventory_thread: threading.Thread | None = None
+        self._inventory_price_cache: dict[str, dict | None] = {}
         self.current_page = 0
 
         # Clean up old updater files if they exist
@@ -1535,6 +1543,85 @@ class ClientApp(tk.Tk):
             ),
         )
 
+    def _ensure_price_overlay(self) -> ItemPriceOverlay:
+        if self._price_overlay is None:
+            self._price_overlay = ItemPriceOverlay(self, self._monitor_index)
+        return self._price_overlay
+
+    def _update_price_overlay(self, item_name: str, match: dict | None) -> None:
+        overlay = self._ensure_price_overlay()
+        if not item_name:
+            overlay.hide()
+            return
+        if match:
+            overlay.show_price(
+                item_name,
+                int(match.get("buy_price") or 0),
+                int(match.get("sell_price") or 0),
+                str(match.get("trader") or ""),
+            )
+        else:
+            overlay.show_not_found(item_name)
+
+    def _inventory_watch_loop(self) -> None:
+        last_name: str | None = None
+        poll_s = max(0.25, int(self.cfg.get("inventory_poll_ms", 450)) / 1000.0)
+        server = str(self.cfg.get("server_url") or "").strip()
+        map_slug = str(self.cfg.get("map_slug") or "pripyat").strip()
+        while not self._inventory_stop.is_set():
+            try:
+                name = read_item_name_at_cursor(self.cfg)
+                if name != last_name:
+                    last_name = name
+                    if not name:
+                        self.after(0, lambda: self._ensure_price_overlay().hide())
+                    else:
+                        cache_key = name.casefold()
+                        if cache_key not in self._inventory_price_cache:
+                            try:
+                                self._inventory_price_cache[cache_key] = lookup_item_price(
+                                    server, map_slug, name
+                                )
+                            except Exception as exc:
+                                self.after(0, lambda e=exc: self.log_line(f"[Цены] API: {e}"))
+                                self._inventory_price_cache[cache_key] = None
+                        match = self._inventory_price_cache.get(cache_key)
+                        self.after(0, lambda n=name, m=match: self._update_price_overlay(n, m))
+            except Exception as exc:
+                self.after(0, lambda e=exc: self.log_line(f"[Цены] OCR: {e}"))
+            self._inventory_stop.wait(poll_s)
+
+    def _start_inventory_watch(self) -> None:
+        if self._inventory_thread and self._inventory_thread.is_alive():
+            return
+        self._inventory_stop.clear()
+        self._inventory_thread = threading.Thread(
+            target=self._inventory_watch_loop,
+            name="inventory-price-watch",
+            daemon=True,
+        )
+        self._inventory_thread.start()
+
+    def _stop_inventory_watch(self) -> None:
+        self._inventory_watch = False
+        self._inventory_stop.set()
+        self._ensure_price_overlay().hide()
+
+    def _toggle_inventory_price_watch(self) -> None:
+        self._inventory_watch = not self._inventory_watch
+        if self._inventory_watch:
+            self._inventory_price_cache.clear()
+            self._start_inventory_watch()
+            self.log_line("[Цены] Инвентарь: слежение включено (Tab — выкл)")
+        else:
+            self._stop_inventory_watch()
+            self.log_line("[Цены] Инвентарь: слежение выключено")
+
+    def _handle_inventory_price_hotkey(self) -> None:
+        if not self.hotkeys_active:
+            return
+        self._toggle_inventory_price_watch()
+
     def _ensure_hud(self) -> GameHudOverlay:
         if self._hud is None:
             self._hud = GameHudOverlay(self, self._monitor_index)
@@ -1809,6 +1896,15 @@ class ClientApp(tk.Tk):
             for hk in self.cfg.get("hotkey_focus_me", ["end"]):
                 if hk.strip():
                     keyboard.add_hotkey(hk.strip().lower(), lambda: self.after(0, self._handle_focus_me_hotkey), suppress=False)
+
+            if self.cfg.get("inventory_price_enabled", True):
+                for hk in self.cfg.get("hotkey_inventory_price", ["tab"]):
+                    if hk.strip():
+                        keyboard.add_hotkey(
+                            hk.strip().lower(),
+                            lambda: self.after(0, self._handle_inventory_price_hotkey),
+                            suppress=False,
+                        )
         except Exception as exc:
             self.hotkeys_active = False
             self._stop_clipboard.set()
@@ -1829,12 +1925,14 @@ class ClientApp(tk.Tk):
             f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
             f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}, "
             f"на себя: {', '.join(self.cfg.get('hotkey_focus_me', ['end'])).upper()}; "
+            f"цены инвентаря: {', '.join(self.cfg.get('hotkey_inventory_price', ['tab'])).upper()}; "
             f"Win+Shift+S — авто из буфера"
         )
 
     def stop_hotkeys(self) -> None:
         if not self.hotkeys_active:
             return
+        self._stop_inventory_watch()
         self.hotkeys_active = False
         self._end_map_session(silent=True)
         self._stop_clipboard.set()
@@ -2239,6 +2337,10 @@ class ClientApp(tk.Tk):
     def on_close(self) -> None:
         if self._region_editor and self._region_editor.active:
             self._region_editor.stop()
+        self._stop_inventory_watch()
+        if self._price_overlay:
+            self._price_overlay.destroy()
+            self._price_overlay = None
         if self._hud:
             self._hud.destroy()
         if self.hotkeys_active:

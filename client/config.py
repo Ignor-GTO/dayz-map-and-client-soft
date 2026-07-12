@@ -52,6 +52,10 @@ DEFAULT_CONFIG = {
     "hotkey_zoom_in": ["page up"],
     "hotkey_zoom_out": ["page down"],
     "hotkey_focus_me": ["end"],
+    "hotkey_inventory_price": ["tab"],
+    "map_slug": "pripyat",
+    "inventory_poll_ms": 450,
+    "item_tooltip_capture": {"dx": 24, "dy": -90, "w": 420, "h": 72},
     "ocr_preprocess_mode": "auto",
 }
 
@@ -87,6 +91,7 @@ def load_config() -> dict:
                         "hotkey_zoom_in",
                         "hotkey_zoom_out",
                         "hotkey_focus_me",
+                        "hotkey_inventory_price",
                     ):
                         if key in loaded and isinstance(loaded[key], list):
                             loaded[key] = normalize_hotkey_list(loaded[key])
@@ -100,6 +105,7 @@ def load_config() -> dict:
                         "hotkey_zoom_in",
                         "hotkey_zoom_out",
                         "hotkey_focus_me",
+                        "hotkey_inventory_price",
                     ):
                         if key in loaded and isinstance(loaded[key], list):
                             loaded[key] = [
