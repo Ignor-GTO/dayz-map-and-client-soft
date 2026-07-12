@@ -166,7 +166,7 @@ def _ocr_regions(search: SearchArea) -> list[str]:
     names: list[str] = []
     regions = find_title_regions_in_search(search)
     regions.sort(
-        key=lambda box: region_ocr_priority(box, search.image.width, search.image.height),
+        key=lambda box: region_ocr_priority(search, box),
         reverse=True,
     )
     for box in regions[:6]:

@@ -1,4 +1,4 @@
-"""Locate DayZ inventory tooltip panel and title strip near the cursor."""
+"""Locate DayZ inventory tooltip title strip near the cursor."""
 
 from __future__ import annotations
 
@@ -20,45 +20,72 @@ class SearchArea:
     cursor_y: int
 
 
-# Cursor-relative title strips (grid hover / hands / center tooltip).
+# Tooltip title strip offsets from hovered item (dx, dy, width, height).
+# DayZ opens the panel beside the cursor — position depends on grid cell.
 _CURSOR_TITLE_BOXES = (
-    (-320, -50, 420, 52),
-    (-280, -20, 440, 48),
-    (-360, 10, 400, 50),
-    (-240, 30, 460, 54),
-    (20, -96, 520, 56),
-    (28, -82, 540, 54),
-    (-110, 24, 540, 56),
-    (-40, 48, 520, 56),
+    (12, -108, 520, 58),
+    (20, -88, 540, 54),
+    (28, -68, 500, 52),
+    (8, -128, 560, 60),
+    (36, -48, 480, 50),
+    (-400, -96, 420, 54),
+    (-360, -72, 440, 52),
+    (-440, -48, 400, 50),
+    (-320, -112, 460, 56),
+    (-72, 20, 520, 56),
+    (-120, 36, 480, 54),
+    (-48, 52, 500, 56),
+    (-40, -152, 480, 54),
+    (0, -168, 520, 56),
+    (-200, -80, 500, 54),
+    (60, -96, 460, 52),
 )
 
 
-def region_ocr_priority(box: tuple[int, int, int, int], w: int, h: int) -> float:
+def _box_center(box: tuple[int, int, int, int]) -> tuple[float, float]:
     x0, y0, x1, y1 = box
+    return (x0 + x1) / 2.0, (y0 + y1) / 2.0
+
+
+def _cursor_distance(box: tuple[int, int, int, int], cursor_x: int, cursor_y: int) -> float:
+    cx, cy = _box_center(box)
+    return ((cx - cursor_x) ** 2 + (cy - cursor_y) ** 2) ** 0.5
+
+
+def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> float:
+    """Higher = OCR this region first. Primary signal: distance to cursor."""
+    x0, y0, x1, y1 = box
+    w, h = search.image.size
     bw = x1 - x0
     bh = y1 - y0
-    mid_y = (y0 + y1) / 2.0 / max(h, 1)
-    score = 0.0
-    if y0 < h * 0.13:
-        score -= 5000
-    if y0 < h * 0.2 and x0 > w * 0.5:
-        score -= 4000
-    if 0.2 <= mid_y <= 0.78:
-        score += 1200
-    if 120 <= bw <= 520:
-        score += 900
-    if bw > 560:
-        score -= 400
-    if 36 <= bh <= 72:
-        score += 300
+    dist = _cursor_distance(box, search.cursor_x, search.cursor_y)
+    abs_y0 = search.origin_y + y0
+    abs_x0 = search.origin_x + x0
+
+    score = 5000.0 - dist * 14.0
+    if dist <= 180:
+        score += 800
+    if dist <= 120:
+        score += 600
+    if 110 <= bw <= 540:
+        score += 500
+    if bw > 620:
+        score -= 350
+    if 34 <= bh <= 72:
+        score += 250
+    # Screen-top HUD / key hints (absolute coordinates).
+    if abs_y0 < 95:
+        score -= 6000
+    if abs_y0 < 130 and abs_x0 > search.origin_x + w * 0.45:
+        score -= 3500
     return score
 
 
-def _region_excluded(box: tuple[int, int, int, int], w: int, h: int) -> bool:
+def _region_excluded(search: SearchArea, box: tuple[int, int, int, int]) -> bool:
     x0, y0, x1, y1 = box
-    if y1 <= h * 0.12:
+    if search.origin_y + y1 < 80:
         return True
-    if y0 < h * 0.18 and x0 > w * 0.52:
+    if _cursor_distance(box, search.cursor_x, search.cursor_y) > 420:
         return True
     return False
 
@@ -92,7 +119,7 @@ def grab_tooltip_search_area(cfg: dict) -> SearchArea | None:
     cursor_y = cy - mon.top
 
     search_cfg = cfg.get("item_tooltip_search") or {}
-    mode = str(search_cfg.get("mode", "center")).strip().lower()
+    mode = str(search_cfg.get("mode", "cursor")).strip().lower()
 
     if mode == "center":
         mx = int(search_cfg.get("margin_x", max(48, int(mon.width * 0.10))))
@@ -102,10 +129,12 @@ def grab_tooltip_search_area(cfg: dict) -> SearchArea | None:
         right = mon.width - mx
         bottom = mon.height - max(36, int(mon.height * 0.05))
     else:
-        pad_left = int(search_cfg.get("left", 420))
-        pad_right = int(search_cfg.get("right", 220))
-        pad_up = int(search_cfg.get("up", 280))
-        pad_down = int(search_cfg.get("down", 220))
+        max_left = int(search_cfg.get("max_left", 480))
+        max_right = int(search_cfg.get("max_right", 580))
+        pad_left = max(int(search_cfg.get("left", 120)), max_left)
+        pad_right = max(int(search_cfg.get("right", 560)), max_right)
+        pad_up = int(search_cfg.get("up", 220))
+        pad_down = int(search_cfg.get("down", 300))
         left = max(0, cursor_x - pad_left)
         top = max(0, cursor_y - pad_up)
         right = min(mon.width, cursor_x + pad_right)
@@ -140,8 +169,8 @@ def _clamp_box(x0: int, y0: int, x1: int, y1: int, w: int, h: int) -> tuple[int,
 def _dedupe_boxes(boxes: list[tuple[int, int, int, int]]) -> list[tuple[int, int, int, int]]:
     out: list[tuple[int, int, int, int]] = []
     for box in boxes:
-        x0, y0, x1, y1 = box
         duplicate = False
+        x0, y0, x1, y1 = box
         for ox0, oy0, ox1, oy1 in out:
             ix0 = max(x0, ox0)
             iy0 = max(y0, oy0)
@@ -159,64 +188,75 @@ def _dedupe_boxes(boxes: list[tuple[int, int, int, int]]) -> list[tuple[int, int
     return out
 
 
-def _find_dark_panel_bbox(
+def _cursor_in_box(box: tuple[int, int, int, int], cursor_x: int, cursor_y: int) -> bool:
+    x0, y0, x1, y1 = box
+    return x0 <= cursor_x <= x1 and y0 <= cursor_y <= y1
+
+
+def _find_dark_panel_near_cursor(
     rgb: np.ndarray,
     rel_cursor_x: int,
     rel_cursor_y: int,
-) -> tuple[int, int, int, int] | None:
+) -> tuple[tuple[int, int, int, int] | None, tuple[int, int, int, int] | None]:
     dark = _dark_mask(rgb)
     h, w = dark.shape
-    best: tuple[int, int, int, int] | None = None
+    best_panel: tuple[int, int, int, int] | None = None
     best_score = -10**12
 
-    for ty in range(0, max(8, h - 90), 8):
-        for tx in range(0, max(8, w - 200), 8):
+    y_min = max(0, rel_cursor_y - 260)
+    y_max = min(h - 90, rel_cursor_y + 120)
+    x_min = max(0, rel_cursor_x - 480)
+    x_max = min(w - 200, rel_cursor_x + 120)
+
+    for ty in range(y_min, y_max, 8):
+        for tx in range(x_min, x_max, 8):
             if dark[ty : ty + 8, tx : tx + 24].mean() < 0.45:
                 continue
 
             rx = tx
-            for x in range(tx + 100, min(w, tx + 680), 6):
+            for x in range(tx + 100, min(w, tx + 620, rel_cursor_x + 560), 6):
                 col = dark[ty : min(h, ty + 44), max(tx, x - 10) : min(w, x + 10)].mean()
                 if col < 0.38:
                     break
                 rx = x
             bw = rx - tx
-            if bw < 220:
+            if bw < 180:
                 continue
 
             by = ty
-            for y in range(ty + 56, min(h, ty + 460), 8):
+            for y in range(ty + 56, min(h, ty + 420, ty + rel_cursor_y + 280), 8):
                 row = dark[y, tx : rx + 1].mean()
                 if row < 0.4:
                     by = y
                     break
                 by = y
             bh = by - ty
-            if bh < 90:
-                continue
-            if ty < 36:
+            if bh < 72:
                 continue
 
+            panel = (tx, ty, rx, by)
             title_band = rgb[ty : min(h, ty + 52), tx : rx + 1]
             title_pixels = int(_title_only_mask(title_band).sum())
-            if title_pixels < 35:
+            if title_pixels < 30:
                 continue
 
-            bx = (tx + rx) // 2
-            by_mid = ty + bh // 2
-            dist = abs(bx - rel_cursor_x) * 0.2 + abs(by_mid - rel_cursor_y) * 0.15
-            score = title_pixels * 28 + bw * min(bh, 280) - dist * 4
-            if ty >= 60:
-                score += 500
-            if 140 <= bw <= 620:
-                score += 350
-            if bh > h * 0.72:
-                score -= 60000
+            dist = _cursor_distance(panel, rel_cursor_x, rel_cursor_y)
+            if dist > 380 and not _cursor_in_box(panel, rel_cursor_x, rel_cursor_y):
+                continue
+
+            score = 4000 - dist * 12 + title_pixels * 8 + min(bw, 520)
+            if _cursor_in_box(panel, rel_cursor_x, rel_cursor_y):
+                score += 900
+            if bh > h * 0.75:
+                score -= 4000
             if score > best_score:
                 best_score = score
-                best = (tx, ty, rx, by)
+                best_panel = panel
 
-    return best
+    if best_panel is None:
+        return None, None
+    title = _title_box_from_panel(best_panel, w, h)
+    return best_panel, title
 
 
 def _title_box_from_panel(panel: tuple[int, int, int, int], w: int, h: int) -> tuple[int, int, int, int] | None:
@@ -244,15 +284,21 @@ def _clusters_from_row(row: np.ndarray, *, min_width: int = 8) -> list[tuple[int
     return clusters
 
 
-def _find_title_row_boxes(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
-    """Find tooltip title bands by white/orange text clusters on dark background."""
+def _find_title_row_boxes_near_cursor(
+    rgb: np.ndarray,
+    rel_cursor_x: int,
+    rel_cursor_y: int,
+) -> list[tuple[int, int, int, int]]:
     title = _title_only_mask(rgb)
     dark = _dark_mask(rgb)
     h, w = title.shape
     bands: list[tuple[float, tuple[int, int, int, int]]] = []
 
-    y = 0
-    while y < h:
+    y_lo = max(0, rel_cursor_y - 200)
+    y_hi = min(h - 1, rel_cursor_y + 100)
+
+    y = y_lo
+    while y <= y_hi:
         clusters = _clusters_from_row(title[y], min_width=10)
         if not clusters:
             y += 1
@@ -261,7 +307,7 @@ def _find_title_row_boxes(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
         y0 = y
         merged: dict[tuple[int, int], int] = {c: 1 for c in clusters}
         y1 = y + 1
-        while y1 < h:
+        while y1 <= y_hi:
             next_clusters = _clusters_from_row(title[y1], min_width=10)
             if not next_clusters:
                 break
@@ -279,10 +325,8 @@ def _find_title_row_boxes(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
             y1 += 1
 
         for (x0, x1), row_span in merged.items():
-            if row_span < 1:
-                continue
             bw = x1 - x0 + 1
-            if bw < 70 or bw > 680:
+            if bw < 70 or bw > 620:
                 continue
             top = max(0, y0 - 6)
             bottom = min(h, y1 + 8)
@@ -290,63 +334,51 @@ def _find_title_row_boxes(rgb: np.ndarray) -> list[tuple[int, int, int, int]]:
             if bg < 0.42:
                 continue
             pixels = int(title[top:bottom, x0 : x1 + 1].sum())
-            if pixels < 40:
+            if pixels < 35:
                 continue
 
-            score = pixels + bw + bg * 100.0 + row_span * 20.0 - top * 2.5
-            if top < h * 0.13:
-                score -= 800
-            if top < h * 0.2 and x0 > w * 0.5:
-                score -= 700
-            if bw > w * 0.75:
-                score -= 350
-            if 120 <= bw <= 520:
-                score += 420
-            if 0.22 * h <= top <= 0.78 * h:
-                score += 350
-
             box = _clamp_box(max(0, x0 - 10), top, min(w, x1 + 12), max(top + 40, bottom), w, h)
-            if box:
-                bands.append((score, box))
-        y = y1
+            if not box:
+                continue
+            dist = _cursor_distance(box, rel_cursor_x, rel_cursor_y)
+            if dist > 360:
+                continue
+            score = 3000 - dist * 10 + pixels + min(bw, 400)
+            bands.append((score, box))
+        y = max(y + 1, y1)
 
     bands.sort(key=lambda item: item[0], reverse=True)
     return [box for _, box in bands[:8]]
 
 
 def find_title_regions_in_search(search: SearchArea) -> list[tuple[int, int, int, int]]:
-    """Return local (L,T,R,B) title crops inside search.image, best first."""
+    """Return local (L,T,R,B) title crops, sorted by proximity to cursor."""
     rgb = np.asarray(search.image.convert("RGB"))
     h, w = rgb.shape[:2]
+    cx, cy = search.cursor_x, search.cursor_y
     boxes: list[tuple[int, int, int, int]] = []
 
     for dx, dy, rw, rh in _CURSOR_TITLE_BOXES:
-        x0 = search.cursor_x + dx
-        y0 = search.cursor_y + dy
-        box = _clamp_box(x0, y0, x0 + rw, y0 + rh, w, h)
-        if box and not _region_excluded(box, w, h):
+        box = _clamp_box(cx + dx, cy + dy, cx + dx + rw, cy + dy + rh, w, h)
+        if box and not _region_excluded(search, box):
             x0, y0, x1, y1 = box
-            band = rgb[y0:y1, x0:x1]
-            if _title_only_mask(band).sum() >= 24:
+            if _title_only_mask(rgb[y0:y1, x0:x1]).sum() >= 20:
                 boxes.append(box)
 
-    panel = _find_dark_panel_bbox(rgb, search.cursor_x, search.cursor_y)
-    if panel and panel[1] >= int(h * 0.12):
-        title = _title_box_from_panel(panel, w, h)
-        if title and not _region_excluded(title, w, h):
-            boxes.append(title)
+    _panel, title = _find_dark_panel_near_cursor(rgb, cx, cy)
+    if title and not _region_excluded(search, title):
+        boxes.append(title)
 
-    for box in _find_title_row_boxes(rgb):
-        if not _region_excluded(box, w, h):
+    for box in _find_title_row_boxes_near_cursor(rgb, cx, cy):
+        if not _region_excluded(search, box):
             boxes.append(box)
 
     deduped = _dedupe_boxes(boxes)
-    deduped.sort(key=lambda b: region_ocr_priority(b, w, h), reverse=True)
+    deduped.sort(key=lambda b: region_ocr_priority(search, b), reverse=True)
     return deduped
 
 
 def find_tooltip_region(cfg: dict) -> tuple[tuple[int, int, int, int] | None, str]:
-    """Legacy single-region API; prefers dark tooltip panel title strip."""
     search = grab_tooltip_search_area(cfg)
     if search is None:
         return None, "none"
@@ -361,4 +393,4 @@ def find_tooltip_region(cfg: dict) -> tuple[tuple[int, int, int, int] | None, st
         search.origin_y + y0,
         search.origin_x + x1,
         search.origin_y + y1,
-    ), "panel"
+    ), "cursor"
