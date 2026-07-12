@@ -11,11 +11,17 @@ from item_tooltip_locator import SearchArea, find_title_regions_in_search, grab_
 from item_tooltip_preprocess import preprocess_tooltip_variants
 
 
+_OVERLAY_GARBAGE_RE = re.compile(
+    r"(цены\s*инвентар|наведите\s*курсор|ищу\s*цен|цена\s*не\s*найдена|"
+    r"куп\s*:|прод\s*:|черный\s*рынок)",
+    re.IGNORECASE,
+)
 _HUD_GARBAGE_RE = re.compile(
     r"(\[\s*T\s*\d|floor|удержив|tab\b|shift|ctrl|alt\b|win\b|esc\b|page\s*up|page\s*down|"
     r"num\s*lock|caps|space|enter|click|double|mouse|клавиш|нажмите|удерж)",
     re.IGNORECASE,
 )
+_OCR_NOISE_RE = re.compile(r"^[0oоOО\s\W]{4,}$")
 _SKIP_LINE_RE = re.compile(
     r"(нетронуто|не\s*тронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+|"
     r"техническ|раскач|отдач|урон|состоян|снаряжение|экипиров|сервопривод|контейнер|руки|поблизости|"
@@ -65,6 +71,8 @@ def _name_quality_score(name: str) -> tuple[int, int, int]:
     bonus = 0
     if _HUD_GARBAGE_RE.search(line):
         bonus -= 1000
+    if _OVERLAY_GARBAGE_RE.search(line):
+        bonus -= 2000
     if "[" in line or "]" in line:
         bonus -= 500
     if "/" in line or "-" in line:
@@ -129,6 +137,15 @@ def is_valid_item_name(name: str | None) -> bool:
         return False
     if _HUD_GARBAGE_RE.search(line):
         return False
+    if _OVERLAY_GARBAGE_RE.search(line):
+        return False
+    if _OCR_NOISE_RE.match(line):
+        return False
+    letters = re.findall(r"[\wА-Яа-яЁё]", line)
+    if letters:
+        o_like = sum(1 for ch in letters if ch.lower() in {"o", "о", "0"})
+        if o_like / len(letters) > 0.55:
+            return False
     if re.search(r"[\[\]]", line):
         return False
     return bool(re.search(r"[\wА-Яа-яЁё]", line))
@@ -187,8 +204,12 @@ def read_item_name_at_cursor(
         None,
     ]
     | None = None,
+    before_capture: Callable[[], None] | None = None,
 ) -> str | None:
     debug = bool(cfg.get("inventory_price_debug_frame")) and on_debug_regions is not None
+
+    if before_capture:
+        before_capture()
 
     search = grab_tooltip_search_area(cfg)
     if search is None:

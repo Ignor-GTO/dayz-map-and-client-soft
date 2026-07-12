@@ -1636,6 +1636,30 @@ class ClientApp(tk.Tk):
             return
         self._ensure_tooltip_debug_overlay().show(search, regions)
 
+    def _ui_sync(self, fn, timeout: float = 0.45) -> None:
+        if threading.current_thread() is threading.main_thread():
+            fn()
+            return
+        done = threading.Event()
+
+        def run() -> None:
+            try:
+                fn()
+            finally:
+                done.set()
+
+        self.after(0, run)
+        done.wait(timeout)
+
+    def _prepare_inventory_screen_capture(self) -> None:
+        """Hide our own overlays so they are not captured as fake tooltips."""
+        def hide() -> None:
+            if self._price_overlay is not None:
+                self._price_overlay.hide()
+
+        self._ui_sync(hide)
+        time.sleep(0.05)
+
     def _inventory_search_status(self, phase: str) -> None:
         if not self._inventory_watch or phase != "hint":
             return
@@ -1658,6 +1682,7 @@ class ClientApp(tk.Tk):
                         0,
                         lambda r=regions, s=search: self._show_tooltip_debug_frames(r, s),
                     ),
+                    before_capture=self._prepare_inventory_screen_capture,
                 )
                 if name != last_name:
                     last_name = name
@@ -1685,7 +1710,11 @@ class ClientApp(tk.Tk):
                                 self._inventory_price_cache[cache_key] = None
                         match = self._inventory_price_cache.get(cache_key)
                         self.after(0, lambda n=name, m=match: self._update_price_overlay(n, m))
-                elif not name and last_phase != "hint":
+                elif name:
+                    cache_key = name.casefold()
+                    match = self._inventory_price_cache.get(cache_key)
+                    self.after(0, lambda n=name, m=match: self._update_price_overlay(n, m))
+                elif last_phase != "hint":
                     last_phase = "hint"
                     self.after(
                         0,

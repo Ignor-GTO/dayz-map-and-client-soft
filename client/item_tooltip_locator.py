@@ -18,6 +18,8 @@ class SearchArea:
     origin_y: int
     cursor_x: int
     cursor_y: int
+    monitor_width: int
+    monitor_height: int
 
 
 # Fallback offsets when image scan finds nothing (tooltip beside hovered cell).
@@ -117,6 +119,8 @@ def grab_tooltip_search_area(cfg: dict) -> SearchArea | None:
         origin_y=top,
         cursor_x=cursor_x - left,
         cursor_y=cursor_y - top,
+        monitor_width=mon.width,
+        monitor_height=mon.height,
     )
 
 
@@ -180,6 +184,20 @@ def _is_hud_strip(box: tuple[int, int, int, int], w_img: int) -> bool:
     return y0 < 160 and bw > w_img * 0.48 and bh < 78
 
 
+def _is_client_overlay_zone(search: SearchArea, box: tuple[int, int, int, int]) -> bool:
+    """Exclude our own top-right price hint overlay from tooltip detection."""
+    x0, y0, x1, y1 = box
+    abs_x0 = search.origin_x + x0
+    abs_y1 = search.origin_y + y1
+    margin_x = max(320, int(search.monitor_width * 0.20))
+    margin_y = max(140, int(search.monitor_height * 0.11))
+    if abs_y1 <= margin_y and abs_x0 >= search.monitor_width - margin_x:
+        return True
+    if search.origin_y + y1 <= margin_y and search.origin_x + x1 >= search.monitor_width - 80:
+        return True
+    return False
+
+
 def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> float:
     """Higher = OCR this region first. Primary signal: title text on dark tooltip."""
     x0, y0, x1, y1 = box
@@ -206,6 +224,8 @@ def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> f
         score += 900
     if _is_hud_strip(box, w_img):
         score -= 20000
+    if _is_client_overlay_zone(search, box):
+        score -= 30000
     # Tooltip title is often horizontally aligned with hovered item.
     score -= x_delta * 1.8
     score -= dist * 0.6
@@ -221,6 +241,8 @@ def _region_excluded(search: SearchArea, box: tuple[int, int, int, int], rgb: np
         return True
     w_img = rgb.shape[1]
     if _is_hud_strip(box, w_img):
+        return True
+    if _is_client_overlay_zone(search, box):
         return True
     title_px, dark_ratio, title_run = _title_stats(rgb, box)
     if title_px < 30 or title_run < 20:
@@ -257,12 +279,11 @@ def _title_box_from_panel(panel: tuple[int, int, int, int], w: int, h: int) -> t
     return _clamp_box(tx + 8, ty + 4, rx - 8, ty + title_h, w, h)
 
 
-def _find_dark_panel_titles_global(
-    rgb: np.ndarray,
-    rel_cursor_x: int,
-    rel_cursor_y: int,
-) -> list[tuple[int, int, int, int]]:
+def _find_dark_panel_titles_global(search: SearchArea) -> list[tuple[int, int, int, int]]:
     """Scan the whole search image for DayZ tooltip panels (dark box + title strip)."""
+    rgb = np.asarray(search.image.convert("RGB"))
+    rel_cursor_x = search.cursor_x
+    rel_cursor_y = search.cursor_y
     dark = _dark_mask(rgb)
     h, w = dark.shape
     scored: list[tuple[float, tuple[int, int, int, int]]] = []
@@ -302,6 +323,8 @@ def _find_dark_panel_titles_global(
             x0, y0, x1, y1 = title
             if y0 < 100 or _is_hud_strip(title, w):
                 continue
+            if _is_client_overlay_zone(search, title):
+                continue
             title_px, dark_ratio, title_run = _title_stats(rgb, title)
             if title_px < 35 or title_run < 20 or dark_ratio < 0.42:
                 continue
@@ -322,12 +345,11 @@ def _find_dark_panel_titles_global(
     return [box for _, box in scored[:20]]
 
 
-def _find_title_row_boxes_global(
-    rgb: np.ndarray,
-    rel_cursor_x: int,
-    rel_cursor_y: int,
-) -> list[tuple[int, int, int, int]]:
+def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int, int]]:
     """Find orange/white title lines on dark background anywhere in the search area."""
+    rgb = np.asarray(search.image.convert("RGB"))
+    rel_cursor_x = search.cursor_x
+    rel_cursor_y = search.cursor_y
     title = _title_only_mask(rgb)
     dark = _dark_mask(rgb)
     h, w = title.shape
@@ -382,6 +404,8 @@ def _find_title_row_boxes_global(
                 continue
             if _is_hud_strip(box, w):
                 continue
+            if _is_client_overlay_zone(search, box):
+                continue
             title_px = int(title[top:bottom, x0 : x1 + 1].sum())
             if title_px > 700:
                 continue
@@ -406,11 +430,11 @@ def find_title_regions_in_search(search: SearchArea) -> list[tuple[int, int, int
     boxes: list[tuple[int, int, int, int]] = []
 
     # Primary: scan entire search area for real tooltip title strips.
-    for box in _find_dark_panel_titles_global(rgb, cx, cy):
+    for box in _find_dark_panel_titles_global(search):
         if not _region_excluded(search, box, rgb):
             boxes.append(box)
 
-    for box in _find_title_row_boxes_global(rgb, cx, cy):
+    for box in _find_title_row_boxes_global(search):
         if not _region_excluded(search, box, rgb):
             boxes.append(box)
 
