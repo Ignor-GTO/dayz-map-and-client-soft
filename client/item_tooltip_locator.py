@@ -279,7 +279,7 @@ def _title_box_from_panel(panel: tuple[int, int, int, int], w: int, h: int) -> t
     return _clamp_box(tx + 8, ty + 4, rx - 8, ty + title_h, w, h)
 
 
-def _find_dark_panel_titles_global(search: SearchArea) -> list[tuple[int, int, int, int]]:
+def _find_dark_panel_titles_global(search: SearchArea, *, step: int = 8) -> list[tuple[int, int, int, int]]:
     """Scan the whole search image for DayZ tooltip panels (dark box + title strip)."""
     rgb = np.asarray(search.image.convert("RGB"))
     rel_cursor_x = search.cursor_x
@@ -290,8 +290,9 @@ def _find_dark_panel_titles_global(search: SearchArea) -> list[tuple[int, int, i
 
     y_min = 36
     y_max = h - 80
-    for ty in range(y_min, y_max, 8):
-        for tx in range(0, w - 160, 10):
+    x_step = max(10, step + 2)
+    for ty in range(y_min, y_max, step):
+        for tx in range(0, w - 160, x_step):
             if dark[ty : ty + 8, tx : tx + 24].mean() < 0.45:
                 continue
 
@@ -342,7 +343,8 @@ def _find_dark_panel_titles_global(search: SearchArea) -> list[tuple[int, int, i
             scored.append((score, title))
 
     scored.sort(key=lambda item: item[0], reverse=True)
-    return [box for _, box in scored[:20]]
+    limit = 12 if step >= 16 else 20
+    return [box for _, box in scored[:limit]]
 
 
 def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int, int]]:
@@ -454,31 +456,31 @@ def _cursor_fallback_regions(search: SearchArea, limit: int = 4) -> list[tuple[i
     return out
 
 
-def find_title_regions_in_search(search: SearchArea) -> list[tuple[int, int, int, int]]:
+def find_title_regions_in_search(search: SearchArea, *, fast: bool = False) -> list[tuple[int, int, int, int]]:
     """Return local (L,T,R,B) title crops, best tooltip title first."""
     rgb = np.asarray(search.image.convert("RGB"))
     h, w = rgb.shape[:2]
     cx, cy = search.cursor_x, search.cursor_y
     boxes: list[tuple[int, int, int, int]] = []
 
-    # Primary: scan entire search area for real tooltip title strips.
-    for box in _find_dark_panel_titles_global(search):
-        if not _region_excluded(search, box, rgb):
-            boxes.append(box)
-
     for box in _find_title_row_boxes_global(search):
         if not _region_excluded(search, box, rgb):
             boxes.append(box)
 
-    # Fallback: cursor-relative presets (only if they contain title-colored pixels).
-    for dx, dy, rw, rh in _CURSOR_TITLE_BOXES:
-        box = _clamp_box(cx + dx, cy + dy, cx + dx + rw, cy + dy + rh, w, h)
-        if box and not _region_excluded(search, box, rgb):
-            boxes.append(box)
+    if not fast or len(boxes) < 2:
+        for box in _find_dark_panel_titles_global(search, step=16 if fast else 8):
+            if not _region_excluded(search, box, rgb):
+                boxes.append(box)
+
+    if not fast:
+        for dx, dy, rw, rh in _CURSOR_TITLE_BOXES:
+            box = _clamp_box(cx + dx, cy + dy, cx + dx + rw, cy + dy + rh, w, h)
+            if box and not _region_excluded(search, box, rgb):
+                boxes.append(box)
 
     deduped = _dedupe_boxes(boxes)
     if not deduped:
-        deduped = _cursor_fallback_regions(search, limit=4)
+        deduped = _cursor_fallback_regions(search, limit=3 if fast else 4)
     deduped.sort(key=lambda b: region_ocr_priority(search, b), reverse=True)
     return deduped
 

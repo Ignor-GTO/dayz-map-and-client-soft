@@ -9,12 +9,8 @@ from PIL import Image, ImageEnhance
 
 from item_tooltip_locator import (
     SearchArea,
-    cursor_monitor_point,
     find_title_regions_in_search,
     grab_tooltip_search_area,
-    search_monitor_rect,
-    to_monitor_boxes,
-    _cursor_fallback_regions,
 )
 from item_tooltip_preprocess import preprocess_tooltip_variants
 
@@ -90,10 +86,13 @@ def _name_quality_score(name: str) -> tuple[int, int, int]:
     return (score[0] + bonus, score[1], score[2])
 
 
-def _upscale_raw(image: Image.Image) -> Image.Image:
+def _upscale_raw(image: Image.Image, *, fast: bool = False) -> Image.Image:
     rgb = image.convert("RGB")
     w, h = rgb.size
-    scale = max(3, min(5, 260 // max(h, 1)))
+    if fast:
+        scale = max(2, min(3, 220 // max(h, 1)))
+    else:
+        scale = max(3, min(5, 260 // max(h, 1)))
     if scale > 1:
         rgb = rgb.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
     return ImageEnhance.Contrast(rgb).enhance(1.15)
@@ -119,6 +118,25 @@ def recognize_tooltip_text(image: Image.Image) -> str:
             names.append(name)
 
     return pick_best_name(names) or ""
+
+
+def recognize_tooltip_text_fast(image: Image.Image) -> str:
+    """Fast path: 2–3 OCR attempts max, stop on first valid title."""
+    from item_tooltip_preprocess import preprocess_tooltip_orange, preprocess_tooltip_white
+
+    for prepared in (
+        _upscale_raw(image, fast=True),
+        preprocess_tooltip_orange(image),
+        preprocess_tooltip_white(image),
+    ):
+        text = _recognize_tooltip_variant(prepared)
+        name = extract_item_name(text)
+        if not name:
+            continue
+        cleaned = normalize_item_name(name)
+        if is_valid_item_name(cleaned):
+            return cleaned
+    return ""
 
 
 def normalize_item_name(name: str) -> str:
@@ -185,68 +203,41 @@ def pick_best_name(names: list[str]) -> str | None:
     return valid[0]
 
 
-def _sorted_title_regions(search: SearchArea) -> list[tuple[int, int, int, int]]:
+def _sorted_title_regions(search: SearchArea, *, fast: bool = True) -> list[tuple[int, int, int, int]]:
     from item_tooltip_locator import region_ocr_priority
 
-    regions = find_title_regions_in_search(search)
+    regions = find_title_regions_in_search(search, fast=fast)
     regions.sort(key=lambda box: region_ocr_priority(search, box), reverse=True)
     return regions
-
-
-def _ocr_regions(search: SearchArea) -> list[str]:
-    names: list[str] = []
-    for box in _sorted_title_regions(search)[:6]:
-        crop = search.image.crop(box)
-        name = recognize_tooltip_text(crop)
-        if name and is_valid_item_name(name):
-            names.append(name)
-    return names
 
 
 def read_item_name_at_cursor(
     cfg: dict,
     *,
     on_search: Callable[[str], None] | None = None,
-    on_debug_regions: Callable[
-        [list[tuple[int, int, int, int]], tuple[int, int, int, int] | None, tuple[int, int] | None],
-        None,
-    ]
-    | None = None,
+    on_capture_ready: Callable[[SearchArea, list[tuple[int, int, int, int]]], None] | None = None,
     before_capture: Callable[[], None] | None = None,
 ) -> str | None:
-    debug = bool(cfg.get("inventory_price_debug_frame")) and on_debug_regions is not None
-
     if before_capture:
         before_capture()
 
     search = grab_tooltip_search_area(cfg)
     if search is None:
-        if debug:
-            on_debug_regions([], None)
         if on_search:
             on_search("hint")
         return None
 
-    regions = _sorted_title_regions(search)
-    w, h = search.image.size
-    search_box = search_monitor_rect(search)
-    if debug:
-        display_regions = regions[:6] or _cursor_fallback_regions(search, limit=4)
-        on_debug_regions(
-            to_monitor_boxes(search, display_regions),
-            search_box,
-            cursor_monitor_point(search),
-        )
+    regions = _sorted_title_regions(search, fast=True)
 
-    names: list[str] = []
-    for box in regions[:6]:
+    if on_capture_ready:
+        on_capture_ready(search, regions)
+
+    for box in regions[:2]:
         crop = search.image.crop(box)
-        name = recognize_tooltip_text(crop)
+        name = recognize_tooltip_text_fast(crop)
         if name and is_valid_item_name(name):
-            names.append(name)
-    name = pick_best_name(names)
-    if not is_valid_item_name(name):
-        if on_search:
-            on_search("hint")
-        return None
-    return normalize_item_name(name or "")
+            return name
+
+    if on_search:
+        on_search("hint")
+    return None

@@ -21,6 +21,7 @@ from item_tooltip_debug_overlay import TooltipDebugOverlay
 from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
 from item_tooltip_ocr import read_item_name_at_cursor
+from item_tooltip_locator import SearchArea
 from trader_lookup import lookup_item_price
 from ocr_preprocess import IZURVIVE_OCR_REGION
 from version import __version__
@@ -1659,7 +1660,35 @@ class ClientApp(tk.Tk):
                 self._price_overlay.hide()
 
         self._ui_sync(hide)
-        time.sleep(0.05)
+        time.sleep(0.02)
+
+    def _present_tooltip_capture(
+        self,
+        search: SearchArea,
+        regions: list[tuple[int, int, int, int]],
+    ) -> None:
+        if not self.cfg.get("inventory_price_debug_frame"):
+            return
+        from item_tooltip_locator import (
+            _cursor_fallback_regions,
+            cursor_monitor_point,
+            search_monitor_rect,
+            to_monitor_boxes,
+        )
+
+        display_regions = regions[:6] or _cursor_fallback_regions(search, limit=4)
+        self._show_tooltip_debug_frames(
+            to_monitor_boxes(search, display_regions),
+            search_monitor_rect(search),
+            cursor_monitor_point(search),
+        )
+
+    def _on_tooltip_capture_ready(
+        self,
+        search: SearchArea,
+        regions: list[tuple[int, int, int, int]],
+    ) -> None:
+        self._present_tooltip_capture(search, regions)
 
     def _inventory_search_status(self, phase: str) -> None:
         if not self._inventory_watch or phase != "hint":
@@ -1676,13 +1705,15 @@ class ClientApp(tk.Tk):
             try:
                 if not self._inventory_watch:
                     break
+                capture_cb = None
+                if self.cfg.get("inventory_price_debug_frame"):
+                    capture_cb = lambda search, regions: self._ui_sync(
+                        lambda s=search, r=regions: self._on_tooltip_capture_ready(s, r)
+                    )
                 name = read_item_name_at_cursor(
                     self.cfg,
                     on_search=lambda t: self.after(0, lambda msg=t: self._inventory_search_status(msg)),
-                    on_debug_regions=lambda regions, search, cursor: self.after(
-                        0,
-                        lambda r=regions, s=search, c=cursor: self._show_tooltip_debug_frames(r, s, c),
-                    ),
+                    on_capture_ready=capture_cb,
                     before_capture=self._prepare_inventory_screen_capture,
                 )
                 if name != last_name:
