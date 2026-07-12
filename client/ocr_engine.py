@@ -200,6 +200,22 @@ def recognize_text_all(image: Image.Image) -> list[str]:
     return out
 
 
+def recognize_general_text(image: Image.Image) -> str:
+    """OCR for arbitrary text (item names, labels). Skips digit-only Tesseract."""
+    ensure_ocr_backend()
+    if _use_windows:
+        try:
+            loop = _ensure_ocr_loop()
+            future = asyncio.run_coroutine_threadsafe(_recognize_windows_async(image), loop)
+            return future.result(timeout=30).strip()
+        except Exception:
+            pass
+    try:
+        return recognize_text_fallback(image).strip()
+    except Exception:
+        return ""
+
+
 def _recognize_prepared(prepared: Image.Image) -> str:
     from ocr_tesseract import is_available as tesseract_available
     from ocr_tesseract import recognize_digits, recognize_digits_all

@@ -19,7 +19,7 @@ class GreenIndicator:
     score: float
 
 
-def _orange_mask(rgb: np.ndarray) -> np.ndarray:
+def _title_text_mask(rgb: np.ndarray) -> np.ndarray:
     red = rgb[..., 0].astype(np.int16)
     green = rgb[..., 1].astype(np.int16)
     blue = rgb[..., 2].astype(np.int16)
@@ -31,7 +31,8 @@ def _orange_mask(rgb: np.ndarray) -> np.ndarray:
         & ((red - blue) >= 12)
     )
     yellow = (red >= 170) & (green >= 145) & (blue <= 175) & (red >= green)
-    return orange | yellow
+    white = (red >= 188) & (green >= 188) & (blue >= 188)
+    return orange | yellow | white
 
 
 def _green_mask(rgb: np.ndarray) -> np.ndarray:
@@ -149,7 +150,7 @@ def _find_orange_title_in_image(
     min_orange: int = 28,
 ) -> tuple[int, int, int, int] | None:
     rgb = np.asarray(image.convert("RGB"))
-    mask = _orange_mask(rgb)
+    mask = _title_text_mask(rgb)
     h, w = mask.shape
     if h < 12 or w < 40:
         return None
@@ -196,10 +197,12 @@ def _find_orange_title_in_image(
     if xs.size == 0:
         return None
 
-    x0 = max(0, int(xs[0]) - 6)
-    x1 = min(w, int(xs[-1]) + 8)
-    y0 = max(0, best_row - 8)
-    y1 = min(h, best_row + 30)
+    x0 = max(0, int(xs[0]) - 10)
+    x1 = min(w, int(xs[-1]) + 16)
+    y0 = max(0, best_row - 10)
+    y1 = min(h, best_row + 34)
+    if x1 - x0 < 48:
+        x1 = min(w, x0 + 220)
     if x1 - x0 < 24 or y1 - y0 < 12:
         return None
     return (x0, y0, x1, y1)
