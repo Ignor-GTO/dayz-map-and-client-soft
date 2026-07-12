@@ -120,6 +120,18 @@ class ItemPriceOverlay:
         self._win.deiconify()
         self._win.lift()
 
+    def show_hint(self, title: str, subtitle: str = "") -> None:
+        self._ensure()
+        if self._title:
+            self._title.configure(text=title, fg=_TITLE)
+        if self._prices:
+            self._prices.configure(text=subtitle, fg=_MUTED)
+        if self._trader:
+            self._trader.configure(text="")
+        self._place()
+        self._win.deiconify()
+        self._win.lift()
+
     def hide(self) -> None:
         if self._win and self._win.winfo_exists():
             self._win.withdraw()

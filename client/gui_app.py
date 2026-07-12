@@ -1553,7 +1553,7 @@ class ClientApp(tk.Tk):
     def _update_price_overlay(self, item_name: str, match: dict | None) -> None:
         overlay = self._ensure_price_overlay()
         if not item_name:
-            overlay.hide()
+            overlay.show_hint("Цены инвентаря", "Наведите курсор на предмет")
             return
         if match:
             overlay.show_price(
@@ -1565,13 +1565,14 @@ class ClientApp(tk.Tk):
         else:
             overlay.show_not_found(item_name)
 
-    def _inventory_search_status(self, text: str) -> None:
-        if not self._inventory_watch:
+    def _inventory_search_status(self, phase: str) -> None:
+        if not self._inventory_watch or phase != "hint":
             return
-        self._ensure_hud().show_inventory_search(text)
+        self._ensure_price_overlay().show_hint("Цены инвентаря", "Наведите курсор на предмет")
 
     def _inventory_watch_loop(self) -> None:
         last_name: str | None = None
+        last_phase: str | None = None
         poll_s = max(0.25, int(self.cfg.get("inventory_poll_ms", 450)) / 1000.0)
         server = str(self.cfg.get("server_url") or "").strip()
         map_slug = str(self.cfg.get("map_slug") or "pripyat").strip()
@@ -1585,19 +1586,21 @@ class ClientApp(tk.Tk):
                 )
                 if name != last_name:
                     last_name = name
+                    last_phase = None
                     if not name:
-                        self.after(0, lambda: self._ensure_price_overlay().hide())
-                        if self._inventory_watch:
-                            self.after(
-                                0,
-                                lambda: self._ensure_hud().show_inventory_search(
-                                    "Наведите курсор на предмет в инвентаре"
-                                ),
-                            )
+                        self.after(
+                            0,
+                            lambda: self._ensure_price_overlay().show_hint(
+                                "Цены инвентаря", "Наведите курсор на предмет"
+                            ),
+                        )
                     else:
-                        self.after(0, lambda: self._ensure_hud().hide())
                         cache_key = name.casefold()
                         if cache_key not in self._inventory_price_cache:
+                            self.after(
+                                0,
+                                lambda: self._ensure_price_overlay().show_hint(name, "Ищу цену…"),
+                            )
                             try:
                                 self._inventory_price_cache[cache_key] = lookup_item_price(
                                     server, map_slug, name
@@ -1607,6 +1610,14 @@ class ClientApp(tk.Tk):
                                 self._inventory_price_cache[cache_key] = None
                         match = self._inventory_price_cache.get(cache_key)
                         self.after(0, lambda n=name, m=match: self._update_price_overlay(n, m))
+                elif not name and last_phase != "hint":
+                    last_phase = "hint"
+                    self.after(
+                        0,
+                        lambda: self._ensure_price_overlay().show_hint(
+                            "Цены инвентаря", "Наведите курсор на предмет"
+                        ),
+                    )
             except Exception as exc:
                 self.after(0, lambda e=exc: self.log_line(f"[Цены] OCR: {e}"))
             self._inventory_stop.wait(poll_s)
@@ -1627,7 +1638,8 @@ class ClientApp(tk.Tk):
         self._inventory_watch = False
         self._inventory_stop.set()
         self._ensure_price_overlay().hide()
-        self._ensure_hud().hide()
+        if self._hud:
+            self._hud.hide()
         if log and was_active:
             self.log_line("[Цены] Инвентарь: слежение остановлено")
 
@@ -1638,7 +1650,8 @@ class ClientApp(tk.Tk):
         self._inventory_price_cache.clear()
         self._inventory_stop.clear()
         self._start_inventory_watch()
-        self._ensure_hud().show_inventory_search("Ищу описание предмета…")
+        self._ensure_hud().hide()
+        self._ensure_price_overlay().show_hint("Цены инвентаря", "Наведите курсор на предмет")
         self.log_line("[Цены] Инвентарь: слежение включено (Tab/Esc — стоп)")
 
     def _handle_inventory_price_hotkey(self) -> None:

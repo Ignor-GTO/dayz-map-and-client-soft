@@ -56,8 +56,8 @@ DEFAULT_CONFIG = {
     "map_slug": "pripyat",
     "inventory_poll_ms": 450,
     "inventory_price_enabled": True,
-    "item_tooltip_capture": {"dx": 24, "dy": -100, "w": 440, "h": 120},
-    "item_tooltip_from_indicator": {"dx": 24, "dy": -100, "w": 440, "h": 120, "max_cursor_dist": 320},
+    "item_tooltip_capture": {"dx": 24, "dy": -88, "w": 480, "h": 56},
+    "item_tooltip_from_indicator": {"dx": 24, "dy": -88, "w": 480, "h": 56, "max_cursor_dist": 320},
     "ocr_preprocess_mode": "auto",
 }
 

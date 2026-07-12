@@ -36,5 +36,22 @@ def preprocess_tooltip_high_contrast(image: Image.Image) -> Image.Image:
     return _upscale(gray)
 
 
+def preprocess_tooltip_color_boost(image: Image.Image) -> Image.Image:
+    """Keep orange/yellow title pixels on black background for Windows OCR."""
+    rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    orange = (red > 100) & (green > 50) & (blue < 150) & (red >= blue)
+    yellow = (red > 165) & (green > 140) & (blue < 180)
+    mask = orange | yellow
+    binary = np.where(mask, 255, 0).astype(np.uint8)
+    gray = Image.fromarray(binary, mode="L")
+    return _upscale(gray)
+
+
 def preprocess_tooltip_variants(image: Image.Image) -> list[Image.Image]:
-    return [preprocess_tooltip_orange(image), preprocess_tooltip_high_contrast(image)]
+    return [
+        preprocess_tooltip_color_boost(image),
+        preprocess_tooltip_orange(image),
+        preprocess_tooltip_high_contrast(image),
+        _upscale(ImageOps.autocontrast(image.convert("L"), cutoff=1)),
+    ]

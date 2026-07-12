@@ -1,4 +1,4 @@
-"""Read item name from inventory tooltip (full-screen green indicator search)."""
+"""Read item name from inventory tooltip near cursor."""
 
 from __future__ import annotations
 
@@ -16,6 +16,15 @@ _SKIP_LINE_RE = re.compile(
     r"(нетронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+)",
     re.IGNORECASE,
 )
+_DESC_LINE_RE = re.compile(
+    r"^[A-Za-zäöüßÄÖÜ][A-Za-zäöüßÄÖÜ\s,\.\-]{35,}$",
+)
+
+
+def _line_score(line: str) -> tuple[int, int, int]:
+    cyr = len(re.findall(r"[А-Яа-яЁё]", line))
+    latin = len(re.findall(r"[A-Za-z]", line))
+    return (cyr, -len(line), -latin)
 
 
 def _recognize_general(prepared: Image.Image) -> str:
@@ -45,12 +54,21 @@ def recognize_tooltip_text(image: Image.Image) -> str:
 
 def extract_item_name(ocr_text: str) -> str | None:
     lines = [ln.strip() for ln in ocr_text.replace("\r", "\n").split("\n") if ln.strip()]
+    candidates: list[str] = []
     for line in lines:
+        if len(line) < 2 or len(line) > 72:
+            continue
         if _SKIP_LINE_RE.search(line):
             continue
-        if len(line) >= 2 and re.search(r"[\wА-Яа-яЁё]", line):
-            return line
-    return lines[0] if lines else None
+        if _DESC_LINE_RE.match(line):
+            continue
+        if not re.search(r"[\wА-Яа-яЁё]", line):
+            continue
+        candidates.append(line)
+    if not candidates:
+        return lines[0] if lines else None
+    candidates.sort(key=_line_score, reverse=True)
+    return candidates[0]
 
 
 def read_item_name_at_cursor(
@@ -58,18 +76,11 @@ def read_item_name_at_cursor(
     *,
     on_search: Callable[[str], None] | None = None,
 ) -> str | None:
-    if on_search:
-        on_search("Ищу зелёный маркер на экране…")
-
-    region, via_indicator = find_tooltip_region(cfg)
+    region, method = find_tooltip_region(cfg)
     if region is None:
+        if on_search:
+            on_search("hint")
         return None
-
-    if on_search:
-        if via_indicator:
-            on_search("Распознаю описание предмета…")
-        else:
-            on_search("Маркер не найден — OCR у курсора…")
 
     image = grab_region(int(cfg.get("monitor_index", 1)), region)
     if image is None:
