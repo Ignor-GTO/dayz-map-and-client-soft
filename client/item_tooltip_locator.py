@@ -245,11 +245,11 @@ def _region_excluded(search: SearchArea, box: tuple[int, int, int, int], rgb: np
     if _is_client_overlay_zone(search, box):
         return True
     title_px, dark_ratio, title_run = _title_stats(rgb, box)
-    if title_px < 30 or title_run < 20:
+    if title_px < 22 or title_run < 14:
         return True
     if title_px > 700:
         return True
-    if dark_ratio < 0.38:
+    if dark_ratio < 0.32:
         return True
     return False
 
@@ -422,6 +422,38 @@ def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int
     return [box for _, box in bands[:20]]
 
 
+def to_monitor_boxes(
+    search: SearchArea,
+    boxes: list[tuple[int, int, int, int]],
+) -> list[tuple[int, int, int, int]]:
+    return [
+        (search.origin_x + x0, search.origin_y + y0, search.origin_x + x1, search.origin_y + y1)
+        for x0, y0, x1, y1 in boxes
+    ]
+
+
+def search_monitor_rect(search: SearchArea) -> tuple[int, int, int, int]:
+    w, h = search.image.size
+    return (search.origin_x, search.origin_y, search.origin_x + w, search.origin_y + h)
+
+
+def cursor_monitor_point(search: SearchArea) -> tuple[int, int]:
+    return (search.origin_x + search.cursor_x, search.origin_y + search.cursor_y)
+
+
+def _cursor_fallback_regions(search: SearchArea, limit: int = 4) -> list[tuple[int, int, int, int]]:
+    w, h = search.image.size
+    cx, cy = search.cursor_x, search.cursor_y
+    out: list[tuple[int, int, int, int]] = []
+    for dx, dy, rw, rh in _CURSOR_TITLE_BOXES:
+        box = _clamp_box(cx + dx, cy + dy, cx + dx + rw, cy + dy + rh, w, h)
+        if box:
+            out.append(box)
+        if len(out) >= limit:
+            break
+    return out
+
+
 def find_title_regions_in_search(search: SearchArea) -> list[tuple[int, int, int, int]]:
     """Return local (L,T,R,B) title crops, best tooltip title first."""
     rgb = np.asarray(search.image.convert("RGB"))
@@ -445,6 +477,8 @@ def find_title_regions_in_search(search: SearchArea) -> list[tuple[int, int, int
             boxes.append(box)
 
     deduped = _dedupe_boxes(boxes)
+    if not deduped:
+        deduped = _cursor_fallback_regions(search, limit=4)
     deduped.sort(key=lambda b: region_ocr_priority(search, b), reverse=True)
     return deduped
 

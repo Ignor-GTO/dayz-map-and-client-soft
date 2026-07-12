@@ -1629,12 +1629,13 @@ class ClientApp(tk.Tk):
         self,
         regions: list[tuple[int, int, int, int]],
         search: tuple[int, int, int, int] | None,
+        cursor: tuple[int, int] | None = None,
     ) -> None:
         if not self.cfg.get("inventory_price_debug_frame") or not self._inventory_watch:
             return
-        if search is None and not regions:
+        if search is None and not regions and cursor is None:
             return
-        self._ensure_tooltip_debug_overlay().show(search, regions)
+        self._ensure_tooltip_debug_overlay().show(search, regions, cursor)
 
     def _ui_sync(self, fn, timeout: float = 0.45) -> None:
         if threading.current_thread() is threading.main_thread():
@@ -1678,9 +1679,9 @@ class ClientApp(tk.Tk):
                 name = read_item_name_at_cursor(
                     self.cfg,
                     on_search=lambda t: self.after(0, lambda msg=t: self._inventory_search_status(msg)),
-                    on_debug_regions=lambda regions, search: self.after(
+                    on_debug_regions=lambda regions, search, cursor: self.after(
                         0,
-                        lambda r=regions, s=search: self._show_tooltip_debug_frames(r, s),
+                        lambda r=regions, s=search, c=cursor: self._show_tooltip_debug_frames(r, s, c),
                     ),
                     before_capture=self._prepare_inventory_screen_capture,
                 )
@@ -1752,6 +1753,7 @@ class ClientApp(tk.Tk):
     def _start_inventory_price_watch(self) -> None:
         if self._inventory_watch:
             return
+        self.cfg["inventory_price_debug_frame"] = bool(self.inventory_debug_frame_var.get())
         self._inventory_watch = True
         self._inventory_price_cache.clear()
         self._inventory_stop.clear()
@@ -1759,6 +1761,8 @@ class ClientApp(tk.Tk):
         self._start_debug_topmost_timer()
         self._ensure_hud().hide()
         self._ensure_price_overlay().show_hint("Цены инвентаря", "Наведите курсор на предмет")
+        if self.cfg.get("inventory_price_debug_frame"):
+            self.log_line("[Цены] Debug-рамки включены")
         self.log_line("[Цены] Инвентарь: слежение включено (Tab/Esc — стоп)")
 
     def _handle_inventory_price_hotkey(self) -> None:

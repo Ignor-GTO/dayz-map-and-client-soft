@@ -7,7 +7,15 @@ from typing import Callable
 
 from PIL import Image, ImageEnhance
 
-from item_tooltip_locator import SearchArea, find_title_regions_in_search, grab_tooltip_search_area
+from item_tooltip_locator import (
+    SearchArea,
+    cursor_monitor_point,
+    find_title_regions_in_search,
+    grab_tooltip_search_area,
+    search_monitor_rect,
+    to_monitor_boxes,
+    _cursor_fallback_regions,
+)
 from item_tooltip_preprocess import preprocess_tooltip_variants
 
 
@@ -200,7 +208,7 @@ def read_item_name_at_cursor(
     *,
     on_search: Callable[[str], None] | None = None,
     on_debug_regions: Callable[
-        [list[tuple[int, int, int, int]], tuple[int, int, int, int] | None],
+        [list[tuple[int, int, int, int]], tuple[int, int, int, int] | None, tuple[int, int] | None],
         None,
     ]
     | None = None,
@@ -221,9 +229,14 @@ def read_item_name_at_cursor(
 
     regions = _sorted_title_regions(search)
     w, h = search.image.size
-    search_box = (search.origin_x, search.origin_y, search.origin_x + w, search.origin_y + h)
+    search_box = search_monitor_rect(search)
     if debug:
-        on_debug_regions(regions[:6], search_box)
+        display_regions = regions[:6] or _cursor_fallback_regions(search, limit=4)
+        on_debug_regions(
+            to_monitor_boxes(search, display_regions),
+            search_box,
+            cursor_monitor_point(search),
+        )
 
     names: list[str] = []
     for box in regions[:6]:

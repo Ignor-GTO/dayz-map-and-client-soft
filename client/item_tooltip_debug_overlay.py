@@ -11,7 +11,9 @@ from capture import list_monitors
 _SEARCH_COLOR = "#00e5ff"
 _PRIMARY_COLOR = "#00ff55"
 _CANDIDATE_COLOR = "#ffdd00"
-_SHADOW_COLOR = "#000000"
+_CURSOR_COLOR = "#ff00ff"
+_SHADOW_COLOR = "#000001"
+_LABEL_BG = "#101820"
 
 
 def _force_topmost(win: tk.Toplevel) -> None:
@@ -56,6 +58,7 @@ class TooltipDebugOverlay:
         self._monitor_key: tuple[int, int, int, int] | None = None
         self._last_search: tuple[int, int, int, int] | None = None
         self._last_regions: list[tuple[int, int, int, int]] = []
+        self._last_cursor: tuple[int, int] | None = None
 
     def _monitor(self):
         idx = self.monitor_index_getter()
@@ -116,7 +119,7 @@ class TooltipDebugOverlay:
     ) -> None:
         if not self._canvas:
             return
-        shadow = width + 6
+        shadow = width + 8
         kw = {"dash": dash} if dash else {}
         if fill:
             self._canvas.create_rectangle(
@@ -128,50 +131,50 @@ class TooltipDebugOverlay:
                 fill=fill,
                 stipple="gray25",
             )
-        self._canvas.create_rectangle(
-            l,
-            t,
-            r,
-            b,
-            outline=_SHADOW_COLOR,
-            width=shadow,
-            **kw,
-        )
-        self._canvas.create_rectangle(
-            l,
-            t,
-            r,
-            b,
-            outline=color,
-            width=width,
-            **kw,
-        )
+        self._canvas.create_rectangle(l, t, r, b, outline="#000000", width=shadow, **kw)
+        self._canvas.create_rectangle(l, t, r, b, outline=color, width=width, **kw)
         if label:
-            tx = l + 6
-            ty = max(0, t - 24)
-            self._canvas.create_rectangle(tx - 4, ty - 2, tx + 8 + len(label) * 9, ty + 18, fill=_SHADOW_COLOR, outline="")
+            tx = l + 8
+            ty = max(4, t - 28)
+            tw = max(72, 8 + len(label) * 11)
+            self._canvas.create_rectangle(tx - 6, ty - 4, tx + tw, ty + 22, fill=_LABEL_BG, outline=color, width=2)
             self._canvas.create_text(
                 tx,
-                ty + 8,
+                ty + 9,
                 text=label,
                 fill=color,
                 anchor="w",
-                font=("Segoe UI", 11, "bold"),
+                font=("Segoe UI", 12, "bold"),
             )
+
+    def _draw_cursor(self, x: int, y: int) -> None:
+        if not self._canvas:
+            return
+        size = 18
+        w = 3
+        self._canvas.create_line(x - size, y, x + size, y, fill="#000000", width=w + 4)
+        self._canvas.create_line(x, y - size, x, y + size, fill="#000000", width=w + 4)
+        self._canvas.create_line(x - size, y, x + size, y, fill=_CURSOR_COLOR, width=w)
+        self._canvas.create_line(x, y - size, x, y + size, fill=_CURSOR_COLOR, width=w)
+        self._canvas.create_oval(x - 5, y - 5, x + 5, y + 5, outline=_CURSOR_COLOR, width=2)
 
     def show(
         self,
         search: tuple[int, int, int, int] | None,
         regions: list[tuple[int, int, int, int]],
+        cursor: tuple[int, int] | None = None,
     ) -> None:
         if search is not None:
             self._last_search = search
         if regions:
             self._last_regions = list(regions[:6])
+        if cursor is not None:
+            self._last_cursor = cursor
 
         search = search if search is not None else self._last_search
         regions = regions if regions else self._last_regions
-        if search is None and not regions:
+        cursor = cursor if cursor is not None else self._last_cursor
+        if search is None and not regions and cursor is None:
             return
 
         self._ensure()
@@ -188,9 +191,23 @@ class TooltipDebugOverlay:
                 r,
                 b,
                 color=_SEARCH_COLOR,
-                width=5,
-                dash=(10, 8),
+                width=6,
+                dash=(12, 8),
                 label="ПОИСК",
+            )
+
+        if cursor is not None:
+            self._draw_cursor(cursor[0], cursor[1])
+
+        if not regions and search is not None:
+            cx = (search[0] + search[2]) // 2
+            cy = (search[1] + search[3]) // 2
+            self._canvas.create_text(
+                cx,
+                cy,
+                text="ЗОН НЕ НАЙДЕНО",
+                fill="#ff4444",
+                font=("Segoe UI", 16, "bold"),
             )
 
         for idx, box in enumerate(regions[:6]):
@@ -202,7 +219,7 @@ class TooltipDebugOverlay:
                     r,
                     b,
                     color=_PRIMARY_COLOR,
-                    width=10,
+                    width=12,
                     fill=_PRIMARY_COLOR,
                     label="ЗАХВАТ",
                 )
@@ -213,7 +230,7 @@ class TooltipDebugOverlay:
                     r,
                     b,
                     color=_CANDIDATE_COLOR,
-                    width=6,
+                    width=8,
                     label=f"#{idx + 1}",
                 )
 
@@ -231,6 +248,7 @@ class TooltipDebugOverlay:
     def hide(self) -> None:
         self._last_search = None
         self._last_regions = []
+        self._last_cursor = None
         if self._win is not None:
             try:
                 self._win.withdraw()
@@ -242,4 +260,5 @@ class TooltipDebugOverlay:
     def destroy(self) -> None:
         self._last_search = None
         self._last_regions = []
+        self._last_cursor = None
         self._destroy_window()
