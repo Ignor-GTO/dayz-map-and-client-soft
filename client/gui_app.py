@@ -1705,7 +1705,7 @@ class ClientApp(tk.Tk):
                 if not self._inventory_watch:
                     break
                 capture_cb = None
-        if self.cfg.get("inventory_price_debug_frame"):
+                if self.cfg.get("inventory_price_debug_frame"):
                     capture_cb = lambda search, regions: self._ui_sync(
                         lambda s=search, r=regions: self._on_tooltip_capture_ready(s, r)
                     )
