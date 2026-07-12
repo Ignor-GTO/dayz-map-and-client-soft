@@ -86,6 +86,7 @@ class ClientApp(tk.Tk):
         self._hud: GameHudOverlay | None = None
         self._price_overlay: ItemPriceOverlay | None = None
         self._tooltip_debug_overlay: TooltipDebugOverlay | None = None
+        self._debug_topmost_after_id: str | None = None
         self._inventory_watch = False
         self._inventory_stop = threading.Event()
         self._inventory_thread: threading.Thread | None = None
@@ -733,7 +734,7 @@ class ClientApp(tk.Tk):
         ).pack(anchor="w", pady=(2, 4))
         ttk.Label(
             inv_lf,
-            text="Включите Tab в игре. Голубая рамка — область поиска, зелёная — основной захват, жёлтые — запасные.",
+            text="Tab в игре. Голубая «ПОИСК», зелёная «ЗАХВАТ» (основная), жёлтые #2–#6 (запасные). Рамки обновляются постоянно.",
             style="CardMuted.TLabel",
             wraplength=520,
         ).pack(anchor="w")
@@ -1593,10 +1594,35 @@ class ClientApp(tk.Tk):
             self._tooltip_debug_overlay = TooltipDebugOverlay(self, self._monitor_index)
         return self._tooltip_debug_overlay
 
+    def _stop_debug_topmost_timer(self) -> None:
+        if self._debug_topmost_after_id is not None:
+            try:
+                self.after_cancel(self._debug_topmost_after_id)
+            except tk.TclError:
+                pass
+            self._debug_topmost_after_id = None
+
+    def _keep_debug_overlay_topmost(self) -> None:
+        self._debug_topmost_after_id = None
+        if not self._inventory_watch or not self.cfg.get("inventory_price_debug_frame"):
+            return
+        overlay = self._tooltip_debug_overlay
+        if overlay is not None:
+            overlay.raise_topmost()
+        self._debug_topmost_after_id = self.after(350, self._keep_debug_overlay_topmost)
+
+    def _start_debug_topmost_timer(self) -> None:
+        self._stop_debug_topmost_timer()
+        if self.cfg.get("inventory_price_debug_frame"):
+            self._keep_debug_overlay_topmost()
+
     def _on_inventory_debug_frame_toggle(self) -> None:
         enabled = bool(self.inventory_debug_frame_var.get())
         self.cfg["inventory_price_debug_frame"] = enabled
-        if not enabled:
+        if enabled and self._inventory_watch:
+            self._start_debug_topmost_timer()
+        else:
+            self._stop_debug_topmost_timer()
             self._ensure_tooltip_debug_overlay().hide()
 
     def _show_tooltip_debug_frames(
@@ -1605,13 +1631,10 @@ class ClientApp(tk.Tk):
         search: tuple[int, int, int, int] | None,
     ) -> None:
         if not self.cfg.get("inventory_price_debug_frame") or not self._inventory_watch:
-            self._ensure_tooltip_debug_overlay().hide()
             return
-        overlay = self._ensure_tooltip_debug_overlay()
-        if not regions and search is None:
-            overlay.hide()
+        if search is None and not regions:
             return
-        overlay.show(search, regions)
+        self._ensure_tooltip_debug_overlay().show(search, regions)
 
     def _inventory_search_status(self, phase: str) -> None:
         if not self._inventory_watch or phase != "hint":
@@ -1689,6 +1712,7 @@ class ClientApp(tk.Tk):
         was_active = self._inventory_watch
         self._inventory_watch = False
         self._inventory_stop.set()
+        self._stop_debug_topmost_timer()
         self._ensure_price_overlay().hide()
         self._ensure_tooltip_debug_overlay().hide()
         if self._hud:
@@ -1703,6 +1727,7 @@ class ClientApp(tk.Tk):
         self._inventory_price_cache.clear()
         self._inventory_stop.clear()
         self._start_inventory_watch()
+        self._start_debug_topmost_timer()
         self._ensure_hud().hide()
         self._ensure_price_overlay().show_hint("Цены инвентаря", "Наведите курсор на предмет")
         self.log_line("[Цены] Инвентарь: слежение включено (Tab/Esc — стоп)")

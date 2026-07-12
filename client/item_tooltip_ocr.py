@@ -199,9 +199,9 @@ def read_item_name_at_cursor(
         return None
 
     regions = _sorted_title_regions(search)
+    w, h = search.image.size
+    search_box = (search.origin_x, search.origin_y, search.origin_x + w, search.origin_y + h)
     if debug:
-        w, h = search.image.size
-        search_box = (search.origin_x, search.origin_y, search.origin_x + w, search.origin_y + h)
         on_debug_regions(regions[:6], search_box)
 
     names: list[str] = []
