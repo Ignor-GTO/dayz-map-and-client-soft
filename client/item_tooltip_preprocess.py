@@ -20,8 +20,8 @@ def preprocess_tooltip_orange(image: Image.Image) -> Image.Image:
     rgb = np.asarray(image.convert("RGB"), dtype=np.float32)
     red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     orange = (red > 120) & (green > 70) & (blue < 130) & (red >= blue * 1.05)
-    bright = (red > 185) & (green > 185) & (blue > 185)
-    mask = orange | bright
+    yellow = (red > 165) & (green > 140) & (blue < 180)
+    mask = orange | yellow
     binary = np.where(mask, 255, 0).astype(np.uint8)
     gray = Image.fromarray(binary, mode="L")
     gray = ImageOps.autocontrast(gray, cutoff=1)

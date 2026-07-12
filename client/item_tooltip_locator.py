@@ -24,25 +24,25 @@ class SearchArea:
 
 # Fallback offsets when image scan finds nothing (tooltip beside hovered cell).
 _CURSOR_TITLE_BOXES = (
-    (12, -108, 520, 58),
-    (20, -88, 540, 54),
-    (28, -68, 500, 52),
-    (8, -128, 560, 60),
-    (-400, -96, 420, 54),
-    (-360, -72, 440, 52),
-    (-440, -48, 400, 50),
-    (-320, -112, 460, 56),
-    (180, -40, 480, 54),
-    (220, 0, 460, 52),
-    (140, 40, 500, 54),
-    (80, 80, 520, 56),
-    (0, 100, 540, 58),
-    (0, 140, 520, 56),
-    (-72, 20, 520, 56),
-    (-120, 36, 480, 54),
-    (-48, 52, 500, 56),
-    (-520, -96, 420, 54),
-    (60, -96, 460, 52),
+    (12, -108, 560, 64),
+    (20, -88, 580, 62),
+    (28, -68, 540, 60),
+    (8, -128, 600, 66),
+    (-400, -96, 460, 62),
+    (-360, -72, 480, 60),
+    (-440, -48, 440, 58),
+    (-320, -112, 500, 64),
+    (180, -40, 520, 62),
+    (220, 0, 500, 60),
+    (140, 40, 540, 62),
+    (80, 80, 560, 64),
+    (0, 100, 580, 66),
+    (0, 140, 560, 64),
+    (-72, 20, 560, 62),
+    (-120, 36, 520, 60),
+    (-48, 52, 540, 62),
+    (-520, -96, 460, 62),
+    (60, -96, 500, 60),
 )
 
 
@@ -63,15 +63,27 @@ def _dark_mask(rgb: np.ndarray) -> np.ndarray:
     return (red <= 102) & (green <= 102) & (blue <= 108)
 
 
-def _title_only_mask(rgb: np.ndarray) -> np.ndarray:
+def _orange_title_mask(rgb: np.ndarray) -> np.ndarray:
     red = rgb[..., 0].astype(np.int16)
     green = rgb[..., 1].astype(np.int16)
     blue = rgb[..., 2].astype(np.int16)
     orange = (red >= 108) & (green >= 58) & (blue <= 148) & (red >= blue + 10)
     yellow = (red >= 168) & (green >= 142) & (blue <= 178) & (red >= green - 8)
-    white = (red >= 190) & (green >= 190) & (blue >= 190)
     green_txt = (green >= 118) & (green >= red + 18) & (green >= blue + 18)
-    return (orange | yellow | white) & ~green_txt
+    return (orange | yellow) & ~green_txt
+
+
+def _white_title_mask(rgb: np.ndarray) -> np.ndarray:
+    red = rgb[..., 0].astype(np.int16)
+    green = rgb[..., 1].astype(np.int16)
+    blue = rgb[..., 2].astype(np.int16)
+    green_txt = (green >= 118) & (green >= red + 18) & (green >= blue + 18)
+    white = (red >= 190) & (green >= 190) & (blue >= 190)
+    return white & ~green_txt
+
+
+def _title_only_mask(rgb: np.ndarray) -> np.ndarray:
+    return _orange_title_mask(rgb) | _white_title_mask(rgb)
 
 
 def grab_tooltip_search_area(cfg: dict) -> SearchArea | None:
@@ -156,17 +168,22 @@ def _dedupe_boxes(boxes: list[tuple[int, int, int, int]]) -> list[tuple[int, int
     return out
 
 
-def _title_stats(rgb: np.ndarray, box: tuple[int, int, int, int]) -> tuple[int, float, int]:
+def _title_stats(rgb: np.ndarray, box: tuple[int, int, int, int]) -> tuple[int, float, int, int]:
     x0, y0, x1, y1 = box
     crop = rgb[y0:y1, x0:x1]
     if crop.size == 0:
-        return 0, 0.0, 0
-    title = _title_only_mask(crop)
+        return 0, 0.0, 0, 0
+    orange = _orange_title_mask(crop)
+    white = _white_title_mask(crop)
     dark = _dark_mask(crop)
-    title_px = int(title.sum())
+    orange_px = int(orange.sum())
+    white_px = int(white.sum())
+    title_px = orange_px + white_px
     dark_ratio = float(dark.mean())
 
-    upper = title[: max(1, (y1 - y0) // 2)]
+    upper = orange[: max(1, min((y1 - y0) // 2, 28))]
+    if int(upper.sum()) < 12:
+        upper = (orange | white)[: max(1, min((y1 - y0) // 2, 28))]
     cols = np.where(upper.any(axis=0))[0]
     span = int(cols[-1] - cols[0] + 1) if cols.size else 0
 
@@ -174,7 +191,7 @@ def _title_stats(rgb: np.ndarray, box: tuple[int, int, int, int]) -> tuple[int, 
     for row in upper:
         for x0c, x1c in _clusters_from_row(row, min_width=6):
             best_run = max(best_run, x1c - x0c + 1)
-    return title_px, dark_ratio, best_run
+    return title_px, dark_ratio, best_run, orange_px
 
 
 def _is_hud_strip(box: tuple[int, int, int, int], w_img: int) -> bool:
@@ -203,7 +220,7 @@ def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> f
     x0, y0, x1, y1 = box
     rgb = np.asarray(search.image.convert("RGB"))
     w_img = rgb.shape[1]
-    title_px, dark_ratio, title_run = _title_stats(rgb, box)
+    title_px, dark_ratio, title_run, orange_px = _title_stats(rgb, box)
     bw = x1 - x0
     bh = y1 - y0
     dist = _cursor_distance(box, search.cursor_x, search.cursor_y)
@@ -211,7 +228,11 @@ def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> f
     box_cx = (x0 + x1) / 2.0
     x_delta = abs(box_cx - search.cursor_x)
 
-    score = title_px * 18.0 + title_run * 8.0 + dark_ratio * 1200.0
+    score = title_px * 18.0 + title_run * 8.0 + dark_ratio * 1200.0 + orange_px * 12.0
+    if orange_px >= 20:
+        score += 1500
+    if bh > 72:
+        score -= 4000
     if title_px < 35 or title_run < 24:
         score -= 12000
     if title_px > 700:
@@ -244,14 +265,34 @@ def _region_excluded(search: SearchArea, box: tuple[int, int, int, int], rgb: np
         return True
     if _is_client_overlay_zone(search, box):
         return True
-    title_px, dark_ratio, title_run = _title_stats(rgb, box)
+    title_px, dark_ratio, title_run, orange_px = _title_stats(rgb, box)
     if title_px < 22 or title_run < 14:
         return True
     if title_px > 700:
         return True
     if dark_ratio < 0.32:
         return True
+    if (box[3] - box[1]) > 80 and orange_px < 20:
+        return True
     return False
+
+
+def _finalize_title_region_box(
+    box: tuple[int, int, int, int],
+    w: int,
+    h: int,
+) -> tuple[int, int, int, int] | None:
+    """Expand capture frame and keep only the title strip (not description)."""
+    x0, y0, x1, y1 = box
+    if y1 - y0 > 64:
+        y1 = y0 + 64
+    pad_x = 32
+    pad_y = 16
+    x0 = max(0, x0 - pad_x)
+    x1 = min(w, x1 + pad_x)
+    y0 = max(0, y0 - pad_y)
+    y1 = min(h, max(y0 + 52, y1 + pad_y))
+    return _clamp_box(x0, y0, x1, y1, w, h)
 
 
 def _clusters_from_row(row: np.ndarray, *, min_width: int = 8) -> list[tuple[int, int]]:
@@ -275,8 +316,8 @@ def _clusters_from_row(row: np.ndarray, *, min_width: int = 8) -> list[tuple[int
 
 def _title_box_from_panel(panel: tuple[int, int, int, int], w: int, h: int) -> tuple[int, int, int, int] | None:
     tx, ty, rx, by = panel
-    title_h = min(64, max(44, (by - ty) // 5))
-    return _clamp_box(tx + 8, ty + 4, rx - 8, ty + title_h, w, h)
+    title_h = 58
+    return _clamp_box(tx + 4, ty + 2, rx - 4, ty + title_h, w, h)
 
 
 def _find_dark_panel_titles_global(search: SearchArea, *, step: int = 8) -> list[tuple[int, int, int, int]]:
@@ -326,8 +367,10 @@ def _find_dark_panel_titles_global(search: SearchArea, *, step: int = 8) -> list
                 continue
             if _is_client_overlay_zone(search, title):
                 continue
-            title_px, dark_ratio, title_run = _title_stats(rgb, title)
+            title_px, dark_ratio, title_run, orange_px = _title_stats(rgb, title)
             if title_px < 35 or title_run < 20 or dark_ratio < 0.42:
+                continue
+            if orange_px < 12 and title_run < 48:
                 continue
             if title_px > 700:
                 continue
@@ -348,11 +391,11 @@ def _find_dark_panel_titles_global(search: SearchArea, *, step: int = 8) -> list
 
 
 def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int, int]]:
-    """Find orange/white title lines on dark background anywhere in the search area."""
+    """Find orange/yellow title line on dark background (not white description)."""
     rgb = np.asarray(search.image.convert("RGB"))
     rel_cursor_x = search.cursor_x
     rel_cursor_y = search.cursor_y
-    title = _title_only_mask(rgb)
+    title = _orange_title_mask(rgb)
     dark = _dark_mask(rgb)
     h, w = title.shape
     bands: list[tuple[float, tuple[int, int, int, int]]] = []
@@ -371,7 +414,7 @@ def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int
         y0 = y
         merged: dict[tuple[int, int], int] = {c: 1 for c in clusters}
         y1 = y + 1
-        while y1 < h - 8:
+        while y1 < h - 8 and (y1 - y0) < 2:
             next_clusters = _clusters_from_row(title[y1], min_width=10)
             if not next_clusters:
                 break
@@ -392,16 +435,16 @@ def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int
             bw = x1 - x0 + 1
             if bw < 56 or bw > 640:
                 continue
-            top = max(0, y0 - 6)
-            bottom = min(h, y1 + 10)
+            top = max(0, y0 - 8)
+            bottom = min(h, top + 56)
             bg = float(dark[top:bottom, x0 : x1 + 1].mean())
             if bg < 0.45:
                 continue
             pixels = int(title[top:bottom, x0 : x1 + 1].sum())
-            if pixels < 40:
+            if pixels < 30:
                 continue
 
-            box = _clamp_box(max(0, x0 - 12), top, min(w, x1 + 14), max(top + 42, bottom), w, h)
+            box = _clamp_box(max(0, x0 - 20), top, min(w, x1 + 20), bottom, w, h)
             if not box:
                 continue
             if _is_hud_strip(box, w):
@@ -422,6 +465,47 @@ def _find_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int
 
     bands.sort(key=lambda item: item[0], reverse=True)
     return [box for _, box in bands[:20]]
+
+
+def _find_white_title_row_boxes_global(search: SearchArea) -> list[tuple[int, int, int, int]]:
+    """Fallback for white item names (e.g. M82A2) — top line only, not description."""
+    rgb = np.asarray(search.image.convert("RGB"))
+    rel_cursor_x = search.cursor_x
+    rel_cursor_y = search.cursor_y
+    title = _white_title_mask(rgb)
+    dark = _dark_mask(rgb)
+    h, w = title.shape
+    bands: list[tuple[float, tuple[int, int, int, int]]] = []
+
+    for y in range(36, h - 40):
+        clusters = _clusters_from_row(title[y], min_width=12)
+        if not clusters:
+            continue
+        max_run = max(x1 - x0 + 1 for x0, x1 in clusters)
+        if max_run < 40:
+            continue
+        x0 = min(c[0] for c in clusters)
+        x1 = max(c[1] for c in clusters)
+        top = max(0, y - 8)
+        bottom = min(h, top + 56)
+        bg = float(dark[top:bottom, x0 : x1 + 1].mean())
+        if bg < 0.45:
+            continue
+        pixels = int(title[top:bottom, x0 : x1 + 1].sum())
+        if pixels < 35:
+            continue
+        orange_here = int(_orange_title_mask(rgb[top:bottom, x0 : x1 + 1]).sum())
+        if orange_here > pixels * 0.35:
+            continue
+        box = _clamp_box(max(0, x0 - 20), top, min(w, x1 + 20), bottom, w, h)
+        if not box or _is_hud_strip(box, w) or _is_client_overlay_zone(search, box):
+            continue
+        dist = _cursor_distance(box, rel_cursor_x, rel_cursor_y)
+        score = pixels * 8.0 + max_run * 2.0 - dist * 1.2 - 500
+        bands.append((score, box))
+
+    bands.sort(key=lambda item: item[0], reverse=True)
+    return [box for _, box in bands[:8]]
 
 
 def to_monitor_boxes(
@@ -467,6 +551,11 @@ def find_title_regions_in_search(search: SearchArea, *, fast: bool = False) -> l
         if not _region_excluded(search, box, rgb):
             boxes.append(box)
 
+    if len(boxes) < 2:
+        for box in _find_white_title_row_boxes_global(search):
+            if not _region_excluded(search, box, rgb):
+                boxes.append(box)
+
     if not fast or len(boxes) < 2:
         for box in _find_dark_panel_titles_global(search, step=16 if fast else 8):
             if not _region_excluded(search, box, rgb):
@@ -481,6 +570,12 @@ def find_title_regions_in_search(search: SearchArea, *, fast: bool = False) -> l
     deduped = _dedupe_boxes(boxes)
     if not deduped:
         deduped = _cursor_fallback_regions(search, limit=3 if fast else 4)
+    finalized: list[tuple[int, int, int, int]] = []
+    for box in deduped:
+        expanded = _finalize_title_region_box(box, w, h)
+        if expanded:
+            finalized.append(expanded)
+    deduped = _dedupe_boxes(finalized)
     deduped.sort(key=lambda b: region_ocr_priority(search, b), reverse=True)
     return deduped
 

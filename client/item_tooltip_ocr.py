@@ -121,13 +121,13 @@ def recognize_tooltip_text(image: Image.Image) -> str:
 
 
 def recognize_tooltip_text_fast(image: Image.Image) -> str:
-    """Fast path: 2–3 OCR attempts max, stop on first valid title."""
-    from item_tooltip_preprocess import preprocess_tooltip_orange, preprocess_tooltip_white
+    """Fast path: orange title first; white title only if crop looks like a white name strip."""
+    from item_tooltip_locator import _orange_title_mask, _white_title_mask
+    from item_tooltip_preprocess import preprocess_tooltip_color_boost, preprocess_tooltip_orange, preprocess_tooltip_white
 
     for prepared in (
-        _upscale_raw(image, fast=True),
+        preprocess_tooltip_color_boost(image),
         preprocess_tooltip_orange(image),
-        preprocess_tooltip_white(image),
     ):
         text = _recognize_tooltip_variant(prepared)
         name = extract_item_name(text)
@@ -136,6 +136,18 @@ def recognize_tooltip_text_fast(image: Image.Image) -> str:
         cleaned = normalize_item_name(name)
         if is_valid_item_name(cleaned):
             return cleaned
+
+    rgb = np.asarray(image.convert("RGB"))
+    top = rgb[: max(12, rgb.shape[0] // 2)]
+    orange_px = int(_orange_title_mask(top).sum())
+    white_px = int(_white_title_mask(top).sum())
+    if white_px >= 35 and white_px > orange_px * 2:
+        text = _recognize_tooltip_variant(preprocess_tooltip_white(image))
+        name = extract_item_name(text)
+        if name:
+            cleaned = normalize_item_name(name)
+            if is_valid_item_name(cleaned):
+                return cleaned
     return ""
 
 
