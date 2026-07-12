@@ -1,14 +1,15 @@
-"""Read item name from inventory tooltip near cursor."""
+"""Read item name from inventory tooltip (full-screen green indicator search)."""
 
 from __future__ import annotations
 
 import re
+from typing import Callable
 
 from PIL import Image
 
-from capture import grab_region, resolve_monitor
+from capture import grab_region
+from item_tooltip_locator import find_tooltip_region
 from item_tooltip_preprocess import preprocess_tooltip_variants
-from mouse_util import get_cursor_pos
 
 
 _SKIP_LINE_RE = re.compile(
@@ -52,38 +53,25 @@ def extract_item_name(ocr_text: str) -> str | None:
     return lines[0] if lines else None
 
 
-def grab_tooltip_near_cursor(
-    monitor_index: int,
+def read_item_name_at_cursor(
+    cfg: dict,
     *,
-    dx: int = 24,
-    dy: int = -90,
-    width: int = 420,
-    height: int = 72,
-) -> Image.Image | None:
-    mon = resolve_monitor(monitor_index)
-    if not mon:
-        return None
-    cx, cy = get_cursor_pos()
-    lx = cx - mon.left
-    ly = cy - mon.top
-    left = max(0, lx + dx)
-    top = max(0, ly + dy)
-    right = min(mon.width, left + max(40, width))
-    bottom = min(mon.height, top + max(24, height))
-    if right <= left + 8 or bottom <= top + 8:
-        return None
-    return grab_region(monitor_index, (left, top, right, bottom))
+    on_search: Callable[[str], None] | None = None,
+) -> str | None:
+    if on_search:
+        on_search("Ищу зелёный маркер на экране…")
 
+    region, via_indicator = find_tooltip_region(cfg)
+    if region is None:
+        return None
 
-def read_item_name_at_cursor(cfg: dict) -> str | None:
-    capture = cfg.get("item_tooltip_capture") or {}
-    image = grab_tooltip_near_cursor(
-        int(cfg.get("monitor_index", 1)),
-        dx=int(capture.get("dx", 24)),
-        dy=int(capture.get("dy", -90)),
-        width=int(capture.get("w", 420)),
-        height=int(capture.get("h", 72)),
-    )
+    if on_search:
+        if via_indicator:
+            on_search("Распознаю описание предмета…")
+        else:
+            on_search("Маркер не найден — OCR у курсора…")
+
+    image = grab_region(int(cfg.get("monitor_index", 1)), region)
     if image is None:
         return None
     text = recognize_tooltip_text(image)

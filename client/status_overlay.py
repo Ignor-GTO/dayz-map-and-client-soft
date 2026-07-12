@@ -86,6 +86,9 @@ class GameHudOverlay:
     def show_busy(self, text: str = "Читаю координаты…") -> None:
         self.show("⟳", text, _BUSY)
 
+    def show_inventory_search(self, text: str = "Ищу описание предмета…") -> None:
+        self.show("◉", text, _OK)
+
     def show_ok(self, x: float, y: float, *, marker: bool = False) -> None:
         kind = "Метка" if marker else "Позиция"
         self.show("✓", f"{kind}: {x:.0f} / {y:.0f}", _OK, auto_hide_ms=2800)

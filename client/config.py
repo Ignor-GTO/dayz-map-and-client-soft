@@ -55,7 +55,9 @@ DEFAULT_CONFIG = {
     "hotkey_inventory_price": ["tab"],
     "map_slug": "pripyat",
     "inventory_poll_ms": 450,
-    "item_tooltip_capture": {"dx": 24, "dy": -90, "w": 420, "h": 72},
+    "inventory_price_enabled": True,
+    "item_tooltip_capture": {"dx": 24, "dy": -100, "w": 440, "h": 120},
+    "item_tooltip_from_indicator": {"dx": 24, "dy": -100, "w": 440, "h": 120, "max_cursor_dist": 320},
     "ocr_preprocess_mode": "auto",
 }
 

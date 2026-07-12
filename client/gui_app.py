@@ -894,7 +894,9 @@ class ClientApp(tk.Tk):
         add_bullet(hk_lf, "Снимок координат (по умолчанию: Ctrl+Shift+S, Ctrl+Shift+C)", 
                    "Позволяет принудительно запустить разовое распознавание координат с экрана в любой момент.")
         add_bullet(hk_lf, "Закрыть карту (по умолчанию: Esc)", 
-                   "Закрывает сессию считывания и скрывает оверлей на экране.")
+                   "Закрывает сессию считывания и скрывает оверлей на экране. Также останавливает поиск цен в инвентаре.")
+        add_bullet(hk_lf, "Цены в инвентаре (по умолчанию: Tab)", 
+                   "Tab — включить поиск описания по зелёному маркеру на экране. Повторный Tab (закрытие инвентаря) или Esc — остановить.")
 
         # --- Section 3: Настройка области распознавания (OCR) ---
         ocr_lf = create_section(scrollable_frame, "🔍 Настройка распознавания (OCR)")
@@ -1563,6 +1565,11 @@ class ClientApp(tk.Tk):
         else:
             overlay.show_not_found(item_name)
 
+    def _inventory_search_status(self, text: str) -> None:
+        if not self._inventory_watch:
+            return
+        self._ensure_hud().show_inventory_search(text)
+
     def _inventory_watch_loop(self) -> None:
         last_name: str | None = None
         poll_s = max(0.25, int(self.cfg.get("inventory_poll_ms", 450)) / 1000.0)
@@ -1570,12 +1577,25 @@ class ClientApp(tk.Tk):
         map_slug = str(self.cfg.get("map_slug") or "pripyat").strip()
         while not self._inventory_stop.is_set():
             try:
-                name = read_item_name_at_cursor(self.cfg)
+                if not self._inventory_watch:
+                    break
+                name = read_item_name_at_cursor(
+                    self.cfg,
+                    on_search=lambda t: self.after(0, lambda msg=t: self._inventory_search_status(msg)),
+                )
                 if name != last_name:
                     last_name = name
                     if not name:
                         self.after(0, lambda: self._ensure_price_overlay().hide())
+                        if self._inventory_watch:
+                            self.after(
+                                0,
+                                lambda: self._ensure_hud().show_inventory_search(
+                                    "Наведите курсор на предмет в инвентаре"
+                                ),
+                            )
                     else:
+                        self.after(0, lambda: self._ensure_hud().hide())
                         cache_key = name.casefold()
                         if cache_key not in self._inventory_price_cache:
                             try:
@@ -1602,25 +1622,33 @@ class ClientApp(tk.Tk):
         )
         self._inventory_thread.start()
 
-    def _stop_inventory_watch(self) -> None:
+    def _stop_inventory_watch(self, *, log: bool = True) -> None:
+        was_active = self._inventory_watch
         self._inventory_watch = False
         self._inventory_stop.set()
         self._ensure_price_overlay().hide()
+        self._ensure_hud().hide()
+        if log and was_active:
+            self.log_line("[Цены] Инвентарь: слежение остановлено")
 
-    def _toggle_inventory_price_watch(self) -> None:
-        self._inventory_watch = not self._inventory_watch
+    def _start_inventory_price_watch(self) -> None:
         if self._inventory_watch:
-            self._inventory_price_cache.clear()
-            self._start_inventory_watch()
-            self.log_line("[Цены] Инвентарь: слежение включено (Tab — выкл)")
-        else:
-            self._stop_inventory_watch()
-            self.log_line("[Цены] Инвентарь: слежение выключено")
+            return
+        self._inventory_watch = True
+        self._inventory_price_cache.clear()
+        self._inventory_stop.clear()
+        self._start_inventory_watch()
+        self._ensure_hud().show_inventory_search("Ищу описание предмета…")
+        self.log_line("[Цены] Инвентарь: слежение включено (Tab/Esc — стоп)")
 
     def _handle_inventory_price_hotkey(self) -> None:
         if not self.hotkeys_active:
             return
-        self._toggle_inventory_price_watch()
+        if self._inventory_watch:
+            # Повторный Tab закрывает инвентарь в игре — останавливаем OCR.
+            self._stop_inventory_watch(log=True)
+            return
+        self._start_inventory_price_watch()
 
     def _ensure_hud(self) -> GameHudOverlay:
         if self._hud is None:
@@ -1932,7 +1960,7 @@ class ClientApp(tk.Tk):
     def stop_hotkeys(self) -> None:
         if not self.hotkeys_active:
             return
-        self._stop_inventory_watch()
+        self._stop_inventory_watch(log=False)
         self.hotkeys_active = False
         self._end_map_session(silent=True)
         self._stop_clipboard.set()
@@ -2196,6 +2224,8 @@ class ClientApp(tk.Tk):
     def _handle_esc_hotkey(self) -> None:
         if not self.hotkeys_active:
             return
+        if self._inventory_watch:
+            self._stop_inventory_watch(log=True)
         if self._map_session_active:
             self._end_map_session()
 
@@ -2337,7 +2367,7 @@ class ClientApp(tk.Tk):
     def on_close(self) -> None:
         if self._region_editor and self._region_editor.active:
             self._region_editor.stop()
-        self._stop_inventory_watch()
+        self._stop_inventory_watch(log=False)
         if self._price_overlay:
             self._price_overlay.destroy()
             self._price_overlay = None
