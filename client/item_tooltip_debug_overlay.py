@@ -168,6 +168,8 @@ class TooltipDebugOverlay:
             self._last_search = search
         if regions:
             self._last_regions = list(regions[:6])
+        elif search is not None:
+            self._last_regions = []
         if cursor is not None:
             self._last_cursor = cursor
 

@@ -237,6 +237,8 @@ def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> f
         score -= 12000
     if title_px > 2500:
         score -= 15000
+    if title_run > 420:
+        score -= 35000
     if 60 <= title_px <= 1200:
         score += 1200
     if orange_px >= 80:
@@ -251,21 +253,27 @@ def region_ocr_priority(search: SearchArea, box: tuple[int, int, int, int]) -> f
         score -= 20000
     if _is_client_overlay_zone(search, box):
         score -= 30000
-    score -= x_delta * 1.8
+    score -= x_delta * 2.4
     score -= dist * 0.6
     y_mid = (y0 + y1) / 2.0
     y_delta = abs(y_mid - search.cursor_y)
-    score -= y_delta * 1.0
+    score -= y_delta * 1.2
     if x_delta <= 180:
         score += 500
     if y_delta <= 90:
         score += 700
     if y0 > rgb.shape[0] * 0.72:
         score -= 15000
+    if y1 < search.cursor_y - 300:
+        score -= 20000
+    if y0 > search.cursor_y + 50:
+        score -= 25000
     if search.cursor_x > w_img * 0.52 and box_cx >= search.cursor_x - 60:
         score += 900
-    if search.cursor_x > w_img * 0.52 and box_cx < search.cursor_x - 220:
-        score -= 2000
+    if search.cursor_x > w_img * 0.52 and box_cx < search.cursor_x - 180:
+        score -= 25000
+    if search.cursor_x < w_img * 0.48 and box_cx > search.cursor_x + 180:
+        score -= 25000
     if abs_y0 < 110:
         score -= 15000
     return score
@@ -287,6 +295,8 @@ def _region_excluded(search: SearchArea, box: tuple[int, int, int, int], rgb: np
     if dark_ratio < 0.32:
         return True
     if (box[3] - box[1]) > 80 and orange_px < 20:
+        return True
+    if title_run > 420:
         return True
     if (box[2] - box[0]) < 90:
         return True
@@ -342,6 +352,106 @@ def _title_box_from_panel(panel: tuple[int, int, int, int], w: int, h: int) -> t
     tx, ty, rx, by = panel
     title_h = 58
     return _clamp_box(tx + 4, ty + 2, rx - 4, ty + title_h, w, h)
+
+
+def _measure_dark_panel(
+    dark: np.ndarray,
+    tx: int,
+    ty: int,
+    *,
+    max_width: int = 620,
+    max_height: int = 480,
+) -> tuple[int, int, int, int] | None:
+    h, w = dark.shape
+    if ty < 36 or tx < 0 or tx >= w - 140:
+        return None
+    if dark[ty : ty + 8, tx : tx + 24].mean() < 0.45:
+        return None
+
+    rx = tx
+    for x in range(tx + 100, min(w, tx + max_width), 6):
+        col = dark[ty : min(h, ty + 44), max(tx, x - 10) : min(w, x + 10)].mean()
+        if col < 0.38:
+            break
+        rx = x
+    bw = rx - tx
+    if bw < 180:
+        return None
+
+    by = ty
+    for y in range(ty + 56, min(h, ty + max_height), 8):
+        row = dark[y, tx : rx + 1].mean()
+        if row < 0.4:
+            by = y
+            break
+        by = y
+    bh = by - ty
+    if bh < 96:
+        return None
+    return (tx, ty, rx, by)
+
+
+def _find_tooltip_title_at_cursor(search: SearchArea) -> tuple[int, int, int, int] | None:
+    """Tooltip = tall dark panel attached to hovered item; cursor sits in its lower part."""
+    rgb = np.asarray(search.image.convert("RGB"))
+    dark = _dark_mask(rgb)
+    h, w = dark.shape
+    cx, cy = search.cursor_x, search.cursor_y
+
+    best: tuple[float, tuple[int, int, int, int]] | None = None
+    y_start = max(36, cy - 380)
+    y_end = min(h - 60, cy + 24)
+    x_start = max(0, cx - 500)
+    x_end = min(w - 140, cx + 40)
+
+    for ty in range(y_start, y_end, 6):
+        for tx in range(x_start, x_end, 10):
+            panel = _measure_dark_panel(dark, tx, ty)
+            if panel is None:
+                continue
+            ptx, pty, prx, pby = panel
+            bw = prx - ptx
+            bh = pby - pty
+            if bw > 580 or bh > int(h * 0.72):
+                continue
+            if cy < pty + bh * 0.20:
+                continue
+            if cy > pby + 40:
+                continue
+            if cx < ptx - 60 or cx > prx + 90:
+                continue
+
+            title = _title_box_from_panel(panel, w, h)
+            if not title:
+                continue
+            if _is_hud_strip(title, w) or _is_client_overlay_zone(search, title):
+                continue
+            title_px, dark_ratio, title_run, orange_px = _title_stats(rgb, title)
+            if title_px < 28 or dark_ratio < 0.38:
+                continue
+            if title_run > 420:
+                continue
+
+            title_y_mid = (title[1] + title[3]) / 2.0
+            panel_cx = (ptx + prx) / 2.0
+            if not (cy - 280 <= title_y_mid <= cy - 40):
+                continue
+            if pty < 105 and 0.28 * w < panel_cx < 0.72 * w:
+                continue
+            if title[1] < 130 and 0.30 * w < (title[0] + title[2]) / 2 < 0.70 * w:
+                continue
+            title_cx = (title[0] + title[2]) / 2.0
+            if abs(title_cx - cx) > max(120, bw * 0.28):
+                continue
+
+            dist = _cursor_distance(panel, cx, cy)
+            score = bh * 3.0 + min(bw, 520) * 1.5 + title_px * 4.0 - dist * 2.5
+            if orange_px >= 40 or title_px >= 60:
+                score += 800
+            if best is None or score > best[0]:
+                best = (score, title)
+
+    return best[1] if best else None
 
 
 def _find_dark_panel_titles_global(search: SearchArea, *, step: int = 8) -> list[tuple[int, int, int, int]]:
@@ -564,8 +674,8 @@ def _cursor_fallback_regions(search: SearchArea, limit: int = 4) -> list[tuple[i
     return out
 
 
-def find_title_regions_in_search(search: SearchArea, *, fast: bool = False) -> list[tuple[int, int, int, int]]:
-    """Return local (L,T,R,B) title crops, best tooltip title first."""
+def _find_title_regions_fallback(search: SearchArea, *, fast: bool = False) -> list[tuple[int, int, int, int]]:
+    """Legacy scan for OCR when cursor-attached tooltip panel is not found."""
     rgb = np.asarray(search.image.convert("RGB"))
     h, w = rgb.shape[:2]
     cx, cy = search.cursor_x, search.cursor_y
@@ -602,6 +712,17 @@ def find_title_regions_in_search(search: SearchArea, *, fast: bool = False) -> l
     deduped = _dedupe_boxes(finalized)
     deduped.sort(key=lambda b: region_ocr_priority(search, b), reverse=True)
     return deduped
+
+
+def find_title_regions_in_search(search: SearchArea, *, fast: bool = False) -> list[tuple[int, int, int, int]]:
+    """Return title crop only when a tooltip panel is attached to the cursor."""
+    w, h = search.image.size
+    cursor_title = _find_tooltip_title_at_cursor(search)
+    if cursor_title:
+        expanded = _finalize_title_region_box(cursor_title, w, h)
+        if expanded:
+            return [expanded]
+    return []
 
 
 def find_tooltip_region(cfg: dict) -> tuple[tuple[int, int, int, int] | None, str]:

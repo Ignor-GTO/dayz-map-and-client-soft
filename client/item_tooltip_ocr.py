@@ -10,6 +10,7 @@ from PIL import Image, ImageEnhance
 
 from item_tooltip_locator import (
     SearchArea,
+    _find_title_regions_fallback,
     find_title_regions_in_search,
     grab_tooltip_search_area,
 )
@@ -216,14 +217,6 @@ def pick_best_name(names: list[str]) -> str | None:
     return valid[0]
 
 
-def _sorted_title_regions(search: SearchArea, *, fast: bool = True) -> list[tuple[int, int, int, int]]:
-    from item_tooltip_locator import region_ocr_priority
-
-    regions = find_title_regions_in_search(search, fast=fast)
-    regions.sort(key=lambda box: region_ocr_priority(search, box), reverse=True)
-    return regions
-
-
 def read_item_name_at_cursor(
     cfg: dict,
     *,
@@ -240,10 +233,11 @@ def read_item_name_at_cursor(
             on_search("hint")
         return None
 
-    regions = _sorted_title_regions(search, fast=True)
-
+    debug_regions = find_title_regions_in_search(search, fast=True)
     if on_capture_ready:
-        on_capture_ready(search, regions)
+        on_capture_ready(search, debug_regions)
+
+    regions = debug_regions or _find_title_regions_fallback(search, fast=True)
 
     for box in regions[:2]:
         crop = search.image.crop(box)
