@@ -725,14 +725,31 @@ class ClientApp(tk.Tk):
         inv_lf = ttk.LabelFrame(scrollable_frame, text=" Цены инвентаря ", padding=10)
         inv_lf.pack(fill="x", padx=10, pady=5)
 
+        self.inventory_price_enabled_var = tk.BooleanVar()
+        self.inventory_price_enabled_chk = ttk.Checkbutton(
+            inv_lf,
+            text="Включить поиск цен в инвентаре (Tab)",
+            variable=self.inventory_price_enabled_var,
+            command=self._on_inventory_price_enabled_toggle,
+            style="Card.TCheckbutton",
+        )
+        self.inventory_price_enabled_chk.pack(anchor="w", pady=(2, 6))
+        ttk.Label(
+            inv_lf,
+            text="Tab в открытом инвентаре: OCR названия предмета и цена с сервера. Снимите галочку, чтобы Tab не перехватывался.",
+            style="CardMuted.TLabel",
+            wraplength=520,
+        ).pack(anchor="w", pady=(0, 8))
+
         self.inventory_debug_frame_var = tk.BooleanVar()
-        ttk.Checkbutton(
+        self.inventory_debug_frame_chk = ttk.Checkbutton(
             inv_lf,
             text="Тестировать: показывать рамку захвата названия предмета (Tab)",
             variable=self.inventory_debug_frame_var,
             command=self._on_inventory_debug_frame_toggle,
             style="Card.TCheckbutton",
-        ).pack(anchor="w", pady=(2, 4))
+        )
+        self.inventory_debug_frame_chk.pack(anchor="w", pady=(2, 4))
         ttk.Label(
             inv_lf,
             text="Tab в игре. Голубая «ПОИСК», зелёная «ЗАХВАТ» (основная), жёлтые #2–#6 (запасные). Рамки обновляются постоянно.",
@@ -1078,7 +1095,9 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_delay_var.set(str(self.cfg.get("mouse_nudge_delay_ms", 400)))
         self.mouse_nudge_offset_var.set(str(self.cfg.get("mouse_nudge_edge_offset", 8)))
         self.mouse_nudge_restore_var.set(self.cfg.get("mouse_nudge_restore", True))
+        self.inventory_price_enabled_var.set(self.cfg.get("inventory_price_enabled", True))
         self.inventory_debug_frame_var.set(self.cfg.get("inventory_price_debug_frame", False))
+        self._sync_inventory_price_controls()
         self._update_help_labels()
 
     def _update_help_labels(self) -> None:
@@ -1360,6 +1379,7 @@ class ClientApp(tk.Tk):
                 "mouse_nudge_delay_ms": delay,
                 "mouse_nudge_edge_offset": offset,
                 "mouse_nudge_restore": self.mouse_nudge_restore_var.get(),
+                "inventory_price_enabled": self.inventory_price_enabled_var.get(),
                 "inventory_price_debug_frame": self.inventory_debug_frame_var.get(),
             }
         )
@@ -1617,6 +1637,29 @@ class ClientApp(tk.Tk):
         if self.cfg.get("inventory_price_debug_frame"):
             self._keep_debug_overlay_topmost()
 
+    def _sync_inventory_price_controls(self) -> None:
+        enabled = bool(self.inventory_price_enabled_var.get())
+        state = "normal" if enabled else "disabled"
+        try:
+            self.inventory_debug_frame_chk.configure(state=state)
+        except tk.TclError:
+            pass
+        if not enabled:
+            self.inventory_debug_frame_var.set(False)
+            self.cfg["inventory_price_debug_frame"] = False
+            self._stop_debug_topmost_timer()
+            self._ensure_tooltip_debug_overlay().hide()
+
+    def _on_inventory_price_enabled_toggle(self) -> None:
+        enabled = bool(self.inventory_price_enabled_var.get())
+        self.cfg["inventory_price_enabled"] = enabled
+        self._sync_inventory_price_controls()
+        if not enabled:
+            self._stop_inventory_watch(log=True)
+        if self.hotkeys_active:
+            self.stop_hotkeys()
+            self.start_hotkeys()
+
     def _on_inventory_debug_frame_toggle(self) -> None:
         enabled = bool(self.inventory_debug_frame_var.get())
         self.cfg["inventory_price_debug_frame"] = enabled
@@ -1797,6 +1840,8 @@ class ClientApp(tk.Tk):
 
     def _handle_inventory_price_hotkey(self) -> None:
         if not self.hotkeys_active:
+            return
+        if not self.cfg.get("inventory_price_enabled", True):
             return
         if self._inventory_watch:
             # Повторный Tab закрывает инвентарь в игре — останавливаем OCR.
@@ -2107,7 +2152,8 @@ class ClientApp(tk.Tk):
             f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
             f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}, "
             f"на себя: {', '.join(self.cfg.get('hotkey_focus_me', ['end'])).upper()}; "
-            f"цены инвентаря: {', '.join(self.cfg.get('hotkey_inventory_price', ['tab'])).upper()}; "
+            f"цены инвентаря: {', '.join(self.cfg.get('hotkey_inventory_price', ['tab'])).upper()}"
+            f"{' (выкл.)' if not self.cfg.get('inventory_price_enabled', True) else ''}; "
             f"Win+Shift+S — авто из буфера"
         )
 
