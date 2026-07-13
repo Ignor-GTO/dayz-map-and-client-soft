@@ -1516,6 +1516,17 @@ button.secondary.small {
   margin-bottom: 1rem;
 }
 
+.marker-category-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.marker-category-hint.hidden {
+  display: none;
+}
+
 .marker-edit-field label {
   display: block;
   font-size: 0.82rem;
@@ -1524,7 +1535,8 @@ button.secondary.small {
 }
 
 .marker-edit-field input,
-.marker-edit-field textarea {
+.marker-edit-field textarea,
+.marker-edit-field select {
   width: 100%;
   padding: 0.55rem 0.75rem;
   border: 1px solid #2a3848;
@@ -1538,7 +1550,8 @@ button.secondary.small {
 }
 
 .marker-edit-field input:focus,
-.marker-edit-field textarea:focus {
+.marker-edit-field textarea:focus,
+.marker-edit-field select:focus {
   outline: none;
   border-color: var(--accent);
 }

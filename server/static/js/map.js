@@ -1242,12 +1242,36 @@ function canDeleteMarker(meta) {
   return !!(state.me && meta?.user_id === state.me.user_id);
 }
 
-function syncStashCategoryControls() {
-  const can = canManageStashes();
+function syncStaffCategoryControls(kind = "point", isStash = false) {
+  const can = canManageMapStaff();
+  const allowPoi = can && kind === "point" && !isStash;
   document.querySelectorAll('#marker-edit-category option[value="stash"]').forEach((opt) => {
     opt.hidden = !can;
     opt.disabled = !can;
   });
+  document.querySelectorAll('#marker-edit-category option[value="poi"]').forEach((opt) => {
+    opt.hidden = !allowPoi;
+    opt.disabled = !allowPoi;
+  });
+}
+
+function updateMarkerCategoryHint() {
+  const hint = document.getElementById("marker-edit-category-hint");
+  const categoryInput = document.getElementById("marker-edit-category");
+  if (!hint || !categoryInput) return;
+  const value = categoryInput.value || "group";
+  if (value === "stash") {
+    hint.textContent = "Тайник виден всем группам на карте. Автор отображается как «Сервер».";
+    hint.classList.remove("hidden");
+    return;
+  }
+  if (value === "poi") {
+    hint.textContent = "Метка станет серверной: исчезнет из группы и появится в «Метки сервера» для всех игроков.";
+    hint.classList.remove("hidden");
+    return;
+  }
+  hint.textContent = "";
+  hint.classList.add("hidden");
 }
 
 function upsertPin(m) {
@@ -1756,8 +1780,9 @@ function openMarkerEditModal(markerId) {
   document.getElementById("marker-edit-desc").value = m.description || "";
   const categoryInput = document.getElementById("marker-edit-category");
   if (categoryInput) categoryInput.value = (m.marker_category || "group");
-  syncStashCategoryControls();
   const kind = m.geometry_kind || "point";
+  syncStaffCategoryControls(kind, isStashMarker(m));
+  updateMarkerCategoryHint();
   const geometryKind = document.getElementById("marker-edit-geometry-kind");
   if (geometryKind) geometryKind.value = markerKindLabel(kind);
   const radiusInput = document.getElementById("marker-edit-radius");
@@ -1786,12 +1811,6 @@ function openMarkerEditModal(markerId) {
   } else {
     previewImg.src = "";
     previewWrap.style.display = "none";
-  }
-
-  const promoteBtn = document.getElementById("marker-promote-poi-btn");
-  if (promoteBtn) {
-    const showPromote = canManageMapStaff() && kind === "point" && !isStashMarker(m);
-    promoteBtn.classList.toggle("hidden", !showPromote);
   }
 
   document.getElementById("marker-edit-modal").classList.remove("hidden");
@@ -1893,16 +1912,49 @@ async function deletePoi(poiId) {
   }
 }
 
-async function promoteMarkerToPoi() {
-  if (!_editMarkerId || !canManageMapStaff()) return;
+async function uploadMarkerImageIfPending(markerId) {
+  if (!_editImageFile) return null;
+  const fd = new FormData();
+  fd.append("file", _editImageFile);
+  const res = await fetch(`/api/markers/${markerId}/image`, {
+    method: "POST",
+    credentials: "same-origin",
+    body: fd,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail || `HTTP ${res.status}`);
+  }
+  return res.json().catch(() => null);
+}
+
+async function promoteMarkerToPoi(options = {}) {
+  const { skipConfirm = false } = options;
+  if (!_editMarkerId || !canManageMapStaff()) return false;
   const leafletMarker = state.pinMarkers.get(_editMarkerId);
   const m = leafletMarker?._markerMeta;
-  if (!m || (m.geometry_kind || "point") !== "point") return;
-  if (!confirm("Преобразовать метку в серверную? Исходная метка игрока будет удалена.")) return;
+  if (!m || (m.geometry_kind || "point") !== "point") return false;
+  if (isStashMarker(m)) return false;
+  if (
+    !skipConfirm
+    && !confirm("Преобразовать метку в серверную? Исходная метка игрока будет удалена.")
+  ) {
+    return false;
+  }
 
+  const markerId = Number(_editMarkerId);
   const icon = markerTypeToPoiIcon(markerIconPickerApi?.getSelected() || m.type || "marker");
   try {
-    const poi = await api(`/api/markers/${_editMarkerId}/promote-to-poi`, {
+    if (_editClearImage) {
+      await api(`/api/markers/${markerId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ image_url: null }),
+      });
+    }
+    const withImage = await uploadMarkerImageIfPending(markerId);
+    if (withImage) upsertPin({ ...m, ...withImage });
+
+    const poi = await api(`/api/markers/${markerId}/promote-to-poi`, {
       method: "POST",
       body: JSON.stringify({
         icon,
@@ -1910,11 +1962,13 @@ async function promoteMarkerToPoi() {
         description: document.getElementById("marker-edit-desc")?.value.trim() || m.description || "",
       }),
     });
-    removePin(_editMarkerId);
+    removePin(markerId);
     upsertPoi(poi);
     closeMarkerEditModal();
+    return true;
   } catch (err) {
     alert(err.message);
+    return false;
   }
 }
 
@@ -1987,7 +2041,7 @@ document.getElementById("marker-img-clear").addEventListener("click", () => {
 
 // Cancel
 document.getElementById("marker-edit-cancel").addEventListener("click", closeMarkerEditModal);
-document.getElementById("marker-promote-poi-btn")?.addEventListener("click", promoteMarkerToPoi);
+document.getElementById("marker-edit-category")?.addEventListener("change", updateMarkerCategoryHint);
 
 // Close on backdrop click
 document.getElementById("marker-edit-modal").addEventListener("click", (e) => {
@@ -2008,6 +2062,12 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
 
   try {
     const markerKind = existingMeta?.geometry_kind || "point";
+    const selectedCategory = document.getElementById("marker-edit-category")?.value || "group";
+    if (selectedCategory === "poi") {
+      await promoteMarkerToPoi();
+      return;
+    }
+
     const circleRadius = Number(document.getElementById("marker-edit-radius")?.value || 300);
     const circleStroke = normalizeHexColor(document.getElementById("marker-edit-stroke-color")?.value, "#ffffff");
     const circleFill = normalizeHexColor(document.getElementById("marker-edit-fill-color")?.value, "#ffffff");
@@ -2016,7 +2076,7 @@ document.getElementById("marker-edit-save").addEventListener("click", async () =
       title: document.getElementById("marker-edit-title").value.trim() || null,
       description: document.getElementById("marker-edit-desc").value.trim() || null,
       type: selectedType,
-      marker_category: document.getElementById("marker-edit-category")?.value || "group",
+      marker_category: selectedCategory,
     };
     if (markerKind === "circle") {
       patchBody.radius = Math.max(10, Number.isFinite(circleRadius) ? circleRadius : 300);
@@ -2415,7 +2475,7 @@ async function bootstrapMapView() {
   window.ProfileUi?.syncAvatarUi();
   window.ProfileUi?.syncAdminPanelLink?.();
   await ensureClientKey();
-  syncStashCategoryControls();
+  syncStaffCategoryControls();
   const roadsFilter = document.getElementById("filter-roads");
   if (roadsFilter) roadsFilter.checked = !!state.filters.roads;
   const buildingsFilter = document.getElementById("filter-buildings");
