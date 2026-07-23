@@ -3,6 +3,9 @@
 POI_ICONS: dict[str, dict[str, str]] = {
     "star": {"glyph": "★", "label": "Звезда", "color": "#3498db"},
     "trader": {"glyph": "🛒", "label": "Торговец", "color": "#2980b9"},
+    "mutant": {"glyph": "👾", "label": "Мутанты", "color": "#6a1b9a"},
+    "hunting": {"glyph": "🦌", "label": "Охота", "color": "#558b2f"},
+    "chicken": {"glyph": "🐔", "label": "Курица", "color": "#ef6c00"},
     "camp": {"glyph": "⛺", "label": "Лагерь", "color": "#c0392b"},
     "heli": {"glyph": "H", "label": "Вертолёт", "color": "#e91e9b"},
     "skull": {"glyph": "☠", "label": "Опасно", "color": "#2c3e50"},
@@ -60,7 +63,6 @@ POI_ICONS: dict[str, dict[str, str]] = {
     "sniper": {"glyph": "⊕", "label": "Снайпер", "color": "#263238"},
     "ambush": {"glyph": "✕", "label": "Засада", "color": "#b71c1c"},
     "boss": {"glyph": "♛", "label": "Босс", "color": "#880e4f"},
-    "mutant": {"glyph": "M", "label": "Мутант", "color": "#6a1b9a"},
     "dog": {"glyph": "🐕", "label": "Псы", "color": "#8d6e63"},
     "infected": {"glyph": "Z", "label": "Заражённые", "color": "#33691e"},
     "bandit": {"glyph": "B", "label": "Бандиты", "color": "#4e342e"},
@@ -104,4 +106,6 @@ DEFAULT_POI_ICON = "star"
 
 def normalize_poi_icon(icon: str | None) -> str:
     key = (icon or DEFAULT_POI_ICON).strip().lower()
+    if key == "mutants":
+        key = "mutant"
     return key if key in POI_ICONS else DEFAULT_POI_ICON

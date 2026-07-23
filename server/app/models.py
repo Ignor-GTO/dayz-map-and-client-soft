@@ -174,7 +174,7 @@ class Marker(Base):
     radius: Mapped[float | None] = mapped_column(Float, nullable=True)
     stroke_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
     fill_color: Mapped[str | None] = mapped_column(String(16), nullable=True)
-    # Server stashes (marker_category=stash) are tied to map, visible to all PIN groups.
+    # Map-scoped server categories (stash/mutants/hunting) are tied to map, visible to all PIN groups.
     map_id: Mapped[int | None] = mapped_column(ForeignKey("dayz_maps.id"), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 

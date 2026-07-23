@@ -864,12 +864,16 @@ button.secondary:hover { background: #3a4858; }
 
 .poi-desc-image {
   display: block;
-  max-width: min(280px, 70vw);
-  max-height: 200px;
+  box-sizing: border-box;
+  width: auto;
+  max-width: 100%;
+  max-height: 160px;
+  height: auto;
   object-fit: contain;
   margin: 0.4rem 0;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: zoom-in;
 }
 
 .poi-coords {
@@ -971,7 +975,14 @@ select {
 .leaflet-popup-content {
   color: #222;
   max-width: min(62vw, 260px);
+  overflow: hidden;
   overflow-wrap: anywhere;
+}
+
+.leaflet-popup-content img {
+  max-width: 100% !important;
+  height: auto;
+  box-sizing: border-box;
 }
 
 .marker-popup-actions {
@@ -1618,6 +1629,7 @@ button.secondary.small {
 .marker-icon-btn .icon-emoji {
   font-size: 1.4rem;
   line-height: 1;
+  font-family: "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Segoe UI", sans-serif;
 }
 
 .marker-icon-btn:hover {
@@ -1851,13 +1863,22 @@ button.secondary.small {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2px solid #fff;
-  font-size: 11px;
+  font-size: 13px;
+  font-weight: 700;
   color: #fff;
   flex-shrink: 0;
+  line-height: 1;
+  font-family: "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Segoe UI", sans-serif;
+}
+
+#poi-edit-modal .icon-option-glyph--emoji {
+  font-size: 15px;
+  font-weight: 400;
+  color: inherit;
 }
 
 #poi-edit-modal .icon-option-label {
@@ -1940,9 +1961,11 @@ button.secondary.small {
 
 .marker-popup-img {
   display: block;
+  box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   max-height: 160px;
+  height: auto;
   object-fit: contain;
   border-radius: 6px;
   border: 1px solid rgba(0,0,0,0.15);

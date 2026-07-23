@@ -47,6 +47,8 @@ const state = {
     players: true,
     markers: true,
     stashes: false,
+    mutants: true,
+    hunting: true,
     poi: true,
     radiation: true,
     psi: true,
@@ -1228,7 +1230,26 @@ function canManageMapStaff() {
 }
 
 function isStashMarker(meta) {
-  return (meta?.marker_category || "group") === "stash";
+  return isMapScopedCategory(meta?.marker_category);
+}
+
+function isMapScopedCategory(category) {
+  const value = category || "group";
+  return value === "stash" || value === "mutants" || value === "hunting";
+}
+
+const MAP_SCOPED_CATEGORY_LABELS = {
+  stash: "Тайник",
+  mutants: "Мутанты",
+  hunting: "Охота",
+};
+
+function markerVisibleOnMap(category) {
+  const value = category || "group";
+  if (value === "stash") return !state.filters.stashes;
+  if (value === "mutants") return !!state.filters.mutants;
+  if (value === "hunting") return !!state.filters.hunting;
+  return !!state.filters.markers;
 }
 
 function canEditMarker(meta) {
@@ -1242,10 +1263,12 @@ function canDeleteMarker(meta) {
   return !!(state.me && meta?.user_id === state.me.user_id);
 }
 
-function syncStaffCategoryControls(kind = "point", isStash = false) {
+function syncStaffCategoryControls(kind = "point", isMapScoped = false) {
   const can = canManageMapStaff();
-  const allowPoi = can && kind === "point" && !isStash;
-  document.querySelectorAll('#marker-edit-category option[value="stash"]').forEach((opt) => {
+  const allowPoi = can && kind === "point" && !isMapScoped;
+  document.querySelectorAll(
+    '#marker-edit-category option[value="stash"], #marker-edit-category option[value="mutants"], #marker-edit-category option[value="hunting"]',
+  ).forEach((opt) => {
     opt.hidden = !can;
     opt.disabled = !can;
   });
@@ -1262,6 +1285,16 @@ function updateMarkerCategoryHint() {
   const value = categoryInput.value || "group";
   if (value === "stash") {
     hint.textContent = "Тайник виден всем группам на карте. Автор отображается как «Сервер».";
+    hint.classList.remove("hidden");
+    return;
+  }
+  if (value === "mutants") {
+    hint.textContent = "Серверная категория «Мутанты»: видна всем группам на карте. Автор — «Сервер».";
+    hint.classList.remove("hidden");
+    return;
+  }
+  if (value === "hunting") {
+    hint.textContent = "Серверная категория «Охота»: видна всем группам на карте. Автор — «Сервер».";
     hint.classList.remove("hidden");
     return;
   }
@@ -1300,8 +1333,9 @@ function upsertPin(m) {
       ? `<div style="font-size:0.78rem;color:#555;margin-top:3px;">Точек: ${Array.isArray(m.points) ? m.points.length : 0}</div>`
       : "");
 
-  const isStash = markerCategory === "stash";
-  const popupHeadHtml = isStash
+  const isMapScoped = isMapScopedCategory(markerCategory);
+  const categoryLabel = MAP_SCOPED_CATEGORY_LABELS[markerCategory] || null;
+  const popupHeadHtml = isMapScoped
     ? `<b>${markerEscapeHtml(title)}</b>`
     : `<div class="marker-popup-head">
         <span class="marker-popup-avatar-wrap" style="--user-color:${color}">
@@ -1315,8 +1349,8 @@ function upsertPin(m) {
 
   const popupHtml = `
     ${popupHeadHtml}
-    ${isStash ? `<span style="color:#555;font-size:0.82rem;display:block;margin-top:2px">${markerEscapeHtml(m.nickname)} · ${roundedX} / ${roundedY}</span>` : ""}
-    ${isStash ? `<div style="font-size:0.78rem;color:#6b102e;margin-top:3px;">Категория: Тайник</div>` : ""}
+    ${isMapScoped ? `<span style="color:#555;font-size:0.82rem;display:block;margin-top:2px">${markerEscapeHtml(m.nickname)} · ${roundedX} / ${roundedY}</span>` : ""}
+    ${categoryLabel ? `<div style="font-size:0.78rem;color:#6b102e;margin-top:3px;">Категория: ${categoryLabel}</div>` : ""}
     ${shapeInfo}
     ${descHtml}
     ${imgHtml}
@@ -1371,7 +1405,7 @@ function upsertPin(m) {
   layer._markerMeta = m;
   state.pinMarkers.set(m.id, layer);
 
-  const visibleOnMap = markerCategory === "stash" ? !state.filters.stashes : !!state.filters.markers;
+  const visibleOnMap = markerVisibleOnMap(markerCategory);
   if (visibleOnMap) {
     if (state.map && !state.map.hasLayer(layer)) layer.addTo(state.map);
   } else if (state.map && state.map.hasLayer(layer)) {
@@ -1499,7 +1533,8 @@ function updateMarkersList() {
     const subLabel = `${m.nickname}${extra}`;
     const userColor = colorForUser(m.user_id);
     const isStash = (m.marker_category || "group") === "stash";
-    const rowIconHtml = isStash
+    const isMapScoped = isMapScopedCategory(m.marker_category);
+    const rowIconHtml = isMapScoped
       ? `<span class="sidebar-dot" style="background: ${userColor}"></span>`
       : `<span class="sidebar-avatar-wrap" style="--user-color: ${userColor}">
             ${userAvatarHtml(m.user_id, m.avatar_url, 22, "sidebar-avatar")}
@@ -1767,7 +1802,7 @@ function openMarkerEditModal(markerId) {
   const m = leafletMarker._markerMeta;
   if (!m) return;
   if (isStashMarker(m) && !canManageStashes()) {
-    alert("Тайники может редактировать только администратор или модератор");
+    alert("Серверные метки этой категории может редактировать только администратор или модератор");
     return;
   }
 
@@ -2351,6 +2386,8 @@ function renderFilterPanel(categories) {
     { id: "players", label: "Игроки (live)" },
     { id: "markers", label: "Метки группы" },
     { id: "stashes", label: "Скрыть тайники" },
+    { id: "mutants", label: "Мутанты" },
+    { id: "hunting", label: "Охота" },
     { id: "poi", label: "Метки сервера" },
     { id: "radiation", label: "Радиационные зоны" },
     { id: "psi", label: "Пси-зоны" },
@@ -2398,8 +2435,7 @@ function refreshDynamicLayers() {
     else state.map.removeLayer(m);
   });
   state.pinMarkers.forEach((m) => {
-    const isStash = (m._markerMeta?.marker_category || "group") === "stash";
-    const shouldShow = isStash ? !state.filters.stashes : !!state.filters.markers;
+    const shouldShow = markerVisibleOnMap(m._markerMeta?.marker_category);
     if (shouldShow) m.addTo(state.map);
     else state.map.removeLayer(m);
   });

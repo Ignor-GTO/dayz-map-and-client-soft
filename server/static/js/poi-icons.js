@@ -1,6 +1,9 @@
 const POI_ICONS = {
   star: { glyph: "★", label: "Звезда", color: "#3498db" },
   trader: { glyph: "🛒", label: "Торговец", color: "#2980b9" },
+  mutant: { glyph: "👾", label: "Мутанты", color: "#6a1b9a" },
+  hunting: { glyph: "🦌", label: "Охота", color: "#558b2f" },
+  chicken: { glyph: "🐔", label: "Курица", color: "#ef6c00" },
   camp: { glyph: "⛺", label: "Лагерь", color: "#c0392b" },
   heli: { glyph: "H", label: "Вертолёт", color: "#e91e9b" },
   skull: { glyph: "☠", label: "Опасно", color: "#2c3e50" },
@@ -58,7 +61,6 @@ const POI_ICONS = {
   sniper: { glyph: "⊕", label: "Снайпер", color: "#263238" },
   ambush: { glyph: "✕", label: "Засада", color: "#b71c1c" },
   boss: { glyph: "♛", label: "Босс", color: "#880e4f" },
-  mutant: { glyph: "M", label: "Мутант", color: "#6a1b9a" },
   dog: { glyph: "🐕", label: "Псы", color: "#8d6e63" },
   infected: { glyph: "Z", label: "Заражённые", color: "#33691e" },
   bandit: { glyph: "B", label: "Бандиты", color: "#4e342e" },
@@ -98,6 +100,7 @@ const POI_ICONS = {
 
 function normalizePoiIcon(key) {
   const k = String(key || "star").toLowerCase();
+  if (k === "mutants") return POI_ICONS.mutant ? "mutant" : "star";
   return POI_ICONS[k] ? k : "star";
 }
 
@@ -144,7 +147,7 @@ function poiPopupHtml(poi, options = {}) {
     ? `<div class="poi-desc">${escapeHtml(descText)}</div>`
     : "";
   const img = poi.description_image_url
-    ? `<img class="poi-desc-image" src="${escapeHtml(poi.description_image_url)}" alt="" loading="lazy">`
+    ? `<img class="marker-popup-img" src="${escapeHtml(poi.description_image_url)}" data-full="${escapeHtml(poi.description_image_url)}" alt="" loading="lazy">`
     : "";
   let traderLink = "";
   if (poi.trader_name) {
@@ -257,12 +260,14 @@ function renderPoiIconPicker(container, selectedKey, onChange) {
     selectedKey: key,
     onSelect: onChange,
     gridClass: "icon-picker icon-picker-grid",
-    renderOption: (id, icon, active) => `
+    renderOption: (id, icon, active) => {
+      const emojiClass = poiGlyphUsesEmojiStyle(icon.glyph) ? " icon-option-glyph--emoji" : "";
+      return `
       <button type="button" class="icon-option${active ? " active" : ""}" data-icon="${id}" title="${escapeHtml(icon.label)}">
-        <span class="icon-option-glyph" style="background:${icon.color}">${icon.glyph}</span>
+        <span class="icon-option-glyph${emojiClass}" style="background:${icon.color}">${icon.glyph}</span>
         <span class="icon-option-label">${escapeHtml(icon.label)}</span>
-      </button>
-    `,
+      </button>`;
+    },
   });
   api?.resetSearch();
   api?.setSelected(key);

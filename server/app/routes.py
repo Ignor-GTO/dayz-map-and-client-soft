@@ -67,6 +67,8 @@ from app.websocket import manager
 router = APIRouter(prefix="/api")
 
 STASH_MANAGER_ROLES = {"admin", "moderator"}
+# Map-scoped categories visible to all PIN groups on the same map.
+MAP_SCOPED_MARKER_CATEGORIES = frozenset({"stash", "mutants", "hunting"})
 
 
 def _can_manage_stashes(user: User) -> bool:
@@ -77,8 +79,21 @@ def _can_manage_map_staff(user: User) -> bool:
     return _can_manage_stashes(user)
 
 
+def _marker_category_value(marker: Marker) -> str:
+    return marker.marker_category or "group"
+
+
+def _is_map_scoped_category(category: str | None) -> bool:
+    return (category or "group") in MAP_SCOPED_MARKER_CATEGORIES
+
+
+def _is_map_scoped_marker(marker: Marker) -> bool:
+    return _is_map_scoped_category(_marker_category_value(marker)) and marker.map_id is not None
+
+
 def _is_stash_marker(marker: Marker) -> bool:
-    return _is_map_stash(marker) or (marker.marker_category or "group") == "stash"
+    """True for any map-scoped server category (stash / mutants / hunting)."""
+    return _is_map_scoped_marker(marker) or _is_map_scoped_category(_marker_category_value(marker))
 
 
 def _marker_edit_allowed(user: User, marker: Marker) -> bool:
@@ -157,12 +172,8 @@ def _verify_profile_password(user: User, profile_password: str | None) -> None:
         raise HTTPException(status_code=401, detail="Неверный пароль профиля")
 
 
-def _is_map_stash(marker: Marker) -> bool:
-    return (marker.marker_category or "group") == "stash" and marker.map_id is not None
-
-
 def _marker_nickname(marker: Marker) -> str:
-    if _is_map_stash(marker):
+    if _is_map_scoped_marker(marker):
         return "Сервер"
     if marker.user:
         return marker.user.nickname
@@ -181,7 +192,7 @@ async def _broadcast_marker_event(
     marker: Marker,
     event: dict,
 ) -> None:
-    if _is_map_stash(marker):
+    if _is_map_scoped_marker(marker):
         await _broadcast_to_map(db, user.room.map_id, event)
     else:
         await manager.broadcast(channel_key(user.room.map_id, user.room_id), event)
@@ -221,7 +232,7 @@ def _normalize_points(points: list[list[float]] | None) -> list[list[float]] | N
 
 def _normalize_marker_category(value: str | None) -> str:
     category = str(value or "group").strip().lower()
-    if category not in {"group", "stash"}:
+    if category not in {"group", "stash", "mutants", "hunting"}:
         raise HTTPException(status_code=400, detail="Unsupported marker_category")
     return category
 
@@ -744,8 +755,11 @@ async def create_marker(
         radius = None
 
     category = _normalize_marker_category(payload.marker_category)
-    if category == "stash" and not _can_manage_stashes(user):
-        raise HTTPException(status_code=403, detail="Only admins and moderators can create stashes")
+    if _is_map_scoped_category(category) and not _can_manage_stashes(user):
+        raise HTTPException(
+            status_code=403,
+            detail="Only admins and moderators can create map-scoped markers",
+        )
 
     marker = Marker(
         user_id=user.id,
@@ -753,7 +767,7 @@ async def create_marker(
         y=float(y),
         type=(payload.type or "marker").strip() or "marker",
         marker_category=category,
-        map_id=user.room.map_id if category == "stash" else None,
+        map_id=user.room.map_id if _is_map_scoped_category(category) else None,
         title=payload.title,
         description=payload.description,
         image_url=payload.image_url,
@@ -767,7 +781,7 @@ async def create_marker(
     await db.commit()
     await db.refresh(marker)
 
-    resp = _marker_response(marker, user.nickname, user.avatar_url)
+    resp = _marker_response(marker, _marker_nickname(marker), user.avatar_url)
     await _broadcast_marker_event(
         db,
         user,
@@ -811,9 +825,9 @@ async def update_marker(
     is_stash = _is_stash_marker(marker)
     if is_stash:
         if not _can_manage_stashes(user):
-            raise HTTPException(status_code=403, detail="Only admins and moderators can edit stashes")
+            raise HTTPException(status_code=403, detail="Only admins and moderators can edit map-scoped markers")
         if marker.map_id != user.room.map_id:
-            raise HTTPException(status_code=403, detail="Stash not on this map")
+            raise HTTPException(status_code=403, detail="Marker not on this map")
     elif not _marker_edit_allowed(user, marker):
         raise HTTPException(status_code=403, detail="Marker not in your group")
 
@@ -821,12 +835,15 @@ async def update_marker(
         marker.type = payload.type
     if payload.marker_category is not None:
         new_category = _normalize_marker_category(payload.marker_category)
-        if new_category == "stash" and not _can_manage_stashes(user):
-            raise HTTPException(status_code=403, detail="Only admins and moderators can create stashes")
+        if _is_map_scoped_category(new_category) and not _can_manage_stashes(user):
+            raise HTTPException(
+                status_code=403,
+                detail="Only admins and moderators can create map-scoped markers",
+            )
         marker.marker_category = new_category
-        if new_category == "stash":
+        if _is_map_scoped_category(new_category):
             marker.map_id = user.room.map_id
-        elif _is_map_stash(marker) or marker.map_id is not None:
+        elif marker.map_id is not None:
             marker.map_id = None
     if payload.x is not None:
         marker.x = payload.x
@@ -899,9 +916,9 @@ async def upload_marker_image(
     is_stash = _is_stash_marker(marker)
     if is_stash:
         if not _can_manage_stashes(user):
-            raise HTTPException(status_code=403, detail="Only admins and moderators can edit stashes")
+            raise HTTPException(status_code=403, detail="Only admins and moderators can edit map-scoped markers")
         if marker.map_id != user.room.map_id:
-            raise HTTPException(status_code=403, detail="Stash not on this map")
+            raise HTTPException(status_code=403, detail="Marker not on this map")
     elif not _marker_edit_allowed(user, marker):
         raise HTTPException(status_code=403, detail="Marker not in your group")
 
@@ -941,9 +958,9 @@ async def delete_marker(
     is_stash = _is_stash_marker(marker)
     if is_stash:
         if not _can_manage_stashes(user):
-            raise HTTPException(status_code=403, detail="Only admins and moderators can delete stashes")
+            raise HTTPException(status_code=403, detail="Only admins and moderators can delete map-scoped markers")
         if marker.map_id != user.room.map_id:
-            raise HTTPException(status_code=403, detail="Stash not on this map")
+            raise HTTPException(status_code=403, detail="Marker not on this map")
     elif not _marker_delete_allowed(user, marker):
         raise HTTPException(status_code=403, detail="Can only delete own markers")
 
@@ -998,26 +1015,26 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                 )
             )
         for m in u.markers:
-            if (m.marker_category or "group") == "stash":
+            if _is_map_scoped_category(m.marker_category):
                 continue
             markers.append(_marker_response(m, u.nickname, u.avatar_url))
 
-    stash_result = await db.execute(
+    scoped_result = await db.execute(
         select(Marker)
         .options(selectinload(Marker.user))
         .where(
             Marker.map_id == user.room.map_id,
-            Marker.marker_category == "stash",
+            Marker.marker_category.in_(tuple(MAP_SCOPED_MARKER_CATEGORIES)),
         )
     )
-    for m in stash_result.scalars().all():
+    for m in scoped_result.scalars().all():
         markers.append(_marker_response(m, _marker_nickname(m)))
 
     # Legacy stashes not yet linked to map_id (pre-migration).
-    linked_stash_ids = {m.id for m in markers if (m.marker_category or "group") == "stash"}
+    linked_stash_ids = {m.id for m in markers if _marker_category_value(m) == "stash"}
     for u in users:
         for m in u.markers:
-            if (m.marker_category or "group") != "stash" or m.id in linked_stash_ids:
+            if _marker_category_value(m) != "stash" or m.id in linked_stash_ids:
                 continue
             markers.append(_marker_response(m, u.nickname))
             linked_stash_ids.add(m.id)
