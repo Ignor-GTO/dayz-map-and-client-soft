@@ -110,6 +110,87 @@ def send_ctrl_c() -> None:
         raise OSError(f"SendInput returned {sent}, expected 4")
 
 
+def send_key(vk: int) -> None:
+    seq = (INPUT * 2)(_key(vk), _key(vk, KEYEVENTF_KEYUP))
+    sent = user32.SendInput(2, ctypes.byref(seq), ctypes.sizeof(INPUT))
+    if sent != 2:
+        raise OSError(f"SendInput key returned {sent}")
+
+
+def find_window_hwnd(*title_parts: str) -> int:
+    """Find first visible top-level window whose title contains any of title_parts."""
+    parts = [p.lower() for p in title_parts if p]
+    found = ctypes.c_void_p()
+
+    @ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    def enum_proc(hwnd, _lparam):
+        if not user32.IsWindowVisible(hwnd):
+            return True
+        buf = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(hwnd, buf, 512)
+        title = (buf.value or "").lower()
+        if not title:
+            return True
+        if any(p in title for p in parts):
+            found.value = hwnd
+            return False
+        return True
+
+    user32.EnumWindows(enum_proc, 0)
+    return int(found.value or 0)
+
+
+def focus_scum_window() -> tuple[bool, str]:
+    """Bring SCUM to foreground so Ctrl+C goes to the game. Returns (ok, detail)."""
+    hwnd = find_window_hwnd("scum")
+    if not hwnd:
+        return False, "окно SCUM не найдено"
+    fg = user32.GetForegroundWindow()
+    if fg == hwnd:
+        return True, "SCUM уже в фокусе"
+
+    def _tid(h):
+        if not h:
+            return 0
+        pid = wintypes.DWORD()
+        return int(user32.GetWindowThreadProcessId(h, ctypes.byref(pid)))
+
+    fg_tid = _tid(fg)
+    cur_tid = int(kernel32.GetCurrentThreadId())
+    target_tid = _tid(hwnd)
+    attached_fg = False
+    attached_tg = False
+    try:
+        if fg_tid and fg_tid != cur_tid:
+            attached_fg = bool(user32.AttachThreadInput(cur_tid, fg_tid, True))
+        if target_tid and target_tid != cur_tid:
+            attached_tg = bool(user32.AttachThreadInput(cur_tid, target_tid, True))
+        user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        ok = bool(user32.SetForegroundWindow(hwnd))
+        user32.BringWindowToTop(hwnd)
+        return (ok or user32.GetForegroundWindow() == hwnd), f"hwnd={hwnd} setfg={ok}"
+    finally:
+        if attached_tg:
+            try:
+                user32.AttachThreadInput(cur_tid, target_tid, False)
+            except Exception:
+                pass
+        if attached_fg:
+            try:
+                user32.AttachThreadInput(cur_tid, fg_tid, False)
+            except Exception:
+                pass
+
+
+def foreground_title() -> str:
+    hwnd = user32.GetForegroundWindow()
+    if not hwnd:
+        return ""
+    buf = ctypes.create_unicode_buffer(512)
+    user32.GetWindowTextW(hwnd, buf, 512)
+    return buf.value or ""
+
+
 def resolve_vk(name: str) -> int | None:
     key = (name or "").strip().lower()
     if not key:

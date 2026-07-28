@@ -20,6 +20,8 @@ from scum_coords import parse_scum_clipboard
 from version import __version__
 from win_input import (
     GlobalHotkeyListener,
+    focus_scum_window,
+    foreground_title,
     is_admin,
     is_our_process_foreground,
     relaunch_as_admin,
@@ -51,6 +53,7 @@ class ScumMapApp(tk.Tk):
         self._clipboard_coords_at = 0.0
         self._fresh_clipboard_coords: tuple[float, float] | None = None
         self._copy_lock = threading.Lock()
+        self._copy_busy = False
         self._last_copy_trigger_at = 0.0
         self._hotkeys = GlobalHotkeyListener()
         self.current_page = 0
@@ -664,74 +667,85 @@ class ScumMapApp(tk.Tk):
         if now - self._last_copy_trigger_at < 1.0:
             return
         self._last_copy_trigger_at = now
-        delay = int(self.settings.get("scum_copy_delay_ms", 200) or 200)
-        self.log_line("[F1] пойман → Ctrl+C…")
-        self._trigger_copy_and_send("F1", delay_ms=delay)
+        self.log_line("[F1] пойман")
+        self._start_copy_sequence("F1")
 
     def _trigger_copy_and_send(self, source: str, delay_ms: int = 200) -> None:
-        threading.Thread(
-            target=self._copy_ctrl_c_and_send,
-            args=(source, max(0, delay_ms) / 1000.0),
-            daemon=True,
-        ).start()
+        self.after(0, lambda: self._start_copy_sequence(source, delay_ms=delay_ms))
 
-    def _copy_ctrl_c_and_send(self, source: str, delay_before: float) -> None:
-        if not self._hotkeys_on:
+    def _start_copy_sequence(self, source: str, delay_ms: int = 150) -> None:
+        """Focus SCUM → Ctrl+C → poll clipboard → POST (Tk main thread)."""
+        if self._copy_busy:
+            self.log_line(f"[{source}] ещё выполняется предыдущий захват — подождите")
             return
-        if not self._copy_lock.acquire(blocking=False):
-            return  # busy — no log spam
+        self._copy_busy = True
+        self._copy_source = source
+        self._copy_attempts = 0
+        self._copy_before = (grab_clipboard_text() or "").strip()
+
+        fg = foreground_title()
+        self.log_line(f"[{source}] фокус сейчас: {fg!r}")
+
+        ok, detail = focus_scum_window()
+        self.log_line(f"[{source}] фокус SCUM: {'OK' if ok else 'нет'} ({detail})")
+
+        wait = max(50, int(delay_ms))
+        self.after(wait, self._do_send_ctrl_c)
+
+    def _do_send_ctrl_c(self) -> None:
+        source = getattr(self, "_copy_source", "?")
         try:
-            if delay_before > 0:
-                time.sleep(delay_before)
-            before = (grab_clipboard_text() or "").strip()
-            self.after(0, lambda: self.log_line(f"[{source}] Ctrl+C…"))
+            send_ctrl_c()
+            self.log_line(f"[{source}] SendInput Ctrl+C отправлен, фокус={foreground_title()!r}")
+        except Exception as exc:
+            self.log_line(f"[{source}] Ctrl+C ошибка: {exc}")
+            self._copy_busy = False
+            return
+        self.after(120, self._poll_copy_result)
+
+    def _poll_copy_result(self) -> None:
+        source = getattr(self, "_copy_source", "?")
+        self._copy_attempts = getattr(self, "_copy_attempts", 0) + 1
+        text = (grab_clipboard_text() or "").strip()
+        if not text:
             try:
-                send_ctrl_c()
-            except Exception as exc:
-                self.after(0, lambda: self.log_line(f"[{source}] Ctrl+C ошибка: {exc}"))
-                return
-
-            coords = None
-            text_used = ""
-            deadline = time.time() + 2.0
-            while time.time() < deadline:
-                time.sleep(0.08)
-                text = (grab_clipboard_text() or "").strip()
-                parsed = parse_scum_clipboard(text)
-                if not parsed:
-                    continue
-                coords = parsed
-                text_used = text
-                if text != before:
-                    break  # clipboard actually changed — done
-
-            if not coords:
-                self.after(
-                    0,
-                    lambda: self.log_line(
-                        f"[{source}] нет {{X=… Y=…}} в буфере. "
-                        "Откройте карту в игре (M), затем F1. Клиент — от администратора."
-                    ),
-                )
-                return
-
-            if text_used == before:
-                self.after(
-                    0,
-                    lambda: self.log_line(
-                        f"[{source}] буфер не обновился — шлю координаты, которые уже были в буфере"
-                    ),
-                )
-
-            self._clipboard_digest = text_used or self._clipboard_digest
-            self._fresh_clipboard_coords = coords
-            self._clipboard_coords_at = time.time()
-            self.after(0, lambda c=coords: self._send_coords(c, source=f"{source}/Ctrl+C"))
-        finally:
-            try:
-                self._copy_lock.release()
+                text = (self.clipboard_get() or "").strip()
             except Exception:
-                pass
+                text = ""
+
+        parsed = parse_scum_clipboard(text)
+        before = getattr(self, "_copy_before", "")
+
+        if parsed and text != before:
+            self.log_line(f"[{source}] буфер обновлён")
+            self._finish_copy_ok(parsed, text, source)
+            return
+
+        if parsed and self._copy_attempts >= 5:
+            self.log_line(f"[{source}] буфер не сменился, но координаты есть — отправляю")
+            self._finish_copy_ok(parsed, text, source)
+            return
+
+        if self._copy_attempts < 25:
+            if self._copy_attempts in (1, 10, 20):
+                preview = (text or "")[:60]
+                self.log_line(f"[{source}] ждём буфер… {self._copy_attempts}/25 ({preview!r})")
+            self.after(100, self._poll_copy_result)
+            return
+
+        preview = (text or "")[:100]
+        self.log_line(
+            f"[{source}] нет {{X=… Y=…}} после Ctrl+C. Буфер: {preview!r}. "
+            "Откройте карту в SCUM (M) и нажмите F1 снова."
+        )
+        self._copy_busy = False
+
+    def _finish_copy_ok(self, coords: tuple[float, float], text: str, source: str) -> None:
+        self._clipboard_digest = text
+        self._fresh_clipboard_coords = coords
+        self._clipboard_coords_at = time.time()
+        self._copy_busy = False
+        self._send_coords(coords, source=f"{source}/Ctrl+C")
 
     # ------------------------------------------------------------------ capture
     def _send_clipboard_now(self) -> None:
@@ -740,6 +754,11 @@ class ScumMapApp(tk.Tk):
             if not self.map_client:
                 return
         text = grab_clipboard_text()
+        if not text:
+            try:
+                text = self.clipboard_get()
+            except Exception:
+                text = ""
         coords = parse_scum_clipboard(text)
         if not coords:
             preview = ((text or "").replace("\n", " "))[:120]
@@ -747,7 +766,7 @@ class ScumMapApp(tk.Tk):
             messagebox.showinfo(
                 "Буфер",
                 "В буфере нет координат вида {X=… Y=…}.\n"
-                "Нажмите F1 в игре (клиент должен быть «Запущен») или скопируйте вручную Ctrl+C.",
+                "Откройте карту (M) в SCUM → F1, или скопируйте вручную Ctrl+C.",
             )
             return
         self._send_coords(coords, source="буфер-кнопка")
@@ -757,17 +776,30 @@ class ScumMapApp(tk.Tk):
             self.log_line("Сначала сохраните настройки (вкладка Настройки)")
             self._show_page(1)
             return
-        with self._send_lock:
-            x, y = coords
-            ok, err = self.map_client.send_position(x, y)
+        x, y = coords
+        self.log_line(f"[{source}] отправка {x:.1f} / {y:.1f} …")
+
+        def work() -> None:
+            try:
+                ok, err = self.map_client.send_position(x, y)
+            except Exception as exc:
+                self.after(0, lambda: self.log_line(f"[{source}] исключение: {exc}"))
+                return
             if ok:
                 self._last_sent = (x, y)
-                self.log_line(f"[{source}] OK → {x:.1f} / {y:.1f}")
-                self.status_var.set(f"Позиция {x:.0f} / {y:.0f}")
+                self.after(0, lambda: self.log_line(f"[{source}] OK → {x:.1f} / {y:.1f}"))
+                self.after(0, lambda: self.status_var.set(f"Позиция {x:.0f} / {y:.0f}"))
             else:
-                self.log_line(f"[{source}] Ошибка отправки: {err}")
+                self.after(0, lambda: self.log_line(f"[{source}] Ошибка API: {err}"))
                 if "401" in err or "403" in err:
-                    self.log_line("Проверьте client key: войдите на SCUM-карту → Приложение → скопировать ключ.")
+                    self.after(
+                        0,
+                        lambda: self.log_line(
+                            "Проверьте client key: SCUM-карта → Приложение → скопировать ключ."
+                        ),
+                    )
+
+        threading.Thread(target=work, daemon=True).start()
 
     # ------------------------------------------------------------------ map commands
     def _handle_zoom_in(self) -> None:
