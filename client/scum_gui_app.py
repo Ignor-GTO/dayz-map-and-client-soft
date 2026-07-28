@@ -577,6 +577,7 @@ class ScumMapApp(tk.Tk):
     def _stop_hotkeys(self) -> None:
         self._hotkeys_on = False
         self._stop_workers.set()
+        self._copy_busy = False
         try:
             self._hotkeys.stop()
         except Exception:
@@ -664,7 +665,7 @@ class ScumMapApp(tk.Tk):
         if not self._hotkeys_on:
             return
         now = time.time()
-        if now - self._last_copy_trigger_at < 1.0:
+        if now - self._last_copy_trigger_at < 0.8:
             return
         self._last_copy_trigger_at = now
         self.log_line("[F1] пойман")
@@ -673,40 +674,91 @@ class ScumMapApp(tk.Tk):
     def _trigger_copy_and_send(self, source: str, delay_ms: int = 200) -> None:
         self.after(0, lambda: self._start_copy_sequence(source, delay_ms=delay_ms))
 
-    def _start_copy_sequence(self, source: str, delay_ms: int = 150) -> None:
-        """Focus SCUM → Ctrl+C → poll clipboard → POST (Tk main thread)."""
+    def _reset_copy_busy(self, reason: str = "") -> None:
         if self._copy_busy:
-            self.log_line(f"[{source}] ещё выполняется предыдущий захват — подождите")
-            return
+            self._copy_busy = False
+            if reason:
+                self.log_line(reason)
+
+    def _copy_watchdog(self, token: float) -> None:
+        # Only fire if this is still the same capture attempt
+        if self._copy_busy and getattr(self, "_copy_token", None) == token:
+            self._reset_copy_busy("[захват] таймаут 6с — сброс. Нажмите F1 ещё раз.")
+
+    def _start_copy_sequence(self, source: str, delay_ms: int = 150) -> None:
+        """Focus SCUM → Ctrl+C → poll clipboard → POST (non-blocking)."""
+        now = time.time()
+        if self._copy_busy:
+            started = getattr(self, "_copy_started_at", 0.0)
+            if now - started > 5.0:
+                self._reset_copy_busy(f"[{source}] сброс зависшего захвата")
+            else:
+                self.log_line(f"[{source}] ещё выполняется предыдущий захват — подождите")
+                return
+
         self._copy_busy = True
+        self._copy_started_at = now
+        self._copy_token = now
         self._copy_source = source
         self._copy_attempts = 0
-        self._copy_before = (grab_clipboard_text() or "").strip()
+        self._copy_before = ""
+        self.after(6000, lambda t=now: self._copy_watchdog(t))
 
-        fg = foreground_title()
-        self.log_line(f"[{source}] фокус сейчас: {fg!r}")
+        self.log_line(f"[{source}] старт захвата…")
+        try:
+            self.log_line(f"[{source}] фокус сейчас: {foreground_title()!r}")
+        except Exception as exc:
+            self.log_line(f"[{source}] foreground_title: {exc}")
 
-        ok, detail = focus_scum_window()
-        self.log_line(f"[{source}] фокус SCUM: {'OK' if ok else 'нет'} ({detail})")
+        try:
+            ok, detail = focus_scum_window()
+            self.log_line(f"[{source}] фокус SCUM: {'OK' if ok else 'нет'} ({detail})")
+        except Exception as exc:
+            self.log_line(f"[{source}] focus_scum: {exc}")
 
-        wait = max(50, int(delay_ms))
+        # Snapshot clipboard in background — never block UI
+        def snap_before() -> None:
+            before = (grab_clipboard_text(0.2) or "").strip()
+            self.after(0, lambda: setattr(self, "_copy_before", before))
+
+        threading.Thread(target=snap_before, daemon=True).start()
+        wait = max(80, int(delay_ms))
         self.after(wait, self._do_send_ctrl_c)
 
     def _do_send_ctrl_c(self) -> None:
         source = getattr(self, "_copy_source", "?")
+        if not self._copy_busy:
+            return
         try:
             send_ctrl_c()
-            self.log_line(f"[{source}] SendInput Ctrl+C отправлен, фокус={foreground_title()!r}")
+            try:
+                fg = foreground_title()
+            except Exception:
+                fg = "?"
+            self.log_line(f"[{source}] SendInput Ctrl+C отправлен, фокус={fg!r}")
         except Exception as exc:
             self.log_line(f"[{source}] Ctrl+C ошибка: {exc}")
             self._copy_busy = False
             return
-        self.after(120, self._poll_copy_result)
+        self.after(150, self._poll_copy_result)
 
     def _poll_copy_result(self) -> None:
+        if not self._copy_busy:
+            return
         source = getattr(self, "_copy_source", "?")
         self._copy_attempts = getattr(self, "_copy_attempts", 0) + 1
-        text = (grab_clipboard_text() or "").strip()
+
+        # Read clipboard off the UI thread
+        def read_clip() -> None:
+            text = (grab_clipboard_text(0.2) or "").strip()
+            self.after(0, lambda: self._on_clip_sample(text))
+
+        threading.Thread(target=read_clip, daemon=True).start()
+
+    def _on_clip_sample(self, text: str) -> None:
+        if not self._copy_busy:
+            return
+        source = getattr(self, "_copy_source", "?")
         if not text:
             try:
                 text = (self.clipboard_get() or "").strip()
@@ -721,16 +773,16 @@ class ScumMapApp(tk.Tk):
             self._finish_copy_ok(parsed, text, source)
             return
 
-        if parsed and self._copy_attempts >= 5:
-            self.log_line(f"[{source}] буфер не сменился, но координаты есть — отправляю")
+        if parsed and self._copy_attempts >= 4:
+            self.log_line(f"[{source}] координаты в буфере — отправляю")
             self._finish_copy_ok(parsed, text, source)
             return
 
-        if self._copy_attempts < 25:
-            if self._copy_attempts in (1, 10, 20):
+        if self._copy_attempts < 20:
+            if self._copy_attempts in (1, 8, 15):
                 preview = (text or "")[:60]
-                self.log_line(f"[{source}] ждём буфер… {self._copy_attempts}/25 ({preview!r})")
-            self.after(100, self._poll_copy_result)
+                self.log_line(f"[{source}] ждём буфер… {self._copy_attempts}/20 ({preview!r})")
+            self.after(120, self._poll_copy_result)
             return
 
         preview = (text or "")[:100]

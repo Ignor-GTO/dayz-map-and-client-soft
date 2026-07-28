@@ -196,33 +196,46 @@ def _grab_png_clipboard() -> Image.Image | None:
         user32.CloseClipboard()
 
 
-def grab_clipboard_text() -> str | None:
+def grab_clipboard_text(timeout_sec: float = 0.25) -> str | None:
+    """Read Unicode text from clipboard. Never blocks the caller longer than timeout_sec."""
     import sys
+    import threading
 
     if sys.platform != "win32":
         return None
-    import ctypes
 
-    user32 = ctypes.windll.user32
-    kernel32 = ctypes.windll.kernel32
-    CF_UNICODETEXT = 13
-    if not user32.OpenClipboard(0):
-        return None
-    try:
-        if not user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
-            return None
-        handle = user32.GetClipboardData(CF_UNICODETEXT)
-        if not handle:
-            return None
-        ptr = kernel32.GlobalLock(handle)
-        if not ptr:
-            return None
+    result: dict[str, str | None] = {"text": None}
+
+    def worker() -> None:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        kernel32 = ctypes.windll.kernel32
+        CF_UNICODETEXT = 13
+        if not user32.OpenClipboard(0):
+            return
         try:
-            return ctypes.wstring_at(ptr).strip()
+            if not user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
+                return
+            handle = user32.GetClipboardData(CF_UNICODETEXT)
+            if not handle:
+                return
+            ptr = kernel32.GlobalLock(handle)
+            if not ptr:
+                return
+            try:
+                result["text"] = ctypes.wstring_at(ptr).strip()
+            finally:
+                kernel32.GlobalUnlock(handle)
         finally:
-            kernel32.GlobalUnlock(handle)
-    finally:
-        user32.CloseClipboard()
+            user32.CloseClipboard()
+
+    t = threading.Thread(target=worker, daemon=True)
+    t.start()
+    t.join(timeout=max(0.05, float(timeout_sec)))
+    if t.is_alive():
+        return None
+    return result["text"]
 
 
 def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int, int]):

@@ -141,45 +141,29 @@ def find_window_hwnd(*title_parts: str) -> int:
 
 
 def focus_scum_window() -> tuple[bool, str]:
-    """Bring SCUM to foreground so Ctrl+C goes to the game. Returns (ok, detail)."""
+    """Bring SCUM to foreground so Ctrl+C goes to the game. Returns (ok, detail).
+
+    Does NOT use AttachThreadInput — that can deadlock the UI against the game thread.
+    """
     hwnd = find_window_hwnd("scum")
     if not hwnd:
         return False, "окно SCUM не найдено"
     fg = user32.GetForegroundWindow()
     if fg == hwnd:
         return True, "SCUM уже в фокусе"
-
-    def _tid(h):
-        if not h:
-            return 0
-        pid = wintypes.DWORD()
-        return int(user32.GetWindowThreadProcessId(h, ctypes.byref(pid)))
-
-    fg_tid = _tid(fg)
-    cur_tid = int(kernel32.GetCurrentThreadId())
-    target_tid = _tid(hwnd)
-    attached_fg = False
-    attached_tg = False
     try:
-        if fg_tid and fg_tid != cur_tid:
-            attached_fg = bool(user32.AttachThreadInput(cur_tid, fg_tid, True))
-        if target_tid and target_tid != cur_tid:
-            attached_tg = bool(user32.AttachThreadInput(cur_tid, target_tid, True))
         user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        # Allow SetForegroundWindow without attaching threads (Alt tap trick)
+        VK_MENU = 0x12
+        KEYEVENTF_KEYUP = 0x0002
+        user32.keybd_event(VK_MENU, 0, 0, 0)
+        user32.keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0)
         ok = bool(user32.SetForegroundWindow(hwnd))
         user32.BringWindowToTop(hwnd)
-        return (ok or user32.GetForegroundWindow() == hwnd), f"hwnd={hwnd} setfg={ok}"
-    finally:
-        if attached_tg:
-            try:
-                user32.AttachThreadInput(cur_tid, target_tid, False)
-            except Exception:
-                pass
-        if attached_fg:
-            try:
-                user32.AttachThreadInput(cur_tid, fg_tid, False)
-            except Exception:
-                pass
+        now_fg = user32.GetForegroundWindow() == hwnd
+        return (ok or now_fg), f"hwnd={hwnd} setfg={ok} now={now_fg}"
+    except Exception as exc:
+        return False, f"exception: {exc}"
 
 
 def foreground_title() -> str:
