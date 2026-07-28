@@ -71,6 +71,7 @@ DEFAULT_CONFIG = {
     "ocr_preprocess_mode": "auto",
     "scum_ocr_region": [0, 0, 900, 280],
     "scum_auto_interval_sec": 30,
+    "scum_hotkey_send_pos": ["m"],
 }
 
 

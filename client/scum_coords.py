@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import re
 
+# Prefer position X/Y before optional pitch block (|P=... Y=...).
 _SCUM_XY = re.compile(
-    r"X\s*=\s*(-?\d+(?:[.,]\d+)?)\s*Y\s*=\s*(-?\d+(?:[.,]\d+)?)",
+    r"\{?\s*X\s*=\s*(-?\d+(?:[.,]\d+)?)\s*Y\s*=\s*(-?\d+(?:[.,]\d+)?)",
     re.IGNORECASE,
 )
 
 
 def parse_scum_clipboard(text: str | None) -> tuple[float, float] | None:
+    """Parse e.g. `{X=-777383.500 Y=-840118.938 Z=10486.375|P=326.487885 Y=27.3 R=0}`."""
     raw = (text or "").strip()
     if not raw:
         return None
