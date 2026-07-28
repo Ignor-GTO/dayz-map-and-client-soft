@@ -135,25 +135,22 @@ def _keybd_event_ctrl_c() -> None:
 
 
 def send_ctrl_c() -> None:
+    """Send Ctrl+C via SendInput, then always also keybd_event (some games ignore one API)."""
     seq = (INPUT * 4)(
         _key(VK_CONTROL),
         _key(VK_C),
         _key(VK_C, KEYEVENTF_KEYUP),
         _key(VK_CONTROL, KEYEVENTF_KEYUP),
     )
-    sent = _send_input(seq)
-    if sent == 4:
-        return
-    err = int(kernel32.GetLastError())
-    # Fallback
     try:
-        _keybd_event_ctrl_c()
-    except Exception as exc:
-        raise OSError(f"SendInput={sent} lastError={err}; keybd_event failed: {exc}") from exc
-    # If keybd_event didn't throw, treat as success (it has no return status)
-    if sent == 0:
-        # Still useful to know SendInput failed but fallback ran
-        return
+        _send_input(seq)
+    except Exception:
+        pass
+    # Small gap so the game sees a clean second attempt
+    import time
+
+    time.sleep(0.03)
+    _keybd_event_ctrl_c()
 
 
 def send_key(vk: int) -> None:

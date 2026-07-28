@@ -24,10 +24,12 @@ from scum_coords import looks_like_client_log, parse_scum_clipboard
 from version import __version__
 from win_input import (
     GlobalHotkeyListener,
+    focus_scum_window,
     is_admin,
     is_our_process_foreground,
     relaunch_as_admin,
     resolve_vk,
+    send_ctrl_c,
 )
 
 GITHUB_RELEASES_LATEST = (
@@ -54,11 +56,14 @@ class ScumMapApp(tk.Tk):
         self._clipboard_coords_at = 0.0
         self._fresh_clipboard_coords: tuple[float, float] | None = None
         self._copy_lock = threading.Lock()
+        self._copy_busy = False
+        self._pause_clipboard_poll = False
         self._last_copy_trigger_at = 0.0
         self._hotkeys = GlobalHotkeyListener()
         self.current_page = 0
         self._auto_warned_empty = False
         self._warned_log_clip = False
+        self._auto_inject_fail_logged_at = 0.0
 
         self._cleanup_old_exe()
         self._build_ui()
@@ -272,9 +277,9 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "Главное: в SCUM нажмите Ctrl+C — клиент сам заберёт {X=… Y=…} из буфера.\n"
-                "F1 / «Из буфера»: отправить то, что уже в буфере. Авто — повтор последней позиции.\n"
-                "Не копируйте лог клиента в буфер — иначе вместо координат окажется текст лога."
+                "Ctrl+C в SCUM — клиент сразу шлёт {X=… Y=…} на карту.\n"
+                "F1 / авто: пытаются сами нажать Ctrl+C в игре и взять свежие координаты.\n"
+                "Если эмуляция блокируется (EAC) — жмите Ctrl+C вручную; не копируйте лог клиента."
             ),
             style="CardMuted.TLabel",
             wraplength=580,
@@ -509,9 +514,8 @@ class ScumMapApp(tk.Tk):
         self.toggle_btn.configure(text="Остановить")
         interval = self._auto_interval()
         self.status_var.set(
-            f"Работает — ждём ваш Ctrl+C"
-            + (f" / авто {interval} с" if interval > 0 else "")
-            + " / F1=повтор"
+            f"Работает — Ctrl+C / F1 / авто обновление"
+            + (f" каждые {interval} с" if interval > 0 else "")
         )
 
         bindings: list[tuple[str, int, str]] = []
@@ -559,8 +563,8 @@ class ScumMapApp(tk.Tk):
 
         names = [f"{a}:{n}" for a, _vk, n in bindings]
         self.log_line(f"Запущено: {', '.join(names)}")
-        self.log_line("В SCUM нажмите Ctrl+C — координаты уйдут на карту автоматически (карту открывать не нужно).")
-        self.log_line("F1: отправить из буфера / повторить последнюю позицию.")
+        self.log_line("В SCUM: Ctrl+C — мгновенная отправка. F1/авто сами пробуют Ctrl+C в игре.")
+        self.log_line("Если авто шлёт старые координаты — игра блокирует эмуляцию, жмите Ctrl+C вручную.")
 
         # If coords already in clipboard at start — send now (off UI thread)
         def check_existing() -> None:
@@ -625,11 +629,11 @@ class ScumMapApp(tk.Tk):
 
     def _auto_loop(self, interval: int) -> None:
         while not self._stop_workers.wait(interval):
-            self.after(0, self._auto_resend)
+            self.after(0, lambda: self._request_position_refresh("auto"))
 
     def _read_clipboard_any(self) -> str:
-        """Win32 (+ PowerShell fallback). Never use Tk clipboard_get — it deadlocks with the poller."""
-        return read_clipboard_text(0.45, allow_powershell=True)
+        """Win32 only on hot paths — PowerShell can hang for many seconds."""
+        return (grab_clipboard_text(0.35) or "").strip()
 
     def _clipboard_hint(self, text: str) -> str:
         if looks_like_client_log(text):
@@ -642,45 +646,144 @@ class ScumMapApp(tk.Tk):
         preview = (text or "").replace("\n", " ")[:100]
         return f"в буфере нет {{X=… Y=…}}. Сейчас: {preview!r}"
 
-    def _auto_resend(self) -> None:
-        """Every N seconds: resend last known position (no synthetic Ctrl+C)."""
+    def _request_position_refresh(self, source: str) -> None:
+        """Focus SCUM → emulate Ctrl+C → read clipboard → POST if updated."""
         if not self._hotkeys_on or not self.map_client:
             return
-        if self._last_sent:
-            self._send_coords(self._last_sent, source="auto/last")
+        if self._copy_busy:
+            if source.startswith("F1"):
+                self.log_line(f"[{source}] уже идёт обновление — подождите")
             return
-        if self._fresh_clipboard_coords:
-            self._send_coords(self._fresh_clipboard_coords, source="auto/clipboard")
-            return
+        self._copy_busy = True
+        self._pause_clipboard_poll = True
+        self.log_line(f"[{source}] фокус SCUM + Ctrl+C…")
 
         def work() -> None:
-            text = read_clipboard_text(0.4, allow_powershell=True)
-            clip = parse_scum_clipboard(text)
-
-            def apply() -> None:
-                if not self._hotkeys_on:
-                    return
-                if clip:
-                    self._fresh_clipboard_coords = clip
-                    self._send_coords(clip, source="auto/clipboard")
-                    return
-                if not getattr(self, "_auto_warned_empty", False):
-                    self._auto_warned_empty = True
-                    self.log_line(f"[auto] нет позиции — {self._clipboard_hint(text)}")
-
-            self.after(0, apply)
+            before = ""
+            before_seq = 0
+            focus_ok, focus_detail = False, ""
+            text = ""
+            coords = None
+            updated = False
+            err = ""
+            try:
+                before = (grab_clipboard_text(0.15) or "").strip()
+                before_seq = clipboard_sequence_number()
+                try:
+                    focus_ok, focus_detail = focus_scum_window()
+                except Exception as exc:
+                    focus_ok, focus_detail = False, str(exc)
+                time.sleep(0.08)
+                try:
+                    send_ctrl_c()
+                except Exception as exc:
+                    err = str(exc)
+                # Poll for clipboard change (sequence bump = game wrote something)
+                for _ in range(15):
+                    time.sleep(0.1)
+                    seq = clipboard_sequence_number()
+                    text = (grab_clipboard_text(0.12) or "").strip()
+                    coords = parse_scum_clipboard(text)
+                    if coords and (seq != before_seq or text != before):
+                        updated = True
+                        break
+            except Exception as exc:
+                err = str(exc)
+            finally:
+                self.after(
+                    0,
+                    lambda s=source,
+                    t=text,
+                    c=coords,
+                    b=before,
+                    u=updated,
+                    fo=focus_ok,
+                    fd=focus_detail,
+                    e=err: self._on_refresh_done(
+                        s,
+                        text=t,
+                        coords=c,
+                        before=b,
+                        updated=u,
+                        focus_ok=fo,
+                        focus_detail=fd,
+                        err=e,
+                    ),
+                )
 
         threading.Thread(target=work, daemon=True).start()
+
+    def _on_refresh_done(
+        self,
+        source: str,
+        *,
+        text: str,
+        coords: tuple[float, float] | None,
+        before: str,
+        updated: bool,
+        focus_ok: bool,
+        focus_detail: str,
+        err: str,
+    ) -> None:
+        self._copy_busy = False
+        self._pause_clipboard_poll = False
+        if not self._hotkeys_on:
+            return
+
+        if err:
+            self.log_line(f"[{source}] Ctrl+C ошибка: {err}")
+
+        if updated and coords:
+            self._clipboard_digest = text
+            self._fresh_clipboard_coords = coords
+            self._clipboard_coords_at = time.time()
+            self._auto_warned_empty = False
+            preview = (text or "").replace("\n", " ")[:70]
+            self.log_line(f"[{source}] буфер обновлён: {preview!r}")
+            self._send_coords(coords, source=f"{source}/Ctrl+C")
+            return
+
+        # Inject did not change clipboard
+        self.log_line(
+            f"[{source}] буфер не обновился "
+            f"(фокус={'OK' if focus_ok else 'нет'}: {focus_detail}). "
+            "Игра, скорее всего, игнорирует эмуляцию Ctrl+C."
+        )
+
+        if source.startswith("F1"):
+            # Manual hotkey: still send whatever coords we can
+            clip = coords or parse_scum_clipboard(text) or self._fresh_clipboard_coords
+            if clip:
+                self.log_line(f"[{source}] шлю то, что уже было в буфере / последнюю")
+                self._send_coords(clip, source=f"{source}/буфер")
+                return
+            if self._last_sent:
+                self._send_coords(self._last_sent, source=f"{source}/last")
+                return
+            self.log_line(f"[{source}] {self._clipboard_hint(text)}")
+            self.log_line(f"[{source}] нажмите Ctrl+C сами в SCUM")
+            return
+
+        # auto: do NOT spam the same stale coords every 30s
+        now = time.time()
+        if now - self._auto_inject_fail_logged_at > 60:
+            self._auto_inject_fail_logged_at = now
+            self.log_line(
+                "[auto] чтобы обновить точку на карте — нажмите Ctrl+C в SCUM "
+                "(эмуляция не сработала)."
+            )
+        # Keep map alive rarely with last known position (every ~2 min via this path only if we want)
+        # Skip sending identical coords on failed refresh.
 
     def _clipboard_loop(self) -> None:
         last_seq = -1
         while not self._stop_workers.is_set():
+            if self._pause_clipboard_poll or self._copy_busy:
+                time.sleep(0.2)
+                continue
             try:
                 seq = clipboard_sequence_number()
-                # Keep OpenClipboard windows short so F1/UI never stall
                 text = (grab_clipboard_text(0.2) or "").strip()
-                if not text and seq != last_seq:
-                    text = read_clipboard_text(0.3, allow_powershell=True)
             except Exception:
                 text = ""
                 seq = last_seq
@@ -719,69 +822,17 @@ class ScumMapApp(tk.Tk):
             self._save()
             if not self.map_client:
                 return
-        self.log_line("[кнопка] читаю буфер…")
-
-        def work() -> None:
-            text = read_clipboard_text(0.6, allow_powershell=True)
-            clip = parse_scum_clipboard(text)
-
-            def apply() -> None:
-                if clip:
-                    self._send_coords(clip, source="кнопка/буфер")
-                    return
-                if self._last_sent:
-                    self._send_coords(self._last_sent, source="кнопка/last")
-                    return
-                hint = self._clipboard_hint(text)
-                self.log_line(f"[кнопка] {hint}")
-                messagebox.showinfo(
-                    "Нет координат",
-                    "В буфере нет строки вида {X=… Y=…}.\n\n"
-                    "В SCUM нажмите Ctrl+C, затем снова «Из буфера».\n"
-                    "Или вставьте строку координат в поле ниже и нажмите «Вставить → отправить».",
-                )
-
-            self.after(0, apply)
-
-        threading.Thread(target=work, daemon=True).start()
+        self._request_position_refresh("кнопка")
 
     def _handle_copy_hotkey(self, force_log: bool = False) -> None:
         if not self._hotkeys_on:
             return
         now = time.time()
-        if now - self._last_copy_trigger_at < 0.8:
+        if now - self._last_copy_trigger_at < 1.0:
             return
         self._last_copy_trigger_at = now
-        self.log_line("[F1] пойман — читаю буфер…")
-
-        def work() -> None:
-            try:
-                text = read_clipboard_text(0.6, allow_powershell=True)
-            except Exception as exc:
-                self.after(0, lambda: self.log_line(f"[F1] ошибка чтения буфера: {exc}"))
-                return
-            self.after(0, lambda t=text: self._on_f1_clipboard(t))
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _on_f1_clipboard(self, text: str) -> None:
-        clip = parse_scum_clipboard(text)
-        if clip:
-            self.log_line("[F1] координаты из буфера — отправляю")
-            self._clipboard_digest = text
-            self._fresh_clipboard_coords = clip
-            self._send_coords(clip, source="F1/буфер")
-            return
-
-        preview = (text or "").replace("\n", " ")[:80]
-        self.log_line(f"[F1] прочитал буфер ({len(text or '')} симв.): {preview!r}")
-        if self._last_sent:
-            self.log_line("[F1] координат нет — шлю последнюю позицию")
-            self._send_coords(self._last_sent, source="F1/last")
-            return
-
-        self.log_line(f"[F1] {self._clipboard_hint(text)}")
-        self.log_line("[F1] нажмите Ctrl+C в SCUM — клиент подхватит сам")
+        self.log_line("[F1] пойман")
+        self._request_position_refresh("F1")
 
     def _send_pasted_coords(self) -> None:
         raw = (self.paste_coords_var.get() or "").strip()
