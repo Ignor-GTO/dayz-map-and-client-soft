@@ -152,6 +152,10 @@ class MapConfigResponse(BaseModel):
     attribution: str
     server_url: str
     client_download_url: str
+    coord_system: str = "dayz"
+    tile_size: int = 256
+    min_zoom: int = 0
+    zoom_offset: int = 0
 
 
 class MapLocationItem(BaseModel):

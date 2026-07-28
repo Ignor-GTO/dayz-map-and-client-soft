@@ -3,6 +3,7 @@ const state = {
   tileLayer: null,
   layerType: "satellite",
   config: null,
+  scumBounds: null,
   me: null,
   clientKey: null,
   userAvatars: new Map(),
@@ -167,8 +168,96 @@ function restoreMapView() {
 const TILE_BOUNDS = L.latLngBounds(L.latLng(0, 0), L.latLng(-256, 256));
 const MAP_MAX_BOUNDS = TILE_BOUNDS;
 
+function isScumConfig(config = state.config) {
+  return (config?.coord_system || "").toLowerCase() === "scum";
+}
+
+function activeMapBounds(config = state.config) {
+  if (isScumConfig(config) && state.scumBounds) return state.scumBounds;
+  return TILE_BOUNDS;
+}
+
+function mapSize(config) {
+  return config.map_size || config.bounds?.max_x || 20480;
+}
+
+function gameToLatLng(x, y, config = state.config) {
+  if (isScumConfig(config)) {
+    if (!state.map || typeof SCUM_COORDS === "undefined") {
+      return L.latLng(0, 0);
+    }
+    const pixel = SCUM_COORDS.gameToPixel(x, y);
+    return state.map.unproject([pixel.x, pixel.y], SCUM_COORDS.MAX_ZOOM);
+  }
+  const size = mapSize(config);
+  const ratio = size / 256;
+  return L.latLng(y / ratio - 256, x / ratio);
+}
+
+function gameBoundsToLatLng(bounds, config = state.config) {
+  const x1 = bounds.x1 ?? config?.bounds?.min_x ?? 0;
+  const y1 = bounds.y1 ?? config?.bounds?.min_y ?? 0;
+  const x2 = bounds.x2 ?? config?.bounds?.max_x ?? mapSize(config);
+  const y2 = bounds.y2 ?? config?.bounds?.max_y ?? mapSize(config);
+  return L.latLngBounds(
+    gameToLatLng(x1, y2, config),
+    gameToLatLng(x2, y1, config),
+  );
+}
+
+function gameRadiusToLeaflet(radius, config = state.config) {
+  if (isScumConfig(config)) {
+    if (!state.map || typeof SCUM_COORDS === "undefined") return 0;
+    const origin = SCUM_COORDS.gameToPixel(SCUM_COORDS.CENTER_X, SCUM_COORDS.CENTER_Y);
+    const edge = SCUM_COORDS.gameToPixel(SCUM_COORDS.CENTER_X + Number(radius || 0), SCUM_COORDS.CENTER_Y);
+    const a = state.map.unproject([origin.x, origin.y], SCUM_COORDS.MAX_ZOOM);
+    const b = state.map.unproject([edge.x, edge.y], SCUM_COORDS.MAX_ZOOM);
+    return state.map.distance(a, b);
+  }
+  const ratio = mapSize(config) / 256;
+  return radius / ratio;
+}
+
+function setTileLayer(type) {
+  if (!state.map || !state.config) return;
+  state.layerType = type;
+  const url = type === "topographic"
+    ? state.config.tiles_topographic
+    : state.config.tiles_satellite;
+  const maxNative = state.config.max_native_zoom || 7;
+  const maxZoom = maxNative + (state.config.extra_zoom || 0);
+  const minZoom = state.config.min_zoom ?? 0;
+  const tileSize = state.config.tile_size || 256;
+  const bounds = activeMapBounds(state.config);
+
+  if (state.tileLayer) state.map.removeLayer(state.tileLayer);
+
+  state.tileLayer = L.tileLayer(url, {
+    tileSize,
+    noWrap: true,
+    minZoom,
+    maxNativeZoom: maxNative,
+    maxZoom,
+    zoomOffset: state.config.zoom_offset || 0,
+    bounds,
+    attribution: state.config.attribution || "Tiles © Xam.nu",
+  }).addTo(state.map);
+
+  document.getElementById("btn-layer-sat")?.classList.toggle("active", type === "satellite");
+  document.getElementById("btn-layer-topo")?.classList.toggle("active", type === "topographic");
+  if (isScumConfig(state.config)) {
+    document.getElementById("btn-layer-topo")?.classList.add("hidden");
+  } else {
+    document.getElementById("btn-layer-topo")?.classList.remove("hidden");
+  }
+}
+
 function updateMinZoom() {
   if (!state.map) return;
+  if (isScumConfig(state.config)) {
+    state.map.setMinZoom(state.config.min_zoom ?? SCUM_COORDS?.MIN_ZOOM ?? 2);
+    return;
+  }
   const boundsZoom = state.map.getBoundsZoom(TILE_BOUNDS, false);
   state.map.setMinZoom(boundsZoom);
 }
@@ -225,11 +314,19 @@ function refreshMapLayout() {
   if (!state.map) return;
   state.map.invalidateSize({ animate: false });
   updateMinZoom();
-  state.map.fitBounds(TILE_BOUNDS, { animate: false });
+  const bounds = activeMapBounds(state.config);
+  state.map.fitBounds(bounds, { animate: false });
   if (state.config) {
-    const center = gameToLatLng(mapSize(state.config) / 2, mapSize(state.config) / 2, state.config);
+    const center = mapCenterLatLng(state.config);
     state.map.setView(center, state.map.getZoom(), { animate: false });
   }
+}
+
+function mapCenterLatLng(config = state.config) {
+  if (isScumConfig(config) && typeof SCUM_COORDS !== "undefined") {
+    return gameToLatLng(SCUM_COORDS.CENTER_X, SCUM_COORDS.CENTER_Y, config);
+  }
+  return gameToLatLng(mapSize(config) / 2, mapSize(config) / 2, config);
 }
 
 function showKeyModal(key) {
@@ -250,57 +347,6 @@ async function ensureClientKey() {
     /* key not in session */
   }
   return null;
-}
-
-function mapSize(config) {
-  return config.map_size || config.bounds.max_x || 20480;
-}
-
-function gameToLatLng(x, y, config = state.config) {
-  const size = mapSize(config);
-  const ratio = size / 256;
-  return L.latLng(y / ratio - 256, x / ratio);
-}
-
-function gameBoundsToLatLng(bounds, config = state.config) {
-  const x1 = bounds.x1 ?? 0;
-  const y1 = bounds.y1 ?? 0;
-  const x2 = bounds.x2 ?? mapSize(config);
-  const y2 = bounds.y2 ?? mapSize(config);
-  return L.latLngBounds(
-    gameToLatLng(x1, y2, config),
-    gameToLatLng(x2, y1, config),
-  );
-}
-
-function gameRadiusToLeaflet(radius, config = state.config) {
-  const ratio = mapSize(config) / 256;
-  return radius / ratio;
-}
-
-function setTileLayer(type) {
-  if (!state.map || !state.config) return;
-  state.layerType = type;
-  const url = type === "topographic"
-    ? state.config.tiles_topographic
-    : state.config.tiles_satellite;
-  const maxNative = state.config.max_native_zoom || 7;
-  const maxZoom = maxNative + (state.config.extra_zoom || 3);
-
-  if (state.tileLayer) state.map.removeLayer(state.tileLayer);
-
-  state.tileLayer = L.tileLayer(url, {
-    tileSize: 256,
-    noWrap: true,
-    minZoom: 0,
-    maxNativeZoom: maxNative,
-    maxZoom,
-    bounds: TILE_BOUNDS,
-    attribution: state.config.attribution || "Tiles © Xam.nu",
-  }).addTo(state.map);
-
-  document.getElementById("btn-layer-sat")?.classList.toggle("active", type === "satellite");
-  document.getElementById("btn-layer-topo")?.classList.toggle("active", type === "topographic");
 }
 
 function initMapPanes(map) {
@@ -324,17 +370,28 @@ function initMapPanes(map) {
 
 function initLeaflet(config) {
   const maxNative = config.max_native_zoom || 7;
-  const maxZoom = maxNative + (config.extra_zoom || 3);
+  const maxZoom = maxNative + (config.extra_zoom || 0);
+  const minZoom = config.min_zoom ?? 0;
+  const scum = isScumConfig(config);
 
   state.map = L.map("map", {
     crs: L.CRS.Simple,
-    minZoom: 0,
+    minZoom,
     maxZoom,
-    maxBounds: MAP_MAX_BOUNDS,
+    maxBounds: scum ? undefined : MAP_MAX_BOUNDS,
     maxBoundsViscosity: 1.0,
     zoomControl: true,
     attributionControl: true,
   });
+
+  if (scum && typeof SCUM_COORDS !== "undefined") {
+    const sw = state.map.unproject([0, SCUM_COORDS.MAP_PX], SCUM_COORDS.MAX_ZOOM);
+    const ne = state.map.unproject([SCUM_COORDS.MAP_PX, 0], SCUM_COORDS.MAX_ZOOM);
+    state.scumBounds = L.latLngBounds(sw, ne);
+    state.map.setMaxBounds(state.scumBounds.pad(0.08));
+  } else {
+    state.scumBounds = null;
+  }
 
   initMapPanes(state.map);
   state.locationLayer = L.layerGroup().addTo(state.map);
@@ -450,10 +507,10 @@ function initLeaflet(config) {
   });
 
   setTileLayer("satellite");
-  state.map.fitBounds(TILE_BOUNDS);
+  state.map.fitBounds(activeMapBounds(config));
 
-  const center = gameToLatLng(mapSize(config) / 2, mapSize(config) / 2, config);
-  state.map.setView(center, 3);
+  const center = mapCenterLatLng(config);
+  state.map.setView(center, isScumConfig(config) ? 3 : 3);
   restoreMapView();
   updateMapCursor();
   initMapDragCursor();
@@ -3061,10 +3118,13 @@ function applyBuildingsVisibility() {
 /** Convert Leaflet LatLng → game {x, y} (inverse of gameToLatLng) */
 function latLngToGame(latlng) {
   if (!state.config) return { x: 0, y: 0 };
+  if (isScumConfig(state.config)) {
+    if (!state.map || typeof SCUM_COORDS === "undefined") return { x: 0, y: 0 };
+    const p = state.map.project(latlng, SCUM_COORDS.MAX_ZOOM);
+    return SCUM_COORDS.pixelToGame(p.x, p.y);
+  }
   const size = mapSize(state.config);
   const ratio = size / 256;
-  // gameToLatLng: lat = y/ratio - 256, lng = x/ratio
-  // so: x = lng * ratio, y = (lat + 256) * ratio
   return {
     x: latlng.lng * ratio,
     y: (latlng.lat + 256) * ratio,

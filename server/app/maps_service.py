@@ -5,10 +5,38 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import CLIENT_DOWNLOAD_URL, MAP_ATTRIBUTION, SERVER_PUBLIC_URL
 from app.models import DayZMap
 from app.schemas import MapConfigResponse, MapListItem
+from app.scum_profile import (
+    SCUM_BOUNDS,
+    SCUM_MAP_PX,
+    SCUM_MAX_ZOOM,
+    SCUM_MIN_ZOOM,
+    SCUM_TILE_SIZE,
+    SCUM_ZOOM_OFFSET,
+    is_scum_map,
+)
 from app.seed import DEFAULT_MAP_NAME, DEFAULT_MAP_SLUG, default_map_kwargs, ensure_maps_seeded
 
 
 def map_to_config(game_map: DayZMap) -> MapConfigResponse:
+    if is_scum_map(game_map.slug):
+        return MapConfigResponse(
+            slug=game_map.slug,
+            name=game_map.name,
+            bounds=dict(SCUM_BOUNDS),
+            map_size=float(game_map.map_size or SCUM_MAP_PX),
+            max_native_zoom=game_map.max_native_zoom or SCUM_MAX_ZOOM,
+            extra_zoom=game_map.extra_zoom or 0,
+            tiles_satellite=game_map.tiles_satellite,
+            tiles_topographic=game_map.tiles_topographic or game_map.tiles_satellite,
+            attribution="SCUM tiles · mirrored from scum-map.com via mustard0207/scum_map",
+            server_url=SERVER_PUBLIC_URL,
+            client_download_url=CLIENT_DOWNLOAD_URL,
+            coord_system="scum",
+            tile_size=SCUM_TILE_SIZE,
+            min_zoom=SCUM_MIN_ZOOM,
+            zoom_offset=SCUM_ZOOM_OFFSET,
+        )
+
     size = game_map.map_size
     return MapConfigResponse(
         slug=game_map.slug,
@@ -27,6 +55,10 @@ def map_to_config(game_map: DayZMap) -> MapConfigResponse:
         attribution=MAP_ATTRIBUTION,
         server_url=SERVER_PUBLIC_URL,
         client_download_url=CLIENT_DOWNLOAD_URL,
+        coord_system="dayz",
+        tile_size=256,
+        min_zoom=0,
+        zoom_offset=0,
     )
 
 
@@ -50,6 +82,10 @@ def env_fallback_config(slug: str = DEFAULT_MAP_SLUG) -> MapConfigResponse:
         attribution=MAP_ATTRIBUTION,
         server_url=SERVER_PUBLIC_URL,
         client_download_url=CLIENT_DOWNLOAD_URL,
+        coord_system="dayz",
+        tile_size=256,
+        min_zoom=0,
+        zoom_offset=0,
     )
 
 

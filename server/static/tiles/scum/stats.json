@@ -1,0 +1,13 @@
+{
+  "version": "v50.0.2025.06.17-scum-1.0",
+  "templateUrl": "https://cdn.scum-map.com/tiles/scum/island/v50.0.2025.06.17-scum-1.0/regular/{z}/{x}_{y}.webp",
+  "minZoom": 2,
+  "maxZoom": 6,
+  "tileSize": 1280,
+  "format": "webp",
+  "totalTiles": 341,
+  "downloaded": 341,
+  "skipped": 0,
+  "failed": 0,
+  "downloadDate": "2026-06-22T17:54:56.743Z"
+}

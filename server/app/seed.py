@@ -15,6 +15,7 @@ from app.config import (
 from app.locations_service import DEFAULT_IZURVIVE_URLS
 from app.radiation_service import DEFAULT_RADIATION_FILES
 from app.models import AdminAccount, DayZMap, Setting
+from app.scum_profile import SCUM_MAP_SLUG, scum_map_kwargs
 from app.settings_service import PUBLIC_PIN_CREATION_KEY
 
 logger = logging.getLogger(__name__)
@@ -286,6 +287,31 @@ async def ensure_maps_seeded(db: AsyncSession) -> None:
         await seed_defaults(db)
     else:
         await _ensure_admin_login_aliases(db)
+    await ensure_scum_map_seeded(db)
+
+
+async def ensure_scum_map_seeded(db: AsyncSession) -> None:
+    result = await db.execute(select(DayZMap).where(DayZMap.slug == SCUM_MAP_SLUG))
+    game_map = result.scalar_one_or_none()
+    kwargs = scum_map_kwargs()
+    if game_map is None:
+        db.add(DayZMap(**kwargs))
+        await db.commit()
+        logger.info("Created SCUM map: %s", SCUM_MAP_SLUG)
+        return
+
+    changed = False
+    for key in ("tiles_satellite", "tiles_topographic", "max_native_zoom", "extra_zoom", "map_size", "name"):
+        desired = kwargs[key]
+        if getattr(game_map, key) != desired:
+            setattr(game_map, key, desired)
+            changed = True
+    if not game_map.enabled:
+        game_map.enabled = True
+        changed = True
+    if changed:
+        await db.commit()
+        logger.info("Updated SCUM map tile config: %s", SCUM_MAP_SLUG)
 
 
 async def seed_defaults(db: AsyncSession) -> None:
@@ -300,6 +326,11 @@ async def seed_defaults(db: AsyncSession) -> None:
             game_map.locations_source = "izurvive"
         if not game_map.radiation_url and DEFAULT_MAP_SLUG == game_map.slug:
             game_map.radiation_url = DEFAULT_RADIATION_FILES.get(DEFAULT_MAP_SLUG)
+
+    scum = await db.execute(select(DayZMap).where(DayZMap.slug == SCUM_MAP_SLUG))
+    if scum.scalar_one_or_none() is None:
+        db.add(DayZMap(**scum_map_kwargs()))
+        logger.info("Created SCUM map: %s", SCUM_MAP_SLUG)
 
     setting = await db.get(Setting, ADMIN_PASSWORD_KEY)
     if setting is None:
