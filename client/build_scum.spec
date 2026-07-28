@@ -1,46 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
-
-hiddenimports = [
-    'PIL._tkinter_finder',
-    'uuid',
-    '_uuid',
-    'enum',
-    'typing',
-    'asyncio',
-] + collect_submodules('winrt')
-
-datas = []
-binaries = []
-
-for pkg in (
-    'winrt.runtime',
-    'winrt.windows.media.ocr',
-    'winrt.windows.graphics.imaging',
-    'winrt.windows.storage.streams',
-    'winrt.windows.globalization',
-    'winrt.windows.foundation',
-    'winrt.windows.foundation.collections',
-    'rapidocr',
-    'onnxruntime',
-    'numpy',
-):
-    pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
-    datas += pkg_datas
-    binaries += pkg_binaries
-    hiddenimports += pkg_hidden
-
 a = Analysis(
     ['scum_main.py'],
     pathex=['.'],
-    binaries=binaries,
-    datas=datas,
-    hiddenimports=hiddenimports,
+    binaries=[],
+    datas=[],
+    hiddenimports=['PIL._tkinter_finder'],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=['pyi_rth_winrt.py'],
-    excludes=[],
+    runtime_hooks=[],
+    excludes=['rapidocr', 'onnxruntime', 'winrt'],
     noarchive=False,
 )
 pyz = PYZ(a.pure, a.zipped_data)

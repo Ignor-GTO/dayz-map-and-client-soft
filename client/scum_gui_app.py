@@ -16,7 +16,6 @@ import httpx
 from api_client import MapClient
 from clipboard_util import grab_clipboard_text
 from config import load_config, normalize_hotkey_list, save_config
-from scum_capture import DEFAULT_SCUM_OCR_REGION, normalize_region, ocr_scum_coords
 from scum_coords import parse_scum_clipboard
 from version import __version__
 
@@ -188,8 +187,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "В игре: F1 → show position. Затем Ctrl+C по строке координат "
-                "или держите HUD видимым для OCR (M / авто 30 с)."
+                "В игре: F1 → show position → выделите строку {X=… Y=…} → Ctrl+C.\n"
+                "Клиент читает только буфер обмена (без OCR). M / авто 30 с шлют последнюю известную позицию."
             ),
             style="CardMuted.TLabel",
             wraplength=580,
@@ -200,7 +199,6 @@ class ScumMapApp(tk.Tk):
         self.toggle_btn = ttk.Button(btns, text="Запустить", command=self._toggle_hotkeys)
         self.toggle_btn.pack(side="left")
         ttk.Button(btns, text="Отправить из буфера", command=self._send_clipboard_now).pack(side="left", padx=8)
-        ttk.Button(btns, text="Тест OCR", command=self._test_ocr).pack(side="left")
 
         ttk.Label(self.main_page, text="Лог", style="Muted.TLabel").pack(anchor="w", pady=(8, 2))
         self.log = tk.Text(
@@ -238,23 +236,6 @@ class ScumMapApp(tk.Tk):
         self.key_var = tk.StringVar()
         ttk.Entry(conn, textvariable=self.key_var, show="•", width=64).pack(fill="x")
 
-        ocr = ttk.LabelFrame(body, text="OCR show position (L T R B)", padding=10)
-        ocr.pack(fill="x", pady=6)
-        ttk.Label(
-            ocr,
-            text="Рамка должна покрывать строку X=… Y=… на экране (обычно сверху слева).",
-            style="CardMuted.TLabel",
-            wraplength=560,
-        ).pack(anchor="w", pady=(0, 6))
-        region_row = ttk.Frame(ocr, style="Card.TFrame")
-        region_row.pack(fill="x")
-        self.region_vars = [tk.IntVar(value=0) for _ in range(4)]
-        for i, label in enumerate(("L", "T", "R", "B")):
-            cell = ttk.Frame(region_row, style="Card.TFrame")
-            cell.pack(side="left", padx=4)
-            ttk.Label(cell, text=label, style="Card.TLabel").pack(side="left")
-            ttk.Entry(cell, textvariable=self.region_vars[i], width=8).pack(side="left", padx=2)
-
         auto = ttk.LabelFrame(body, text="Автоотправка позиции", padding=10)
         auto.pack(fill="x", pady=6)
         row = ttk.Frame(auto, style="Card.TFrame")
@@ -264,8 +245,12 @@ class ScumMapApp(tk.Tk):
         ttk.Entry(row, textvariable=self.auto_interval_var, width=8).pack(side="left", padx=8)
         ttk.Label(
             auto,
-            text="0 = только по M / Ctrl+C. Рекомендуется 30.",
+            text=(
+                "0 = только Ctrl+C / M. При 30: каждые 30 с повторно шлёт последнюю позицию из буфера "
+                "(после хотя бы одного Ctrl+C)."
+            ),
             style="CardMuted.TLabel",
+            wraplength=560,
         ).pack(anchor="w", pady=(6, 0))
 
         hk = ttk.LabelFrame(body, text="Горячие клавиши (веб-карта)", padding=10)
@@ -296,7 +281,6 @@ class ScumMapApp(tk.Tk):
         ttk.Button(diag, text="Проверить обновления", command=lambda: self.check_for_updates(manual=True)).pack(
             side="left"
         )
-        ttk.Button(diag, text="Тест OCR", command=self._test_ocr).pack(side="left", padx=8)
 
     def _build_about_page(self) -> None:
         card = ttk.LabelFrame(self.about_page, text="О программе", padding=12)
@@ -307,8 +291,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "Читает координаты SCUM (show position / Ctrl+C) и отправляет live-позицию на веб-карту.\n"
-                "M — сразу · автораз в N секунд · Page Up/Down/End — зум и фокус на сайте."
+                "Читает координаты SCUM из буфера (Ctrl+C по show position) — без OCR.\n"
+                "M / авто — повтор последней позиции · Page Up/Down/End — зум и фокус на сайте."
             ),
             style="CardMuted.TLabel",
             wraplength=560,
@@ -339,9 +323,6 @@ class ScumMapApp(tk.Tk):
     def _load_fields(self) -> None:
         self.server_var.set(self.settings.get("server_url", ""))
         self.key_var.set(self.settings.get("client_key", ""))
-        region = normalize_region(self.settings.get("scum_ocr_region") or DEFAULT_SCUM_OCR_REGION)
-        for i, v in enumerate(region):
-            self.region_vars[i].set(v)
         self.auto_interval_var.set(int(self.settings.get("scum_auto_interval_sec", AUTO_INTERVAL_DEFAULT) or 0))
         self.hotkey_zoom_in_var.set(", ".join(self.settings.get("hotkey_zoom_in", ["page up"])))
         self.hotkey_zoom_out_var.set(", ".join(self.settings.get("hotkey_zoom_out", ["page down"])))
@@ -358,9 +339,6 @@ class ScumMapApp(tk.Tk):
         ts = time.strftime("%H:%M:%S")
         self.log.insert("end", f"[{ts}] {text}\n")
         self.log.see("end")
-
-    def _current_region(self) -> tuple[int, int, int, int]:
-        return normalize_region([v.get() for v in self.region_vars])
 
     def _parse_hotkeys(self, raw: str, fallback: list[str]) -> list[str]:
         parts = [p.strip() for p in (raw or "").split(",") if p.strip()]
@@ -382,7 +360,6 @@ class ScumMapApp(tk.Tk):
         self.settings["server_url"] = server
         self.settings["client_key"] = key
         self.settings["map_slug"] = "scum"
-        self.settings["scum_ocr_region"] = list(self._current_region())
         self.settings["scum_auto_interval_sec"] = self._auto_interval()
         self.settings["hotkey_zoom_in"] = self._parse_hotkeys(self.hotkey_zoom_in_var.get(), ["page up"])
         self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
@@ -409,9 +386,7 @@ class ScumMapApp(tk.Tk):
             self._save()
             if not self.map_client:
                 return
-        # Persist current fields without modal spam if already valid
         try:
-            self.settings["scum_ocr_region"] = list(self._current_region())
             self.settings["scum_auto_interval_sec"] = self._auto_interval()
             self.settings["hotkey_zoom_in"] = self._parse_hotkeys(self.hotkey_zoom_in_var.get(), ["page up"])
             self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
@@ -489,9 +464,8 @@ class ScumMapApp(tk.Tk):
             threading.Thread(target=self._auto_loop, args=(interval,), daemon=True).start()
 
         self.log_line(f"Запущено. Клавиши: {', '.join(registered) or '—'}")
-        self.log_line("Ctrl+C в игре по строке {X=… Y=…} — клиент подхватит буфер.")
+        self.log_line("Скопируйте позицию в игре (Ctrl+C) — клиент сразу отправит на карту.")
         self.log_line("Если клавиши молчат в полноэкранной игре — запустите exe от имени администратора.")
-        # Immediate attempt so user sees feedback within seconds
         self.after(300, lambda: self._capture_and_send("startup"))
 
     def _stop_hotkeys(self) -> None:
@@ -546,63 +520,24 @@ class ScumMapApp(tk.Tk):
             return
         self._send_coords(coords, source="буфер-кнопка")
 
-    def _test_ocr(self) -> None:
-        self.log_line("Тест OCR…")
-        threading.Thread(target=self._test_ocr_worker, daemon=True).start()
-
-    def _test_ocr_worker(self) -> None:
-        try:
-            coords, raw = ocr_scum_coords(self._current_region())
-        except Exception as exc:
-            self.after(0, lambda: self.log_line(f"OCR ошибка: {exc}"))
-            return
-        preview = (raw or "").replace("\n", " ")[:160]
-        if coords:
-            self.after(
-                0,
-                lambda: self.log_line(f"OCR OK → {coords[0]:.1f} / {coords[1]:.1f} | {preview!r}"),
-            )
-        else:
-            self.after(0, lambda: self.log_line(f"OCR: координаты не найдены | {preview!r}"))
-
     def _capture_and_send(self, source: str) -> None:
-        threading.Thread(target=self._capture_worker, args=(source,), daemon=True).start()
-
-    def _capture_worker(self, source: str) -> None:
-        coords = None
-        detail = ""
-
-        # Fresh Ctrl+C (last 3s) wins
-        if (
-            self._fresh_clipboard_coords
-            and (time.time() - self._clipboard_coords_at) < 3.0
-        ):
-            coords = self._fresh_clipboard_coords
-            detail = "fresh-clipboard"
+        """Send from clipboard, else last known position. No OCR."""
+        clip = parse_scum_clipboard(grab_clipboard_text())
+        if clip:
+            self._fresh_clipboard_coords = clip
+            self._clipboard_coords_at = time.time()
+            self._send_coords(clip, source=f"{source}/clipboard")
+            return
+        if self._fresh_clipboard_coords:
+            self._send_coords(self._fresh_clipboard_coords, source=f"{source}/last-clipboard")
+            return
+        if self._last_sent:
+            self._send_coords(self._last_sent, source=f"{source}/last-sent")
+            return
+        if source == "startup":
+            self.log_line("[startup] буфер пуст — скопируйте {X=… Y=…} в игре (Ctrl+C)")
         else:
-            try:
-                coords, raw = ocr_scum_coords(self._current_region())
-                detail = (raw or "").replace("\n", " ")[:100]
-            except Exception as exc:
-                self.after(0, lambda: self.log_line(f"[{source}] OCR ошибка: {exc}"))
-                # Fallback: any clipboard SCUM coords
-                clip = parse_scum_clipboard(grab_clipboard_text())
-                if clip:
-                    coords = clip
-                    detail = "clipboard-fallback"
-                else:
-                    return
-
-        if not coords:
-            clip = parse_scum_clipboard(grab_clipboard_text())
-            if clip:
-                coords = clip
-                detail = "clipboard-fallback"
-            else:
-                self.after(0, lambda: self.log_line(f"[{source}] нет координат ({detail!r})"))
-                return
-
-        self.after(0, lambda c=coords, d=detail: self._send_coords(c, source=f"{source}/{d}"))
+            self.log_line(f"[{source}] нет координат в буфере. F1 → show position → Ctrl+C")
 
     def _send_coords(self, coords: tuple[float, float], source: str) -> None:
         if not self.map_client:
@@ -611,14 +546,6 @@ class ScumMapApp(tk.Tk):
             return
         with self._send_lock:
             x, y = coords
-            if (
-                source.startswith("auto")
-                and self._last_sent
-                and abs(self._last_sent[0] - x) < 0.5
-                and abs(self._last_sent[1] - y) < 0.5
-            ):
-                self.log_line(f"[{source}] без изменений {x:.1f} / {y:.1f}")
-                return
             ok, err = self.map_client.send_position(x, y)
             if ok:
                 self._last_sent = (x, y)

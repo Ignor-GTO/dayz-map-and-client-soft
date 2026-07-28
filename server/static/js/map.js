@@ -1843,13 +1843,13 @@ const SCUM_APP_STEPS_HTML = `
   <li>Скачайте и запустите <strong>ScumMapClient.exe</strong> на игровом ПК.</li>
   <li>Вкладка <strong>Настройки</strong> → server URL + ключ → «Сохранить». На <strong>Главной</strong> нажмите <strong>«Запустить»</strong>.</li>
   <li>
-    В игре: <strong>F1 → show position</strong>. Можно <strong>Ctrl+C</strong> по строке
-    <code>{X=… Y=…}</code> — клиент сразу отправит позицию (или кнопка «Отправить из буфера»).
+    В игре: <strong>F1 → show position</strong> → выделите строку
+    <code>{X=… Y=…}</code> → <strong>Ctrl+C</strong>. Клиент читает только буфер (без OCR).
   </li>
-  <li><strong>M</strong> — отправить сейчас; каждые <strong>30 с</strong> — авто (OCR области show position).</li>
+  <li><strong>M</strong> / авто раз в 30 с — повторно шлёт последнюю скопированную позицию.</li>
   <li>
-    <strong>Page Up / Page Down / End</strong> — приблизить / отдалить / найти себя на веб-карте
-    (вкладка Настройки). Если клавиши молчат в игре — запустите клиент от администратора.
+    <strong>Page Up / Page Down / End</strong> — приблизить / отдалить / найти себя на веб-карте.
+    Если клавиши молчат — запустите клиент от администратора.
   </li>
 `;
 
