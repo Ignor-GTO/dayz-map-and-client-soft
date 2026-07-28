@@ -46,26 +46,34 @@ jobs:
       - name: Install dependencies
         run: pip install -r client/requirements.txt
 
-      - name: Build exe
+      - name: Build DayZMapClient.exe
         working-directory: client
         run: pyinstaller build.spec --noconfirm
+
+      - name: Build ScumMapClient.exe
+        working-directory: client
+        run: pyinstaller build_scum.spec --noconfirm
 
       - name: Publish to GitHub Releases
         uses: ncipollo/release-action@v1
         with:
           tag: client-latest
-          name: DayZ Map Client v${{ steps.ver.outputs.version }}
+          name: Map Clients v${{ steps.ver.outputs.version }}
           body: |
-            Windows OCR client with GUI. No Tesseract required.
+            Windows clients with GUI. No Tesseract required.
 
             **Версия:** v${{ steps.ver.outputs.version }}
             **Сборка:** `${{ github.sha }}`
             **Коммит:** ${{ github.event.head_commit.message }}
             **Время (UTC):** ${{ github.event.head_commit.timestamp }}
 
-            Скачивайте `DayZMapClient.exe` ниже — файл перезаписывается при каждой сборке.
-            Дата «N hours ago» у релиза — это создание страницы, смотрите версию и время у файла exe.
-          artifacts: client/dist/DayZMapClient.exe
+            - `DayZMapClient.exe` — DayZ (OCR карты + метки)
+            - `ScumMapClient.exe` — SCUM (M + автораз в 30 с по `show position`)
+
+            Файлы перезаписываются при каждой сборке.
+          artifacts: |
+            client/dist/DayZMapClient.exe
+            client/dist/ScumMapClient.exe
           allowUpdates: true
           replacesArtifacts: true
           makeLatest: true

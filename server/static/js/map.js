@@ -1811,11 +1811,67 @@ function switchLegendTab(tabId) {
 }
 
 function openAppModal() {
+  syncAppModalForMap();
   document.getElementById("app-modal")?.classList.remove("hidden");
 }
 
 function closeAppModal() {
   document.getElementById("app-modal")?.classList.add("hidden");
+}
+
+const DAYZ_APP_INTRO =
+  "Windows-клиент отправляет вашу позицию в игре и метки с экрана на эту карту в реальном времени.";
+const SCUM_APP_INTRO =
+  "ScumMapClient читает координаты SCUM (F1 → show position) и отправляет live-позицию на эту карту.";
+
+const DAYZ_APP_STEPS_HTML = `
+  <li>Скачайте и запустите клиент на игровом ПК.</li>
+  <li>Нажмите «Приложение» в верхнем меню → скопируйте ключ в настройки клиента.</li>
+  <li>
+    В настройках клиента выберите монитор и настройте <strong>область захвата OCR</strong> под своё разрешение экрана:
+    «Редактор» → наведите рамку точно на цифры координат на игровой карте → сохраните (Enter или двойной клик).
+    На другом мониторе или разрешении рамку нужно выставить заново.
+  </li>
+  <li>В игре нажмите <strong>M</strong> — на карте появится live-позиция.</li>
+  <li>
+    Метка с экрана: откройте карту в игре → <strong>Win+Shift+S</strong> (или горячая клавиша из настроек клиента).
+    Клиент считывает координаты из настроенной области захвата и отправляет точку на карту.
+  </li>
+`;
+
+const SCUM_APP_STEPS_HTML = `
+  <li>Скачайте и запустите <strong>ScumMapClient.exe</strong> на игровом ПК.</li>
+  <li>Скопируйте ключ с этой страницы в настройки клиента и нажмите «Запустить».</li>
+  <li>
+    В игре включите <strong>F1 → show position</strong> и оставьте его на экране.
+    При необходимости подправьте область OCR (L T R B) в клиенте так, чтобы в рамку попадала строка <code>X=… Y=…</code>.
+  </li>
+  <li>Нажмите <strong>M</strong> — позиция сразу отправится на веб-карту.</li>
+  <li>
+    Каждые <strong>30 секунд</strong> клиент сам считывает координаты с экрана и обновляет live-позицию
+    (без дополнительных нажатий). Также сработает, если скопировать строку позиции в буфер (Ctrl+C).
+  </li>
+`;
+
+function syncAppModalForMap() {
+  const scum = isScumConfig();
+  const intro = document.getElementById("app-tab-intro");
+  const desc = document.getElementById("app-download-desc");
+  const btn = document.getElementById("app-download-btn");
+  const steps = document.getElementById("app-help-steps-list");
+  if (intro) intro.textContent = scum ? SCUM_APP_INTRO : DAYZ_APP_INTRO;
+  if (desc) {
+    desc.textContent = scum
+      ? "ScumMapClient для Windows: позиция по M и автораз в 30 секунд. Связывается с картой по ключу сессии."
+      : "Программа для ПК, с которого вы играете. Запустите один раз — она работает в фоне и связывается с картой по ключу.";
+  }
+  if (btn) {
+    btn.textContent = scum ? "Скачать ScumMapClient.exe" : "Скачать .exe (Windows)";
+    const url = state.config?.client_download_url;
+    if (url) btn.href = url;
+    else btn.href = scum ? "/api/download/scum-client" : "/api/download/client";
+  }
+  if (steps) steps.innerHTML = scum ? SCUM_APP_STEPS_HTML : DAYZ_APP_STEPS_HTML;
 }
 
 // Expose functions globally for inline HTML event handlers
@@ -2822,6 +2878,8 @@ async function loadMapRadiation() {
 async function bootstrapMapView() {
   state.me = await api("/api/auth/me");
   state.config = await api(`/api/maps/${state.me.map_slug}/config`);
+  if (state.config.client_download_url) applyClientDownloadUrl(state.config.client_download_url);
+  syncAppModalForMap();
 
   showMap();
   await waitForLayout();
@@ -3172,13 +3230,15 @@ function applyClientDownloadUrl(url) {
   document.querySelectorAll(".client-download").forEach((el) => {
     el.href = url;
   });
+  syncAppModalForMap();
 }
 
 async function initClientDownloadLinks() {
   try {
     const maps = await api("/api/maps");
     if (!maps.length) return;
-    const cfg = await api(`/api/maps/${maps[0].slug}/config`);
+    const slug = state.me?.map_slug || maps[0].slug;
+    const cfg = await api(`/api/maps/${slug}/config`);
     if (cfg.client_download_url) applyClientDownloadUrl(cfg.client_download_url);
   } catch {
     /* keep default href from HTML */

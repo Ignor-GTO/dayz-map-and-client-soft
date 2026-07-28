@@ -28,6 +28,7 @@ MAP_MAX_NATIVE_ZOOM=7
 MAP_TILES_SATELLITE=https://static.xam.nu/dayz/maps/pripyat/19.08/satellite/{z}/{x}/{y}.jpg
 MAP_TILES_TOPOGRAPHIC=https://static.xam.nu/dayz/maps/pripyat/19.08/topographic/{z}/{x}/{y}.jpg
 CLIENT_DOWNLOAD_URL=https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe
+SCUM_CLIENT_DOWNLOAD_URL=https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/ScumMapClient.exe
 "@
 
 function Invoke-Dokploy($Endpoint, $Body) {

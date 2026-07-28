@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.admin_routes import router as admin_router
 from app.auth import channel_key, get_current_user_from_ws
-from app.config import CLIENT_DOWNLOAD_URL
+from app.config import CLIENT_DOWNLOAD_URL, SCUM_CLIENT_DOWNLOAD_URL
 from app.database import SessionLocal, init_db
 from app.routes import router
 from app.marker_upload import ensure_marker_upload_dir
@@ -43,6 +43,11 @@ async def health():
 @app.get("/api/download/client")
 async def download_client():
     return RedirectResponse(url=CLIENT_DOWNLOAD_URL, status_code=302)
+
+
+@app.get("/api/download/scum-client")
+async def download_scum_client():
+    return RedirectResponse(url=SCUM_CLIENT_DOWNLOAD_URL, status_code=302)
 
 
 @app.get("/img/default-avatar.svg")

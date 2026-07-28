@@ -41,5 +41,9 @@ CLIENT_DOWNLOAD_URL = os.getenv(
     "CLIENT_DOWNLOAD_URL",
     "https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/DayZMapClient.exe",
 )
+SCUM_CLIENT_DOWNLOAD_URL = os.getenv(
+    "SCUM_CLIENT_DOWNLOAD_URL",
+    "https://github.com/Ignor-GTO/dayz-map-and-client-soft/releases/latest/download/ScumMapClient.exe",
+)
 
 SERVER_PUBLIC_URL = os.getenv("SERVER_PUBLIC_URL", "https://dayz-map.gto-team.uz")

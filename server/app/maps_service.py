@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import CLIENT_DOWNLOAD_URL, MAP_ATTRIBUTION, SERVER_PUBLIC_URL
+from app.config import CLIENT_DOWNLOAD_URL, MAP_ATTRIBUTION, SCUM_CLIENT_DOWNLOAD_URL, SERVER_PUBLIC_URL
 from app.models import DayZMap
 from app.schemas import MapConfigResponse, MapListItem
 from app.scum_profile import (
@@ -30,7 +30,7 @@ def map_to_config(game_map: DayZMap) -> MapConfigResponse:
             tiles_topographic=game_map.tiles_topographic or game_map.tiles_satellite,
             attribution="SCUM tiles · mirrored from scum-map.com via mustard0207/scum_map",
             server_url=SERVER_PUBLIC_URL,
-            client_download_url=CLIENT_DOWNLOAD_URL,
+            client_download_url=SCUM_CLIENT_DOWNLOAD_URL,
             coord_system="scum",
             tile_size=SCUM_TILE_SIZE,
             min_zoom=SCUM_MIN_ZOOM,
