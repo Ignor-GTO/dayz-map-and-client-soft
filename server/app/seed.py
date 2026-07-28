@@ -378,11 +378,14 @@ async def ensure_scum_map_seeded(db: AsyncSession) -> None:
         return
 
     changed = False
-    for key in ("tiles_satellite", "tiles_topographic", "max_native_zoom", "extra_zoom", "map_size", "name"):
+    for key in ("tiles_satellite", "tiles_topographic", "max_native_zoom", "extra_zoom", "map_size", "name", "locations_source"):
         desired = kwargs[key]
         if getattr(game_map, key) != desired:
             setattr(game_map, key, desired)
             changed = True
+    if game_map.locations_url:
+        game_map.locations_url = None
+        changed = True
     if not game_map.enabled:
         game_map.enabled = True
         changed = True

@@ -1,4 +1,4 @@
-"""Fetch and normalize map location data (iZurvive / xam.nu formats).
+"""Fetch and normalize map location data (iZurvive / xam.nu / static formats).
 
 Based on https://github.com/WoozyMasta/dzmap coordinate conversion.
 """
@@ -13,7 +13,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import DayZMap
@@ -34,11 +33,6 @@ DEFAULT_IZURVIVE_URLS: dict[str, str] = {
     "pripyat": "https://www.izurvive.com/assets/pripyat/citynames-d65541f5.json",
 }
 
-def _static_locations_path(slug: str) -> Path | None:
-    base = Path(__file__).resolve().parent.parent / "static" / "data"
-    path = base / f"{slug.lower()}-locations.json"
-    return path if path.is_file() else None
-
 XAM_JSON_URLS: dict[str, str] = {
     "chernarusplus": "https://static.xam.nu/dayz/json/chernarusplus/1.28-2.json",
     "chernarus": "https://static.xam.nu/dayz/json/chernarusplus/1.28-2.json",
@@ -47,7 +41,7 @@ XAM_JSON_URLS: dict[str, str] = {
     "sakhal": "https://static.xam.nu/dayz/json/sakhal/1.28-2.json",
 }
 
-_cache: dict[str, tuple[float, list[dict]]] = {}
+_cache: dict[str, tuple[float, dict]] = {}
 
 
 @dataclass
@@ -59,6 +53,40 @@ class ParsedLocation:
     x: float
     y: float
     min_zoom: int
+
+
+def _static_locations_path(slug: str) -> Path | None:
+    base = Path(__file__).resolve().parent.parent / "static" / "data"
+    path = base / f"{slug.lower()}-locations.json"
+    return path if path.is_file() else None
+
+
+def _load_static_locations(slug: str) -> dict | None:
+    path = _static_locations_path(slug)
+    if not path:
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        logger.exception("Failed to read static locations for %s", slug)
+        return None
+    if not isinstance(data, dict):
+        return None
+    locations = data.get("locations")
+    if not isinstance(locations, list):
+        return None
+    categories = data.get("categories")
+    if not isinstance(categories, list):
+        counts: dict[str, int] = {}
+        for loc in locations:
+            cat = str((loc or {}).get("category") or "local")
+            counts[cat] = counts.get(cat, 0) + 1
+        categories = [
+            {"id": cat_id, "label": CATEGORY_LABELS.get(cat_id, cat_id), "count": counts[cat_id]}
+            for cat_id in CATEGORY_LABELS
+            if counts.get(cat_id, 0) > 0
+        ]
+    return {"categories": categories, "locations": locations}
 
 
 def izurvive_to_game(lng: float, lat: float, map_size: float) -> tuple[float, float]:
@@ -177,14 +205,26 @@ def _resolve_sources(game_map: DayZMap) -> tuple[str, str] | None:
 
 
 async def get_map_locations(db: AsyncSession, game_map: DayZMap) -> dict:
+    del db  # reserved for future DB-stored locations
     cache_key = f"{game_map.slug}:{game_map.map_size}"
     cached = _cache.get(cache_key)
     if cached and time.time() - cached[0] < CACHE_TTL_SEC:
         return cached[1]
 
+    static_result = _load_static_locations(game_map.slug)
+    # Prefer packaged static data when no remote URL is configured (SCUM).
+    if static_result and not game_map.locations_url:
+        _cache[cache_key] = (time.time(), static_result)
+        logger.info(
+            "Loaded %d locations for %s from static file",
+            len(static_result.get("locations", [])),
+            game_map.slug,
+        )
+        return static_result
+
     resolved = _resolve_sources(game_map)
     if not resolved:
-        result = {"categories": [], "locations": []}
+        result = static_result or {"categories": [], "locations": []}
         _cache[cache_key] = (time.time(), result)
         return result
 
@@ -193,19 +233,25 @@ async def get_map_locations(db: AsyncSession, game_map: DayZMap) -> dict:
         raw = await _fetch_json(url)
         if source == "xam":
             parsed = parse_xam(raw if isinstance(raw, dict) else {}, game_map.map_size)
+        elif source in {"static", "scum", "file"} and isinstance(raw, dict) and "locations" in raw:
+            result = {
+                "categories": raw.get("categories") or [],
+                "locations": raw.get("locations") or [],
+            }
+            _cache[cache_key] = (time.time(), result)
+            return result
         else:
             parsed = parse_izurvive(raw if isinstance(raw, list) else [], game_map.map_size)
     except Exception:
         logger.exception("Failed to fetch locations for %s from %s", game_map.slug, url)
-        static_path = _static_locations_path(game_map.slug)
-        if static_path and static_path.is_file():
-            try:
-                result = json.loads(static_path.read_text(encoding="utf-8"))
-                _cache[cache_key] = (time.time(), result)
-                logger.info("Loaded %d locations for %s from static fallback", len(result.get("locations", [])), game_map.slug)
-                return result
-            except Exception:
-                logger.exception("Static locations fallback failed for %s", game_map.slug)
+        if static_result:
+            _cache[cache_key] = (time.time(), static_result)
+            logger.info(
+                "Loaded %d locations for %s from static fallback",
+                len(static_result.get("locations", [])),
+                game_map.slug,
+            )
+            return static_result
         result = {"categories": [], "locations": []}
         _cache[cache_key] = (time.time(), result)
         return result

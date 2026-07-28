@@ -33,7 +33,7 @@ def scum_map_kwargs() -> dict:
         "max_native_zoom": SCUM_MAX_ZOOM,
         "extra_zoom": 0,
         "locations_url": None,
-        "locations_source": None,
+        "locations_source": "static",
         "radiation_url": None,
         "enabled": True,
         "sort_order": 10,
