@@ -5,11 +5,13 @@ from __future__ import annotations
 import io
 import os
 import struct
+import threading
 from pathlib import Path
 
 from PIL import Image, ImageGrab
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".gif", ".webp"}
+_CLIPBOARD_LOCK = threading.Lock()
 
 
 def _open_path(path: str) -> Image.Image | None:
@@ -196,46 +198,71 @@ def _grab_png_clipboard() -> Image.Image | None:
         user32.CloseClipboard()
 
 
-def grab_clipboard_text(timeout_sec: float = 0.25) -> str | None:
-    """Read Unicode text from clipboard. Never blocks the caller longer than timeout_sec."""
+def clipboard_sequence_number() -> int:
+    """Windows clipboard change counter (0 if unavailable)."""
     import sys
-    import threading
+
+    if sys.platform != "win32":
+        return 0
+    try:
+        import ctypes
+
+        return int(ctypes.windll.user32.GetClipboardSequenceNumber())
+    except Exception:
+        return 0
+
+
+def grab_clipboard_text(timeout_sec: float = 0.5) -> str | None:
+    """Read clipboard text via Win32. Serialized + retries (no abandoned OpenClipboard threads)."""
+    import sys
+    import time
 
     if sys.platform != "win32":
         return None
+    import ctypes
 
-    result: dict[str, str | None] = {"text": None}
+    user32 = ctypes.windll.user32
+    kernel32 = ctypes.windll.kernel32
+    CF_UNICODETEXT = 13
+    CF_TEXT = 1
 
-    def worker() -> None:
-        import ctypes
-
-        user32 = ctypes.windll.user32
-        kernel32 = ctypes.windll.kernel32
-        CF_UNICODETEXT = 13
-        if not user32.OpenClipboard(0):
-            return
-        try:
-            if not user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
-                return
-            handle = user32.GetClipboardData(CF_UNICODETEXT)
-            if not handle:
-                return
-            ptr = kernel32.GlobalLock(handle)
-            if not ptr:
-                return
+    deadline = time.time() + max(0.1, float(timeout_sec))
+    with _CLIPBOARD_LOCK:
+        while time.time() < deadline:
+            if not user32.OpenClipboard(0):
+                time.sleep(0.04)
+                continue
             try:
-                result["text"] = ctypes.wstring_at(ptr).strip()
+                # Prefer Unicode
+                if user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
+                    handle = user32.GetClipboardData(CF_UNICODETEXT)
+                    if handle:
+                        ptr = kernel32.GlobalLock(handle)
+                        if ptr:
+                            try:
+                                text = ctypes.wstring_at(ptr)
+                                if text is not None:
+                                    return text.strip()
+                            finally:
+                                kernel32.GlobalUnlock(handle)
+                # Fallback ANSI
+                if user32.IsClipboardFormatAvailable(CF_TEXT):
+                    handle = user32.GetClipboardData(CF_TEXT)
+                    if handle:
+                        ptr = kernel32.GlobalLock(handle)
+                        if ptr:
+                            try:
+                                raw = ctypes.string_at(ptr)
+                                text = raw.decode("utf-8", errors="ignore")
+                                if not text:
+                                    text = raw.decode("cp1251", errors="ignore")
+                                return text.strip()
+                            finally:
+                                kernel32.GlobalUnlock(handle)
+                return None
             finally:
-                kernel32.GlobalUnlock(handle)
-        finally:
-            user32.CloseClipboard()
-
-    t = threading.Thread(target=worker, daemon=True)
-    t.start()
-    t.join(timeout=max(0.05, float(timeout_sec)))
-    if t.is_alive():
+                user32.CloseClipboard()
         return None
-    return result["text"]
 
 
 def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int, int]):

@@ -6,7 +6,7 @@ import re
 
 # Prefer position X/Y before optional pitch block (|P=... Y=...).
 _SCUM_XY = re.compile(
-    r"\{?\s*X\s*=\s*(-?\d+(?:[.,]\d+)?)\s*Y\s*=\s*(-?\d+(?:[.,]\d+)?)",
+    r"\{?\s*X\s*[=:]\s*(-?\d+(?:[.,]\d+)?)\s*[,;\s]+Y\s*[=:]\s*(-?\d+(?:[.,]\d+)?)",
     re.IGNORECASE,
 )
 
@@ -16,7 +16,13 @@ def parse_scum_clipboard(text: str | None) -> tuple[float, float] | None:
     raw = (text or "").strip()
     if not raw:
         return None
-    match = _SCUM_XY.search(raw.replace(",", "."))
+    # Normalize NBSP / odd spaces from some paste paths
+    normalized = (
+        raw.replace("\u00a0", " ")
+        .replace("\u202f", " ")
+        .replace(",", ".")
+    )
+    match = _SCUM_XY.search(normalized)
     if not match:
         return None
     try:
@@ -27,3 +33,13 @@ def parse_scum_clipboard(text: str | None) -> tuple[float, float] | None:
     if abs(x) > 2_000_000 or abs(y) > 2_000_000:
         return None
     return x, y
+
+
+def looks_like_client_log(text: str | None) -> bool:
+    """True when clipboard holds ScumMapClient log instead of SCUM coords."""
+    raw = (text or "").strip()
+    if not raw:
+        return False
+    return ("[Клиент]" in raw and "SCUM v" in raw) or (
+        raw.startswith("[") and "Права:" in raw and "F1" in raw
+    )
