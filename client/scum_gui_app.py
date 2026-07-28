@@ -735,7 +735,7 @@ class ScumMapApp(tk.Tk):
                 fg = foreground_title()
             except Exception:
                 fg = "?"
-            self.log_line(f"[{source}] SendInput Ctrl+C отправлен, фокус={fg!r}")
+            self.log_line(f"[{source}] Ctrl+C отправлен, фокус={fg!r}")
         except Exception as exc:
             self.log_line(f"[{source}] Ctrl+C ошибка: {exc}")
             self._copy_busy = False

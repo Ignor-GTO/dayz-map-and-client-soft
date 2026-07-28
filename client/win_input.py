@@ -21,6 +21,17 @@ user32.UnregisterHotKey.argtypes = [wintypes.HWND, ctypes.c_int]
 user32.UnregisterHotKey.restype = wintypes.BOOL
 
 
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = [
+        ("dx", wintypes.LONG),
+        ("dy", wintypes.LONG),
+        ("mouseData", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("time", wintypes.DWORD),
+        ("dwExtraInfo", ULONG_PTR),
+    ]
+
+
 class KEYBDINPUT(ctypes.Structure):
     _fields_ = [
         ("wVk", wintypes.WORD),
@@ -31,12 +42,20 @@ class KEYBDINPUT(ctypes.Structure):
     ]
 
 
-class INPUT(ctypes.Structure):
-    class _INPUT(ctypes.Union):
-        _fields_ = [("ki", KEYBDINPUT)]
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = [
+        ("uMsg", wintypes.DWORD),
+        ("wParamL", wintypes.WORD),
+        ("wParamH", wintypes.WORD),
+    ]
 
-    _anonymous_ = ("_input",)
-    _fields_ = [("type", wintypes.DWORD), ("_input", _INPUT)]
+
+class INPUT_UNION(ctypes.Union):
+    _fields_ = [("mi", MOUSEINPUT), ("ki", KEYBDINPUT), ("hi", HARDWAREINPUT)]
+
+
+class INPUT(ctypes.Structure):
+    _fields_ = [("type", wintypes.DWORD), ("union", INPUT_UNION)]
 
 
 class POINT(ctypes.Structure):
@@ -61,6 +80,10 @@ VK_C = 0x43
 WM_HOTKEY = 0x0312
 WM_QUIT = 0x0012
 HWND_MESSAGE = wintypes.HWND(-3)
+
+# SendInput expects this size; wrong sizeof is a common cause of return 0.
+user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
+user32.SendInput.restype = wintypes.UINT
 
 VK_BY_NAME: dict[str, int] = {
     "f1": 0x70,
@@ -92,10 +115,23 @@ VK_BY_NAME: dict[str, int] = {
 
 
 def _key(vk: int, flags: int = 0) -> INPUT:
-    inp = INPUT()
-    inp.type = INPUT_KEYBOARD
-    inp.ki = KEYBDINPUT(vk, 0, flags, 0, 0)
+    inp = INPUT(type=INPUT_KEYBOARD)
+    inp.union.ki = KEYBDINPUT(wVk=vk, wScan=0, dwFlags=flags, time=0, dwExtraInfo=0)
     return inp
+
+
+def _send_input(seq: ctypes.Array) -> int:
+    n = len(seq)
+    sent = int(user32.SendInput(n, seq, ctypes.sizeof(INPUT)))
+    return sent
+
+
+def _keybd_event_ctrl_c() -> None:
+    """Fallback when SendInput fails (legacy API, still works for many games)."""
+    user32.keybd_event(VK_CONTROL, 0, 0, 0)
+    user32.keybd_event(VK_C, 0, 0, 0)
+    user32.keybd_event(VK_C, 0, KEYEVENTF_KEYUP, 0)
+    user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
 
 
 def send_ctrl_c() -> None:
@@ -105,17 +141,32 @@ def send_ctrl_c() -> None:
         _key(VK_C, KEYEVENTF_KEYUP),
         _key(VK_CONTROL, KEYEVENTF_KEYUP),
     )
-    sent = user32.SendInput(4, ctypes.byref(seq), ctypes.sizeof(INPUT))
-    if sent != 4:
-        raise OSError(f"SendInput returned {sent}, expected 4")
+    sent = _send_input(seq)
+    if sent == 4:
+        return
+    err = int(kernel32.GetLastError())
+    # Fallback
+    try:
+        _keybd_event_ctrl_c()
+    except Exception as exc:
+        raise OSError(f"SendInput={sent} lastError={err}; keybd_event failed: {exc}") from exc
+    # If keybd_event didn't throw, treat as success (it has no return status)
+    if sent == 0:
+        # Still useful to know SendInput failed but fallback ran
+        return
 
 
 def send_key(vk: int) -> None:
     seq = (INPUT * 2)(_key(vk), _key(vk, KEYEVENTF_KEYUP))
-    sent = user32.SendInput(2, ctypes.byref(seq), ctypes.sizeof(INPUT))
-    if sent != 2:
-        raise OSError(f"SendInput key returned {sent}")
-
+    sent = _send_input(seq)
+    if sent == 2:
+        return
+    err = int(kernel32.GetLastError())
+    try:
+        user32.keybd_event(vk, 0, 0, 0)
+        user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
+    except Exception as exc:
+        raise OSError(f"SendInput key={sent} lastError={err}; keybd_event failed: {exc}") from exc
 
 def find_window_hwnd(*title_parts: str) -> int:
     """Find first visible top-level window whose title contains any of title_parts."""
