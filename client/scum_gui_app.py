@@ -18,12 +18,12 @@ from clipboard_util import grab_clipboard_text
 from config import load_config, normalize_hotkey_list, save_config
 from scum_coords import parse_scum_clipboard
 from version import __version__
-from win_input import send_ctrl_c
-
-try:
-    import keyboard
-except Exception:  # pragma: no cover
-    keyboard = None
+from win_input import (
+    is_key_down,
+    is_our_process_foreground,
+    resolve_vk,
+    send_ctrl_c,
+)
 
 GITHUB_RELEASES_LATEST = (
     "https://api.github.com/repos/Ignor-GTO/dayz-map-and-client-soft/releases/latest"
@@ -181,6 +181,81 @@ class ScumMapApp(tk.Tk):
         self._build_settings_page()
         self._build_about_page()
         self._show_page(0)
+        self._bind_clipboard_shortcuts()
+
+    def _bind_clipboard_shortcuts(self) -> None:
+        """Tk on Windows often needs explicit paste; also keep Ctrl+C for the log."""
+        self.bind_all("<Control-v>", self._on_paste_shortcut, add="+")
+        self.bind_all("<Control-V>", self._on_paste_shortcut, add="+")
+        self.bind_all("<<Paste>>", self._on_paste_shortcut, add="+")
+        self.bind_all("<Shift-Insert>", self._on_paste_shortcut, add="+")
+        self.bind_all("<Control-c>", self._on_copy_shortcut, add="+")
+        self.bind_all("<Control-C>", self._on_copy_shortcut, add="+")
+
+    def _clipboard_get_text(self) -> str:
+        text = grab_clipboard_text()
+        if text:
+            return text
+        try:
+            return self.clipboard_get()
+        except Exception:
+            return ""
+
+    def _on_paste_shortcut(self, event=None):
+        widget = self.focus_get()
+        if widget is None:
+            return None
+        # Only for entry-like widgets
+        cls = widget.winfo_class()
+        if cls not in {"Entry", "TEntry", "Text"}:
+            return None
+        text = self._clipboard_get_text()
+        if not text:
+            return "break"
+        try:
+            if cls == "Text":
+                try:
+                    widget.delete("sel.first", "sel.last")
+                except Exception:
+                    pass
+                widget.insert("insert", text)
+            else:
+                try:
+                    if widget.selection_present():
+                        widget.delete("sel.first", "sel.last")
+                except Exception:
+                    pass
+                widget.insert("insert", text)
+        except Exception:
+            return None
+        return "break"
+
+    def _on_copy_shortcut(self, event=None):
+        widget = self.focus_get()
+        if widget is None:
+            return None
+        try:
+            if widget.winfo_class() == "Text":
+                try:
+                    data = widget.get("sel.first", "sel.last")
+                except Exception:
+                    return None
+                if data:
+                    self.clipboard_clear()
+                    self.clipboard_append(data)
+                    return "break"
+            if widget.winfo_class() in {"Entry", "TEntry"}:
+                try:
+                    if widget.selection_present():
+                        data = widget.selection_get()
+                        self.clipboard_clear()
+                        self.clipboard_append(data)
+                        return "break"
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        return None
 
     def _build_main_page(self) -> None:
         card = ttk.LabelFrame(self.main_page, text="Статус", padding=12)
@@ -190,8 +265,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "F1 (или клавиша из настроек) → клиент сам жмёт Ctrl+C и шлёт координаты на карту.\n"
-                "В SCUM Ctrl+C копирует позицию (удобнее с открытой картой M)."
+                "После «Запустить»: F1 в игре → Ctrl+C → координаты на карту.\n"
+                "Если F1 молчит — кнопка «Ctrl+C + отправить» (фокус должен быть на игре)."
             ),
             style="CardMuted.TLabel",
             wraplength=580,
@@ -201,7 +276,9 @@ class ScumMapApp(tk.Tk):
         btns.pack(fill="x", pady=6)
         self.toggle_btn = ttk.Button(btns, text="Запустить", command=self._toggle_hotkeys)
         self.toggle_btn.pack(side="left")
-        ttk.Button(btns, text="Отправить из буфера", command=self._send_clipboard_now).pack(side="left", padx=8)
+        ttk.Button(btns, text="Ctrl+C + отправить", command=self._manual_copy_send).pack(side="left", padx=6)
+        ttk.Button(btns, text="Из буфера", command=self._send_clipboard_now).pack(side="left", padx=6)
+        ttk.Button(btns, text="Копировать лог", command=self._copy_log).pack(side="left", padx=6)
 
         ttk.Label(self.main_page, text="Лог", style="Muted.TLabel").pack(anchor="w", pady=(8, 2))
         self.log = tk.Text(
@@ -213,6 +290,7 @@ class ScumMapApp(tk.Tk):
             insertbackground=self.fg_color,
             relief="flat",
             font=("Consolas", 9),
+            exportselection=True,
         )
         self.log.pack(fill="both", expand=True)
 
@@ -236,8 +314,14 @@ class ScumMapApp(tk.Tk):
         self.server_var = tk.StringVar()
         ttk.Entry(conn, textvariable=self.server_var, width=64).pack(fill="x", pady=(0, 6))
         ttk.Label(conn, text="Client key", style="Card.TLabel").pack(anchor="w")
+        key_row = ttk.Frame(conn, style="Card.TFrame")
+        key_row.pack(fill="x")
         self.key_var = tk.StringVar()
-        ttk.Entry(conn, textvariable=self.key_var, show="•", width=64).pack(fill="x")
+        self.key_entry = ttk.Entry(key_row, textvariable=self.key_var, show="•", width=48)
+        self.key_entry.pack(side="left", fill="x", expand=True)
+        ttk.Button(key_row, text="Вставить", command=self._paste_client_key).pack(side="left", padx=(8, 0))
+        ttk.Button(key_row, text="Показать", command=self._toggle_key_visibility).pack(side="left", padx=(6, 0))
+        self._key_entry_shown = False
 
         auto = ttk.LabelFrame(body, text="Автоотправка позиции", padding=10)
         auto.pack(fill="x", pady=6)
@@ -386,9 +470,6 @@ class ScumMapApp(tk.Tk):
             self._start_hotkeys()
 
     def _start_hotkeys(self) -> None:
-        if keyboard is None:
-            messagebox.showerror("Ошибка", "Модуль keyboard недоступен")
-            return
         if not self.map_client:
             self._save()
             if not self.map_client:
@@ -413,81 +494,78 @@ class ScumMapApp(tk.Tk):
             + " / PageUp·PageDown·End"
         )
 
-        try:
-            keyboard.unhook_all_hotkeys()
-        except Exception:
-            pass
-
-        registered = []
+        # Build VK poll table (no keyboard hooks — they break Ctrl+V/C in the UI)
+        self._poll_bindings = []
         for hk in self.settings.get("scum_hotkey_send_pos", ["f1"]):
-            try:
-                keyboard.add_hotkey(
-                    hk.strip().lower(),
-                    lambda: self.after(0, self._handle_copy_hotkey),
-                    suppress=False,
-                    trigger_on_release=True,
-                )
-                registered.append(hk)
-            except Exception as e:
-                self.log_line(f"Hotkey «{hk}» warn: {e}")
-
+            vk = resolve_vk(hk)
+            if vk is None:
+                self.log_line(f"Неизвестная клавиша позиции: {hk}")
+                continue
+            self._poll_bindings.append(("copy", vk, hk))
         for hk in self.settings.get("hotkey_zoom_in", ["page up"]):
-            try:
-                keyboard.add_hotkey(
-                    hk.strip().lower(),
-                    lambda: self.after(0, self._handle_zoom_in),
-                    suppress=False,
-                )
-                registered.append(hk)
-            except Exception as e:
-                self.log_line(f"Hotkey zoom_in «{hk}»: {e}")
-
+            vk = resolve_vk(hk)
+            if vk is not None:
+                self._poll_bindings.append(("zoom_in", vk, hk))
         for hk in self.settings.get("hotkey_zoom_out", ["page down"]):
-            try:
-                keyboard.add_hotkey(
-                    hk.strip().lower(),
-                    lambda: self.after(0, self._handle_zoom_out),
-                    suppress=False,
-                )
-                registered.append(hk)
-            except Exception as e:
-                self.log_line(f"Hotkey zoom_out «{hk}»: {e}")
-
+            vk = resolve_vk(hk)
+            if vk is not None:
+                self._poll_bindings.append(("zoom_out", vk, hk))
         for hk in self.settings.get("hotkey_focus_me", ["end"]):
-            try:
-                keyboard.add_hotkey(
-                    hk.strip().lower(),
-                    lambda: self.after(0, self._handle_focus_me),
-                    suppress=False,
-                )
-                registered.append(hk)
-            except Exception as e:
-                self.log_line(f"Hotkey focus_me «{hk}»: {e}")
+            vk = resolve_vk(hk)
+            if vk is not None:
+                self._poll_bindings.append(("focus_me", vk, hk))
 
         self._clipboard_digest = (grab_clipboard_text() or "").strip() or None
         self._fresh_clipboard_coords = None
+        threading.Thread(target=self._key_poll_loop, daemon=True).start()
         threading.Thread(target=self._clipboard_loop, daemon=True).start()
         if interval > 0:
             threading.Thread(target=self._auto_loop, args=(interval,), daemon=True).start()
 
-        self.log_line(f"Запущено. Клавиши: {', '.join(registered) or '—'}")
-        self.log_line("F1 → пауза → Ctrl+C → отправка на карту. Нужен фокус на игре.")
-        self.log_line("Если не срабатывает — запустите клиент от имени администратора.")
+        names = [f"{action}:{name}" for action, _, name in self._poll_bindings]
+        self.log_line(f"Запущено (опрос клавиш Win32): {', '.join(names) or '—'}")
+        self.log_line("F1 срабатывает, когда фокус в игре (не в этом окне).")
+        self.log_line("Проверка: кликните в игру → F1, или нажмите «Ctrl+C + отправить».")
 
     def _stop_hotkeys(self) -> None:
         self._hotkeys_on = False
         self._stop_workers.set()
         self.toggle_btn.configure(text="Запустить")
         self.status_var.set("Остановлено — нажмите «Запустить»")
-        try:
-            if keyboard:
-                keyboard.unhook_all_hotkeys()
-        except Exception:
-            pass
         self.log_line("Остановлено")
+
+    def _key_poll_loop(self) -> None:
+        """Edge-detect hotkeys via GetAsyncKeyState — works without keyboard hooks."""
+        prev: dict[int, bool] = {}
+        while not self._stop_workers.is_set():
+            try:
+                our_ui = is_our_process_foreground()
+                for action, vk, name in list(getattr(self, "_poll_bindings", [])):
+                    down = is_key_down(vk)
+                    was = prev.get(vk, False)
+                    prev[vk] = down
+                    if not down or was:
+                        continue
+                    # Rising edge
+                    if our_ui:
+                        # Don't steal F1/Ctrl while user types in the client UI
+                        continue
+                    if action == "copy":
+                        self.after(0, self._handle_copy_hotkey)
+                    elif action == "zoom_in":
+                        self.after(0, self._handle_zoom_in)
+                    elif action == "zoom_out":
+                        self.after(0, self._handle_zoom_out)
+                    elif action == "focus_me":
+                        self.after(0, self._handle_focus_me)
+            except Exception:
+                pass
+            time.sleep(0.03)
 
     def _auto_loop(self, interval: int) -> None:
         while not self._stop_workers.wait(interval):
+            if is_our_process_foreground():
+                continue
             self.after(0, lambda: self._trigger_copy_and_send("auto", delay_ms=50))
 
     def _clipboard_loop(self) -> None:
@@ -507,15 +585,59 @@ class ScumMapApp(tk.Tk):
                         self.after(0, lambda p=preview: self.log_line(f"[буфер] не распознано: {p!r}"))
             time.sleep(0.35)
 
+    def _manual_copy_send(self) -> None:
+        """Always-available test: inject Ctrl+C and send (game should be focused)."""
+        if not self.map_client:
+            self._save()
+            if not self.map_client:
+                return
+        if is_our_process_foreground():
+            self.log_line("[ручной] Сначала кликните в окно SCUM, затем снова нажмите кнопку (через 1 с).")
+            self.after(1000, lambda: self._trigger_copy_and_send("ручной", delay_ms=50))
+            return
+        self._trigger_copy_and_send("ручной", delay_ms=50)
+
+    def _paste_client_key(self) -> None:
+        text = (self._clipboard_get_text() or "").strip()
+        if not text:
+            messagebox.showinfo("Буфер", "Буфер пуст — скопируйте ключ на сайте.")
+            return
+        # If user copied a long URL by mistake, keep last token-looking chunk
+        if "\n" in text:
+            text = text.splitlines()[0].strip()
+        self.key_var.set(text)
+        self.log_line(f"Ключ вставлен из буфера ({len(text)} символов)")
+
+    def _toggle_key_visibility(self) -> None:
+        self._key_entry_shown = not getattr(self, "_key_entry_shown", False)
+        show = "" if self._key_entry_shown else "•"
+        try:
+            self.key_entry.configure(show=show)
+        except Exception:
+            pass
+
+    def _copy_log(self) -> None:
+        data = self.log.get("1.0", "end-1c")
+        if not data.strip():
+            messagebox.showinfo("Лог", "Лог пуст")
+            return
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(data)
+            self.update_idletasks()
+            self.log_line("Лог скопирован в буфер")
+        except Exception as exc:
+            messagebox.showerror("Лог", f"Не удалось скопировать: {exc}")
+
     def _handle_copy_hotkey(self) -> None:
         if not self._hotkeys_on:
             return
         now = time.time()
-        # F1 key-repeat / double fire — ignore quietly
         if now - self._last_copy_trigger_at < 1.2:
             return
         self._last_copy_trigger_at = now
         delay = int(self.settings.get("scum_copy_delay_ms", 200) or 200)
+        self.log_line("[F1] нажатие поймано")
         self._trigger_copy_and_send("F1", delay_ms=delay)
 
     def _trigger_copy_and_send(self, source: str, delay_ms: int = 200) -> None:

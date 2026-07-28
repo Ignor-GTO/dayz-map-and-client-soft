@@ -1822,7 +1822,7 @@ function closeAppModal() {
 const DAYZ_APP_INTRO =
   "Windows-клиент отправляет вашу позицию в игре и метки с экрана на эту карту в реальном времени.";
 const SCUM_APP_INTRO =
-  "ScumMapClient читает координаты SCUM (F1 → show position) и отправляет live-позицию на эту карту.";
+  "ScumMapClient: F1 или кнопка «Ctrl+C + отправить» → координаты на эту карту.";
 
 const DAYZ_APP_STEPS_HTML = `
   <li>Скачайте и запустите клиент на игровом ПК.</li>
@@ -1840,18 +1840,10 @@ const DAYZ_APP_STEPS_HTML = `
 `;
 
 const SCUM_APP_STEPS_HTML = `
-  <li>Скачайте и запустите <strong>ScumMapClient.exe</strong> на игровом ПК.</li>
-  <li>Вкладка <strong>Настройки</strong> → server URL + ключ → «Сохранить». На <strong>Главной</strong> нажмите <strong>«Запустить»</strong>.</li>
-  <li>
-    В игре нажмите <strong>F1</strong> — клиент сам симулирует <strong>Ctrl+C</strong>
-    (SCUM копирует <code>{X=… Y=…}</code>) и отправляет позицию на карту.
-    Удобнее с открытой игровой картой (<strong>M</strong>).
-  </li>
-  <li>Каждые <strong>30 с</strong> клиент сам жмёт Ctrl+C и обновляет live-позицию.</li>
-  <li>
-    <strong>Page Up / Page Down / End</strong> — приблизить / отдалить / найти себя на веб-карте.
-    Если F1 не срабатывает — запустите клиент <strong>от администратора</strong>.
-  </li>
+  <li>Скачайте <strong>ScumMapClient.exe</strong>. Ключ: кнопка «Вставить» в настройках клиента.</li>
+  <li>«Сохранить» → на Главной «Запустить».</li>
+  <li>Клик в игру (карта M) → <strong>F1</strong>, либо кнопка «Ctrl+C + отправить».</li>
+  <li>Лог: кнопка «Копировать лог». Автораз в 30 с сам жмёт Ctrl+C.</li>
 `;
 
 function syncAppModalForMap() {
