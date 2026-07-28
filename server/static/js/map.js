@@ -1843,13 +1843,14 @@ const SCUM_APP_STEPS_HTML = `
   <li>Скачайте и запустите <strong>ScumMapClient.exe</strong> на игровом ПК.</li>
   <li>Вкладка <strong>Настройки</strong> → server URL + ключ → «Сохранить». На <strong>Главной</strong> нажмите <strong>«Запустить»</strong>.</li>
   <li>
-    В игре: <strong>F1 → show position</strong> → выделите строку
-    <code>{X=… Y=…}</code> → <strong>Ctrl+C</strong>. Клиент читает только буфер (без OCR).
+    В игре нажмите <strong>F1</strong> — клиент сам симулирует <strong>Ctrl+C</strong>
+    (SCUM копирует <code>{X=… Y=…}</code>) и отправляет позицию на карту.
+    Удобнее с открытой игровой картой (<strong>M</strong>).
   </li>
-  <li><strong>M</strong> / авто раз в 30 с — повторно шлёт последнюю скопированную позицию.</li>
+  <li>Каждые <strong>30 с</strong> клиент сам жмёт Ctrl+C и обновляет live-позицию.</li>
   <li>
     <strong>Page Up / Page Down / End</strong> — приблизить / отдалить / найти себя на веб-карте.
-    Если клавиши молчат — запустите клиент от администратора.
+    Если F1 не срабатывает — запустите клиент <strong>от администратора</strong>.
   </li>
 `;
 
