@@ -40,6 +40,79 @@ async def migrate_schema(conn) -> None:
     await conn.run_sync(_migrate_sqlite)
 
 
+def _migrate_rooms_pin_unique(conn) -> None:
+    """Allow the same PIN on different maps (drop legacy UNIQUE(pin))."""
+    tables = {
+        row[0]
+        for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
+    }
+    if "rooms" not in tables:
+        return
+
+    indexes = conn.execute(text("PRAGMA index_list(rooms)")).fetchall()
+    pin_only_unique = []
+    for idx in indexes:
+        # PRAGMA index_list: (seq, name, unique, origin, partial)
+        name = idx[1]
+        is_unique = bool(idx[2])
+        origin = idx[3] if len(idx) > 3 else "c"
+        if not is_unique or not name:
+            continue
+        cols = [
+            row[2]
+            for row in conn.execute(text(f'PRAGMA index_info("{name}")')).fetchall()
+        ]
+        if cols == ["pin"]:
+            pin_only_unique.append((name, origin))
+
+    if not pin_only_unique:
+        conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_map_pin ON rooms (map_id, pin)"))
+        return
+
+    # UNIQUE column constraints create sqlite_autoindex_* that cannot be DROP INDEX'd —
+    # rebuild the table with composite uniqueness instead.
+    logger.warning(
+        "Rebuilding rooms table to replace legacy UNIQUE(pin) with UNIQUE(map_id, pin); indexes=%s",
+        [n for n, _ in pin_only_unique],
+    )
+    cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
+    has_entry_pw = "entry_password_hash" in cols
+    has_creator = "created_by_user_id" in cols
+    has_users = "users" in tables
+    creator_col = (
+        "created_by_user_id INTEGER REFERENCES users(id)"
+        if has_users
+        else "created_by_user_id INTEGER"
+    )
+
+    conn.execute(text("PRAGMA foreign_keys=OFF"))
+    conn.execute(text(
+        "CREATE TABLE rooms_new ("
+        "  id INTEGER PRIMARY KEY,"
+        "  map_id INTEGER NOT NULL,"
+        "  pin VARCHAR(16) NOT NULL,"
+        "  entry_password_hash VARCHAR(128),"
+        f"  {creator_col},"
+        "  created_at DATETIME,"
+        "  CONSTRAINT uq_map_pin UNIQUE (map_id, pin)"
+        ")"
+    ))
+
+    select_entry = "entry_password_hash" if has_entry_pw else "NULL"
+    select_creator = "created_by_user_id" if has_creator else "NULL"
+    conn.execute(text(
+        "INSERT INTO rooms_new (id, map_id, pin, entry_password_hash, created_by_user_id, created_at) "
+        f"SELECT id, map_id, pin, {select_entry}, {select_creator}, created_at FROM rooms "
+        "WHERE map_id IS NOT NULL"
+    ))
+    conn.execute(text("DROP TABLE rooms"))
+    conn.execute(text("ALTER TABLE rooms_new RENAME TO rooms"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_rooms_map_id ON rooms (map_id)"))
+    conn.execute(text("CREATE INDEX IF NOT EXISTS ix_rooms_pin ON rooms (pin)"))
+    conn.execute(text("PRAGMA foreign_keys=ON"))
+    logger.info("rooms table rebuilt with UNIQUE(map_id, pin)")
+
+
 def _migrate_sqlite(conn) -> None:
     cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
     if cols and "map_id" not in cols:
@@ -226,6 +299,10 @@ def _migrate_sqlite(conn) -> None:
             "  SELECT 1 FROM users u2 WHERE u2.room_id = rooms.id"
             ")"
         ))
+
+    # Legacy DBs may still enforce UNIQUE(pin) globally. Same PIN must be allowed
+    # on different maps (UniqueConstraint map_id+pin). Drop pin-only unique indexes.
+    _migrate_rooms_pin_unique(conn)
 
     if "admin_accounts" not in road_tables:
         conn.execute(text(

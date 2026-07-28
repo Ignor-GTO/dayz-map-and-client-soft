@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -456,7 +457,14 @@ async def login(
         if profile_hash:
             message += " Пароль профиля установлен."
 
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=409,
+            detail="Не удалось создать группу с этим PIN на выбранной карте. Попробуйте другой PIN или обновите сервер.",
+        ) from None
     await db.refresh(user)
     set_session(response, user.id, client_key if client_key else None)
 
