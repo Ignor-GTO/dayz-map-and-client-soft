@@ -166,17 +166,35 @@ class MapLocationItem(BaseModel):
     x: float
     y: float
     min_zoom: int = 4
+    section_id: str | None = None
+    icon: str | None = None
+    color: str | None = None
 
 
 class LocationCategory(BaseModel):
     id: str
     label: str
     count: int
+    icon: str | None = None
+    color: str | None = None
+    default_enabled: bool | None = None
+
+
+class LocationSection(BaseModel):
+    id: str
+    label: str
+    count: int = 0
+    default_enabled: bool = True
+    categories: list[LocationCategory] = []
 
 
 class MapLocationsResponse(BaseModel):
     categories: list[LocationCategory]
     locations: list[MapLocationItem]
+    format: str | None = None
+    sections: list[LocationSection] | None = None
+    attribution: str | None = None
+    source: str | None = None
 
 
 class RadiationBounds(BaseModel):

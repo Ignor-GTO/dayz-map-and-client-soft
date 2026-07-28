@@ -589,6 +589,162 @@ button.secondary:hover { background: #3a4858; }
   margin: 0;
 }
 
+.scum-filter-search {
+  width: 100%;
+  margin: 0.4rem 0 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid #2a3848;
+  background: #121820;
+  color: #e8eef6;
+  font-size: 0.82rem;
+}
+
+.scum-filter-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 52vh;
+  overflow: auto;
+  padding-right: 0.15rem;
+}
+
+.scum-filter-section {
+  border: 1px solid #2a3848;
+  border-radius: 8px;
+  background: #151c24;
+}
+
+.scum-filter-section.hidden,
+.scum-filter-item.hidden {
+  display: none !important;
+}
+
+.scum-filter-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.scum-filter-section-check {
+  display: flex;
+  align-items: center;
+  margin: 0;
+}
+
+.scum-filter-section-check input {
+  width: auto;
+  margin: 0;
+}
+
+.scum-filter-section-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  background: transparent;
+  border: 0;
+  color: #e8eef6;
+  font-size: 0.84rem;
+  padding: 0.2rem 0.15rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.scum-filter-chevron {
+  color: #8b9bb0;
+  transition: transform 0.15s ease;
+}
+
+.scum-filter-section.open .scum-filter-chevron {
+  transform: rotate(180deg);
+}
+
+.scum-filter-section-body {
+  display: none;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0 0.45rem 0.45rem 1.55rem;
+}
+
+.scum-filter-section.open .scum-filter-section-body {
+  display: flex;
+}
+
+.scum-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.scum-filter-item input {
+  width: auto;
+  margin: 0;
+}
+
+.scum-filter-pin {
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin, #888);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  font-size: 10px;
+  line-height: 1;
+}
+
+.scum-filter-pin em {
+  font-style: normal;
+  transform: rotate(45deg);
+  display: inline-block;
+}
+
+.scum-filter-item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scum-filter-count {
+  color: #6f8096;
+  font-size: 0.72rem;
+}
+
+.scum-map-pin-wrap {
+  background: transparent !important;
+  border: none !important;
+}
+
+.scum-map-pin {
+  width: 26px;
+  height: 26px;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+  background: var(--pin, #c44);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 0 0 1.5px rgba(255, 255, 255, 0.35);
+}
+
+.scum-map-pin span {
+  transform: rotate(45deg);
+  font-size: 12px;
+  line-height: 1;
+  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.5));
+}
+
 .map-label {
   background: transparent !important;
   border: none !important;

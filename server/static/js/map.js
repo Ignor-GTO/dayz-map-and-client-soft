@@ -2269,10 +2269,119 @@ async function loadRoomState() {
 }
 
 function locationMinMapZoom(minZoom) {
+  if (isScumConfig()) {
+    const z = Number(minZoom) || 2;
+    if (z <= 1) return 0;
+    if (z === 2) return 1;
+    if (z === 3) return 2;
+    return 3;
+  }
   if (minZoom <= 1) return 0;
   if (minZoom === 2) return 2;
   if (minZoom === 3) return 3;
   return 4;
+}
+
+const SCUM_FA_EMOJI = {
+  faSkull: "💀",
+  faBomb: "💣",
+  faDoorClosed: "🚪",
+  faCube: "📦",
+  faHammer: "🔨",
+  faAppleAlt: "🍎",
+  faLeaf: "🌿",
+  faCarrot: "🥕",
+  faSeedling: "🌱",
+  faLemon: "🍋",
+  faPepperHot: "🥒",
+  faSun: "🌻",
+  faPalette: "🍉",
+  faSpa: "🌹",
+  faTree: "🌳",
+  faBuilding: "🏢",
+  faGasPump: "⛽",
+  faCar: "🚗",
+  faCarCrash: "🔧",
+  faCarSide: "🚙",
+  faMotorcycle: "🏍️",
+  faPlane: "✈️",
+  faAnchor: "⚓",
+  faShip: "🚢",
+  faWarehouse: "🏭",
+  faToolbox: "🧰",
+  faTools: "🛠️",
+  faHome: "🏠",
+  faLightbulb: "💡",
+  faCross: "✝️",
+  faCrosshairs: "🎯",
+  faShoppingBasket: "🛒",
+  faPlus: "➕",
+  faUtensils: "🍽️",
+  faMusic: "🎵",
+  faBeer: "🍺",
+  faGraduationCap: "🎓",
+  faBowlFood: "🍜",
+  faLock: "🔒",
+  faFirstAid: "🩹",
+  faUserShield: "🛡️",
+  faFish: "🐟",
+  faBox: "📦",
+  faCrow: "🦅",
+  faCocktail: "🍸",
+  faNotesMedical: "🏥",
+  faRadiation: "☢️",
+  faBook: "📖",
+  faPhone: "📞",
+  faMailBulk: "📬",
+  faRectangleList: "📋",
+  faMountain: "⛰️",
+  faWater: "🌊",
+  faCompass: "🧭",
+  faFeather: "🪶",
+  faFireFlameSimple: "🔥",
+  faMoneyBillWave: "💵",
+  faIndustry: "🏗️",
+  faHelmetSafety: "⛑️",
+  faScissors: "✂️",
+  faWheatAwn: "🌾",
+  faMonument: "⛲",
+  faDroplet: "💧",
+  faBottleWater: "🧴",
+  faFaucet: "🚰",
+  faHandHoldingDroplet: "💦",
+  faMapMarker: "📍",
+  faChurch: "⛪",
+  faCircle: "⚪",
+};
+
+function scumIconEmoji(icon) {
+  return SCUM_FA_EMOJI[icon] || "📍";
+}
+
+function escapeFilterHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function ensureScumFilterDefaults(sections) {
+  (sections || []).forEach((section) => {
+    const sectionKey = `scum_sec_${section.id}`;
+    if (typeof state.filters[sectionKey] !== "boolean") {
+      state.filters[sectionKey] = section.default_enabled !== false;
+    }
+    (section.categories || []).forEach((cat) => {
+      if (typeof state.filters[cat.id] !== "boolean") {
+        const enabled =
+          typeof cat.default_enabled === "boolean"
+            ? cat.default_enabled
+            : section.default_enabled !== false;
+        state.filters[cat.id] = enabled;
+      }
+    });
+  });
 }
 
 function renderLocationLabels(locations) {
@@ -2280,15 +2389,35 @@ function renderLocationLabels(locations) {
   state.locationLayer.clearLayers();
   state.locationEntries = [];
 
+  const scumPins = isScumConfig();
   locations.forEach((loc, idx) => {
     const latlng = gameToLatLng(loc.x, loc.y);
-    const icon = L.divIcon({
-      className: `map-label type-${loc.label_class || "local"}`,
-      html: `<span>${loc.title}</span>`,
-      iconSize: [200, 30],
-      iconAnchor: [100, 15],
+    let icon;
+    if (scumPins || loc.label_class === "scum-pin") {
+      const color = loc.color || "#888";
+      const emoji = scumIconEmoji(loc.icon);
+      icon = L.divIcon({
+        className: "scum-map-pin-wrap",
+        html: `<div class="scum-map-pin" style="--pin:${escapeFilterHtml(color)}" title="${escapeFilterHtml(loc.title)}"><span>${emoji}</span></div>`,
+        iconSize: [28, 36],
+        iconAnchor: [14, 34],
+      });
+    } else {
+      icon = L.divIcon({
+        className: `map-label type-${loc.label_class || "local"}`,
+        html: `<span>${escapeFilterHtml(loc.title)}</span>`,
+        iconSize: [200, 30],
+        iconAnchor: [100, 15],
+      });
+    }
+    const marker = L.marker(latlng, {
+      icon,
+      interactive: scumPins,
+      pane: "labelsPane",
     });
-    const marker = L.marker(latlng, { icon, interactive: false, pane: "labelsPane" });
+    if (scumPins) {
+      marker.bindTooltip(escapeFilterHtml(loc.title), { direction: "top", offset: [0, -28] });
+    }
     marker._locMeta = loc;
     marker._locId = idx;
     state.locationEntries.push(marker);
@@ -2304,10 +2433,203 @@ function applyLocationFilters() {
   const zoom = state.map.getZoom();
   state.locationEntries.forEach((marker) => {
     const loc = marker._locMeta;
-    if (!state.filters[loc.category]) return;
+    const catId = loc.category;
+    // DayZ legacy categories OR SCUM typed ids (scum_123)
+    if (state.filters[catId] === false) return;
     if (zoom < locationMinMapZoom(loc.min_zoom || 4)) return;
     state.locationLayer.addLayer(marker);
   });
+}
+
+function renderScumFilterPanel(sections) {
+  const el = document.getElementById("filter-list");
+  if (!el) return;
+  ensureScumFilterDefaults(sections);
+
+  const staticFilters = [
+    { id: "labels", label: "Маркеры карты" },
+    { id: "players", label: "Игроки (live)" },
+    { id: "markers", label: "Метки группы" },
+    { id: "stashes", label: "Скрыть тайники" },
+    { id: "mutants", label: "Мутанты" },
+    { id: "hunting", label: "Охота" },
+    { id: "poi", label: "Метки сервера" },
+  ];
+
+  const staticHtml = staticFilters
+    .map(
+      (f) => `
+    <label class="filter-row">
+      <input type="checkbox" data-filter="${f.id}" ${state.filters[f.id] !== false ? "checked" : ""}>
+      ${f.label}
+    </label>`,
+    )
+    .join("");
+
+  const searchHtml = `
+    <input type="search" id="scum-filter-search" class="scum-filter-search" placeholder="Введите название фильтра.">
+  `;
+
+  const sectionsHtml = (sections || [])
+    .map((section) => {
+      const sectionKey = `scum_sec_${section.id}`;
+      const open = false;
+      const cats = (section.categories || [])
+        .map((cat) => {
+          const checked = state.filters[cat.id] !== false;
+          const emoji = scumIconEmoji(cat.icon);
+          const color = escapeFilterHtml(cat.color || "#888");
+          return `
+          <label class="scum-filter-item" data-filter-label="${escapeFilterHtml(cat.label).toLowerCase()}">
+            <input type="checkbox" data-filter="${escapeFilterHtml(cat.id)}" data-section="${escapeFilterHtml(section.id)}" ${checked ? "checked" : ""}>
+            <span class="scum-filter-pin" style="--pin:${color}"><em>${emoji}</em></span>
+            <span class="scum-filter-item-label">${escapeFilterHtml(cat.label)}</span>
+            <span class="scum-filter-count">${cat.count || 0}</span>
+          </label>`;
+        })
+        .join("");
+      return `
+      <div class="scum-filter-section ${open ? "open" : ""}" data-section-id="${escapeFilterHtml(section.id)}" data-section-label="${escapeFilterHtml(section.label).toLowerCase()}">
+        <div class="scum-filter-section-head">
+          <label class="scum-filter-section-check">
+            <input type="checkbox" data-section-toggle="${escapeFilterHtml(section.id)}" ${state.filters[sectionKey] !== false ? "checked" : ""}>
+          </label>
+          <button type="button" class="scum-filter-section-btn" data-section-expand="${escapeFilterHtml(section.id)}">
+            <span>${escapeFilterHtml(section.label)}</span>
+            <span class="scum-filter-chevron">▾</span>
+          </button>
+        </div>
+        <div class="scum-filter-section-body">${cats}</div>
+      </div>`;
+    })
+    .join("");
+
+  el.innerHTML = `${staticHtml}${searchHtml}<div class="scum-filter-accordion">${sectionsHtml}</div>`;
+  bindFilterPanelEvents(el);
+  bindScumFilterExtras(el);
+}
+
+function bindFilterPanelEvents(el) {
+  el.querySelectorAll("input[data-filter]").forEach((input) => {
+    input.addEventListener("change", () => {
+      state.filters[input.dataset.filter] = input.checked;
+      const sectionId = input.dataset.section;
+      if (sectionId) {
+        syncSectionCheckbox(sectionId);
+      }
+      saveFilterPrefs();
+      if (input.dataset.filter === "stashes") {
+        syncStashVisibilityControls();
+      }
+      applyLocationFilters();
+      refreshDynamicLayers();
+      updateMarkersList();
+      if ((input.dataset.filter === "radiation" || input.dataset.filter === "psi") && state.radiationData) {
+        renderRadiationLayer(state.radiationData);
+      } else {
+        applyRadiationVisibility();
+      }
+    });
+  });
+}
+
+function syncSectionCheckbox(sectionId) {
+  const root = document.getElementById("filter-list");
+  if (!root) return;
+  const items = [...root.querySelectorAll(`input[data-section="${sectionId}"]`)];
+  const toggle = root.querySelector(`input[data-section-toggle="${sectionId}"]`);
+  if (!toggle || !items.length) return;
+  const allOn = items.every((i) => i.checked);
+  const allOff = items.every((i) => !i.checked);
+  toggle.checked = allOn;
+  toggle.indeterminate = !allOn && !allOff;
+  state.filters[`scum_sec_${sectionId}`] = !allOff;
+}
+
+function bindScumFilterExtras(el) {
+  el.querySelectorAll("[data-section-expand]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const section = btn.closest(".scum-filter-section");
+      section?.classList.toggle("open");
+    });
+  });
+
+  el.querySelectorAll("input[data-section-toggle]").forEach((toggle) => {
+    toggle.addEventListener("change", () => {
+      const sectionId = toggle.dataset.sectionToggle;
+      const on = toggle.checked;
+      state.filters[`scum_sec_${sectionId}`] = on;
+      el.querySelectorAll(`input[data-section="${sectionId}"]`).forEach((input) => {
+        input.checked = on;
+        state.filters[input.dataset.filter] = on;
+      });
+      saveFilterPrefs();
+      applyLocationFilters();
+    });
+  });
+
+  const search = el.querySelector("#scum-filter-search");
+  if (search) {
+    search.addEventListener("input", () => {
+      const q = search.value.trim().toLowerCase();
+      el.querySelectorAll(".scum-filter-section").forEach((section) => {
+        const sectionLabel = section.dataset.sectionLabel || "";
+        let any = !q || sectionLabel.includes(q);
+        section.querySelectorAll(".scum-filter-item").forEach((item) => {
+          const label = item.dataset.filterLabel || "";
+          const match = !q || label.includes(q) || sectionLabel.includes(q);
+          item.classList.toggle("hidden", !match);
+          if (match && q) any = true;
+        });
+        section.classList.toggle("hidden", q && !any);
+        if (q && any) section.classList.add("open");
+      });
+    });
+  }
+
+  (el.querySelectorAll(".scum-filter-section") || []).forEach((section) => {
+    syncSectionCheckbox(section.dataset.sectionId);
+  });
+}
+
+function renderFilterPanel(categories, sections = null) {
+  const el = document.getElementById("filter-list");
+  if (!el) return;
+
+  if (isScumConfig() && sections?.length) {
+    renderScumFilterPanel(sections);
+    return;
+  }
+
+  const staticFilters = [
+    { id: "labels", label: "Названия мест" },
+    { id: "players", label: "Игроки (live)" },
+    { id: "markers", label: "Метки группы" },
+    { id: "stashes", label: "Скрыть тайники" },
+    { id: "mutants", label: "Мутанты" },
+    { id: "hunting", label: "Охота" },
+    { id: "poi", label: "Метки сервера" },
+    { id: "radiation", label: "Радиационные зоны" },
+    { id: "psi", label: "Пси-зоны" },
+  ];
+
+  const dynamic = (categories || []).map((c) => ({
+    id: c.id,
+    label: `${c.label} (${c.count})`,
+  }));
+  const all = [...staticFilters, ...dynamic];
+
+  el.innerHTML = all
+    .map(
+      (f) => `
+    <label class="filter-row">
+      <input type="checkbox" data-filter="${f.id}" ${state.filters[f.id] !== false ? "checked" : ""}>
+      ${f.label}
+    </label>`,
+    )
+    .join("");
+
+  bindFilterPanelEvents(el);
 }
 
 function updateLocationVisibility() {
@@ -2434,57 +2756,6 @@ function renderRadiationLegend(legend) {
       .join("")}</ul>`;
 }
 
-function renderFilterPanel(categories) {
-  const el = document.getElementById("filter-list");
-  if (!el) return;
-
-  const staticFilters = [
-    { id: "labels", label: "Названия мест" },
-    { id: "players", label: "Игроки (live)" },
-    { id: "markers", label: "Метки группы" },
-    { id: "stashes", label: "Скрыть тайники" },
-    { id: "mutants", label: "Мутанты" },
-    { id: "hunting", label: "Охота" },
-    { id: "poi", label: "Метки сервера" },
-    { id: "radiation", label: "Радиационные зоны" },
-    { id: "psi", label: "Пси-зоны" },
-  ];
-
-  const dynamic = (categories || []).map((c) => ({
-    id: c.id,
-    label: `${c.label} (${c.count})`,
-  }));
-  const all = [...staticFilters, ...dynamic];
-
-  el.innerHTML = all
-    .map(
-      (f) => `
-    <label class="filter-row">
-      <input type="checkbox" data-filter="${f.id}" ${state.filters[f.id] !== false ? "checked" : ""}>
-      ${f.label}
-    </label>`
-    )
-    .join("");
-
-  el.querySelectorAll("input[data-filter]").forEach((input) => {
-    input.addEventListener("change", () => {
-      state.filters[input.dataset.filter] = input.checked;
-      saveFilterPrefs();
-      if (input.dataset.filter === "stashes") {
-        syncStashVisibilityControls();
-      }
-      applyLocationFilters();
-      refreshDynamicLayers();
-      updateMarkersList();
-      if ((input.dataset.filter === "radiation" || input.dataset.filter === "psi") && state.radiationData) {
-        renderRadiationLayer(state.radiationData);
-      } else {
-        applyRadiationVisibility();
-      }
-    });
-  });
-}
-
 function refreshDynamicLayers() {
   if (!state.map) return;
   state.liveMarkers.forEach((m) => {
@@ -2530,7 +2801,7 @@ async function loadMapLocations() {
     renderFilterPanel([]);
     return;
   }
-  renderFilterPanel(data.categories || []);
+  renderFilterPanel(data.categories || [], data.sections || null);
   renderLocationLabels(data.locations || []);
 }
 

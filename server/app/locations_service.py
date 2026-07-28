@@ -86,7 +86,19 @@ def _load_static_locations(slug: str) -> dict | None:
             for cat_id in CATEGORY_LABELS
             if counts.get(cat_id, 0) > 0
         ]
-    return {"categories": categories, "locations": locations}
+    result = {
+        "categories": categories,
+        "locations": locations,
+    }
+    if data.get("format"):
+        result["format"] = data.get("format")
+    if isinstance(data.get("sections"), list):
+        result["sections"] = data["sections"]
+    if data.get("attribution"):
+        result["attribution"] = data.get("attribution")
+    if data.get("source"):
+        result["source"] = data.get("source")
+    return result
 
 
 def izurvive_to_game(lng: float, lat: float, map_size: float) -> tuple[float, float]:
