@@ -14,7 +14,11 @@ from tkinter import messagebox, ttk
 import httpx
 
 from api_client import MapClient
-from clipboard_util import clipboard_sequence_number, grab_clipboard_text
+from clipboard_util import (
+    clipboard_sequence_number,
+    grab_clipboard_text,
+    read_clipboard_text,
+)
 from config import load_config, normalize_hotkey_list, save_config
 from scum_coords import looks_like_client_log, parse_scum_clipboard
 from version import __version__
@@ -201,13 +205,8 @@ class ScumMapApp(tk.Tk):
         self.bind_all("<Control-C>", self._on_copy_shortcut, add="+")
 
     def _clipboard_get_text(self) -> str:
-        text = grab_clipboard_text()
-        if text:
-            return text
-        try:
-            return self.clipboard_get()
-        except Exception:
-            return ""
+        # Win32 only — Tk clipboard_get() can hang forever while our poller holds the clipboard.
+        return read_clipboard_text(0.4, allow_powershell=True)
 
     def _on_paste_shortcut(self, event=None):
         widget = self.focus_get()
@@ -290,6 +289,15 @@ class ScumMapApp(tk.Tk):
         ttk.Button(btns, text="Копировать лог", command=self._copy_log).pack(side="left", padx=6)
         if not is_admin():
             ttk.Button(btns, text="От админа", command=self._relaunch_admin).pack(side="left", padx=6)
+
+        paste_row = ttk.Frame(self.main_page)
+        paste_row.pack(fill="x", pady=(4, 0))
+        ttk.Label(paste_row, text="Или вставьте {X=… Y=…}:", style="Muted.TLabel").pack(side="left")
+        self.paste_coords_var = tk.StringVar()
+        ttk.Entry(paste_row, textvariable=self.paste_coords_var).pack(
+            side="left", fill="x", expand=True, padx=6
+        )
+        ttk.Button(paste_row, text="Отправить", command=self._send_pasted_coords).pack(side="left")
 
         ttk.Label(self.main_page, text="Лог", style="Muted.TLabel").pack(anchor="w", pady=(8, 2))
         self.log = tk.Text(
@@ -554,16 +562,26 @@ class ScumMapApp(tk.Tk):
         self.log_line("В SCUM нажмите Ctrl+C — координаты уйдут на карту автоматически (карту открывать не нужно).")
         self.log_line("F1: отправить из буфера / повторить последнюю позицию.")
 
-        # If coords already in clipboard at start — send now
-        existing = self._read_clipboard_any()
-        coords = parse_scum_clipboard(existing)
-        if coords:
-            self._clipboard_digest = existing
-            self.log_line("[старт] в буфере уже есть координаты — отправляю")
-            self._send_coords(coords, source="старт/буфер")
-        elif existing:
-            self._clipboard_digest = existing
-            self.log_line(f"[старт] буфер без координат ({existing[:50]!r}…)" if len(existing) > 50 else f"[старт] буфер без координат ({existing!r})")
+        # If coords already in clipboard at start — send now (off UI thread)
+        def check_existing() -> None:
+            existing = read_clipboard_text(0.5, allow_powershell=True)
+            coords = parse_scum_clipboard(existing)
+
+            def apply() -> None:
+                if coords:
+                    self._clipboard_digest = existing
+                    self.log_line("[старт] в буфере уже есть координаты — отправляю")
+                    self._send_coords(coords, source="старт/буфер")
+                elif existing:
+                    self._clipboard_digest = existing
+                    preview = existing[:50] + ("…" if len(existing) > 50 else "")
+                    self.log_line(f"[старт] буфер без координат ({preview!r})")
+                else:
+                    self.log_line("[старт] буфер пуст — нажмите Ctrl+C в SCUM")
+
+            self.after(0, apply)
+
+        threading.Thread(target=check_existing, daemon=True).start()
         if not is_admin():
             self.log_line("⚠ Не админ: для хоткеев лучше «От админа».")
 
@@ -610,18 +628,8 @@ class ScumMapApp(tk.Tk):
             self.after(0, self._auto_resend)
 
     def _read_clipboard_any(self) -> str:
-        """Prefer whichever clipboard source actually contains SCUM coords."""
-        win = (grab_clipboard_text(0.8) or "").strip()
-        tk_text = ""
-        try:
-            tk_text = (self.clipboard_get() or "").strip()
-        except Exception:
-            pass
-        if parse_scum_clipboard(win):
-            return win
-        if parse_scum_clipboard(tk_text):
-            return tk_text
-        return win or tk_text
+        """Win32 (+ PowerShell fallback). Never use Tk clipboard_get — it deadlocks with the poller."""
+        return read_clipboard_text(0.45, allow_powershell=True)
 
     def _clipboard_hint(self, text: str) -> str:
         if looks_like_client_log(text):
@@ -629,6 +637,8 @@ class ScumMapApp(tk.Tk):
                 "в буфере сейчас ЛОГ клиента (не координаты). "
                 "В SCUM нажмите Ctrl+C ещё раз — не копируйте лог."
             )
+        if not (text or "").strip():
+            return "буфер пуст или не удалось прочитать"
         preview = (text or "").replace("\n", " ")[:100]
         return f"в буфере нет {{X=… Y=…}}. Сейчас: {preview!r}"
 
@@ -642,31 +652,43 @@ class ScumMapApp(tk.Tk):
         if self._fresh_clipboard_coords:
             self._send_coords(self._fresh_clipboard_coords, source="auto/clipboard")
             return
-        clip = parse_scum_clipboard(self._read_clipboard_any())
-        if clip:
-            self._fresh_clipboard_coords = clip
-            self._send_coords(clip, source="auto/clipboard")
-            return
-        # Don't spam every 30s — only once until we get coords
-        if not getattr(self, "_auto_warned_empty", False):
-            self._auto_warned_empty = True
-            text = self._read_clipboard_any()
-            self.log_line(f"[auto] нет позиции — {self._clipboard_hint(text)}")
+
+        def work() -> None:
+            text = read_clipboard_text(0.4, allow_powershell=True)
+            clip = parse_scum_clipboard(text)
+
+            def apply() -> None:
+                if not self._hotkeys_on:
+                    return
+                if clip:
+                    self._fresh_clipboard_coords = clip
+                    self._send_coords(clip, source="auto/clipboard")
+                    return
+                if not getattr(self, "_auto_warned_empty", False):
+                    self._auto_warned_empty = True
+                    self.log_line(f"[auto] нет позиции — {self._clipboard_hint(text)}")
+
+            self.after(0, apply)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _clipboard_loop(self) -> None:
         last_seq = -1
         while not self._stop_workers.is_set():
             try:
                 seq = clipboard_sequence_number()
-                text = (grab_clipboard_text(0.6) or "").strip()
+                # Keep OpenClipboard windows short so F1/UI never stall
+                text = (grab_clipboard_text(0.2) or "").strip()
+                if not text and seq != last_seq:
+                    text = read_clipboard_text(0.3, allow_powershell=True)
             except Exception:
                 text = ""
                 seq = last_seq
             if not text:
-                time.sleep(0.25)
+                time.sleep(0.35)
                 continue
             if text == self._clipboard_digest and seq == last_seq:
-                time.sleep(0.25)
+                time.sleep(0.35)
                 continue
             last_seq = seq
             self._clipboard_digest = text
@@ -690,29 +712,38 @@ class ScumMapApp(tk.Tk):
                         "в SCUM нажмите Ctrl+C (не копируйте лог)."
                     ),
                 )
-            time.sleep(0.25)
+            time.sleep(0.35)
 
     def _manual_copy_send(self) -> None:
         if not self.map_client:
             self._save()
             if not self.map_client:
                 return
-        text = self._read_clipboard_any()
-        clip = parse_scum_clipboard(text)
-        if clip:
-            self._send_coords(clip, source="кнопка/буфер")
-            return
-        if self._last_sent:
-            self._send_coords(self._last_sent, source="кнопка/last")
-            return
-        hint = self._clipboard_hint(text)
-        self.log_line(f"[кнопка] {hint}")
-        messagebox.showinfo(
-            "Нет координат",
-            "В буфере нет строки вида {X=… Y=…}.\n\n"
-            "В SCUM нажмите Ctrl+C, затем снова «Из буфера» / «Отправить позицию».\n"
-            "Если копировали лог клиента — он перекрыл координаты.",
-        )
+        self.log_line("[кнопка] читаю буфер…")
+
+        def work() -> None:
+            text = read_clipboard_text(0.6, allow_powershell=True)
+            clip = parse_scum_clipboard(text)
+
+            def apply() -> None:
+                if clip:
+                    self._send_coords(clip, source="кнопка/буфер")
+                    return
+                if self._last_sent:
+                    self._send_coords(self._last_sent, source="кнопка/last")
+                    return
+                hint = self._clipboard_hint(text)
+                self.log_line(f"[кнопка] {hint}")
+                messagebox.showinfo(
+                    "Нет координат",
+                    "В буфере нет строки вида {X=… Y=…}.\n\n"
+                    "В SCUM нажмите Ctrl+C, затем снова «Из буфера».\n"
+                    "Или вставьте строку координат в поле ниже и нажмите «Вставить → отправить».",
+                )
+
+            self.after(0, apply)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _handle_copy_hotkey(self, force_log: bool = False) -> None:
         if not self._hotkeys_on:
@@ -721,9 +752,19 @@ class ScumMapApp(tk.Tk):
         if now - self._last_copy_trigger_at < 0.8:
             return
         self._last_copy_trigger_at = now
-        self.log_line("[F1] пойман")
+        self.log_line("[F1] пойман — читаю буфер…")
 
-        text = self._read_clipboard_any()
+        def work() -> None:
+            try:
+                text = read_clipboard_text(0.6, allow_powershell=True)
+            except Exception as exc:
+                self.after(0, lambda: self.log_line(f"[F1] ошибка чтения буфера: {exc}"))
+                return
+            self.after(0, lambda t=text: self._on_f1_clipboard(t))
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def _on_f1_clipboard(self, text: str) -> None:
         clip = parse_scum_clipboard(text)
         if clip:
             self.log_line("[F1] координаты из буфера — отправляю")
@@ -732,13 +773,30 @@ class ScumMapApp(tk.Tk):
             self._send_coords(clip, source="F1/буфер")
             return
 
+        preview = (text or "").replace("\n", " ")[:80]
+        self.log_line(f"[F1] прочитал буфер ({len(text or '')} симв.): {preview!r}")
         if self._last_sent:
-            self.log_line("[F1] в буфере нет координат — шлю последнюю позицию")
+            self.log_line("[F1] координат нет — шлю последнюю позицию")
             self._send_coords(self._last_sent, source="F1/last")
             return
 
         self.log_line(f"[F1] {self._clipboard_hint(text)}")
         self.log_line("[F1] нажмите Ctrl+C в SCUM — клиент подхватит сам")
+
+    def _send_pasted_coords(self) -> None:
+        raw = (self.paste_coords_var.get() or "").strip()
+        coords = parse_scum_clipboard(raw)
+        if not coords:
+            messagebox.showinfo(
+                "Координаты",
+                "Вставьте строку вида\n{X=… Y=… Z=…|P=…}",
+            )
+            return
+        if not self.map_client:
+            self._save()
+            if not self.map_client:
+                return
+        self._send_coords(coords, source="вставка")
 
     def _paste_client_key(self) -> None:
         text = (self._clipboard_get_text() or "").strip()
@@ -767,7 +825,7 @@ class ScumMapApp(tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(data)
             self.update_idletasks()
-            self.log_line("Лог скопирован в буфер")
+            self.log_line("Лог скопирован в буфер (координаты SCUM при этом стёрты)")
         except Exception as exc:
             messagebox.showerror("Лог", f"Не удалось скопировать: {exc}")
 
@@ -777,26 +835,30 @@ class ScumMapApp(tk.Tk):
             self._save()
             if not self.map_client:
                 return
-        text = grab_clipboard_text(0.3)
-        if not text:
-            try:
-                text = self.clipboard_get()
-            except Exception:
-                text = ""
-        # Prefer parseable source
-        text = self._read_clipboard_any() or (text or "")
-        coords = parse_scum_clipboard(text)
-        if not coords:
-            hint = self._clipboard_hint(text or "")
-            self.log_line(f"[буфер] {hint}")
-            messagebox.showinfo(
-                "Буфер",
-                "В буфере нет координат вида {X=… Y=…}.\n"
-                "В SCUM нажмите Ctrl+C (карту открывать не нужно).\n"
-                "Если копировали лог клиента — он перекрыл координаты.",
-            )
-            return
-        self._send_coords(coords, source="буфер-кнопка")
+        self.log_line("[буфер] читаю…")
+
+        def work() -> None:
+            text = read_clipboard_text(0.6, allow_powershell=True)
+            coords = parse_scum_clipboard(text)
+
+            def apply() -> None:
+                if coords:
+                    self._clipboard_digest = text
+                    self._fresh_clipboard_coords = coords
+                    self._send_coords(coords, source="буфер-кнопка")
+                    return
+                hint = self._clipboard_hint(text or "")
+                self.log_line(f"[буфер] {hint}")
+                messagebox.showinfo(
+                    "Буфер",
+                    "В буфере нет координат вида {X=… Y=…}.\n"
+                    "В SCUM нажмите Ctrl+C (карту открывать не нужно).\n"
+                    "Или вставьте строку в поле «Или вставьте {X=… Y=…}» ниже.",
+                )
+
+            self.after(0, apply)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _send_coords(self, coords: tuple[float, float], source: str) -> None:
         if not self.map_client:

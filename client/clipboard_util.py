@@ -212,8 +212,8 @@ def clipboard_sequence_number() -> int:
         return 0
 
 
-def grab_clipboard_text(timeout_sec: float = 0.5) -> str | None:
-    """Read clipboard text via Win32. Serialized + retries (no abandoned OpenClipboard threads)."""
+def grab_clipboard_text(timeout_sec: float = 0.35) -> str | None:
+    """Read clipboard text via Win32. Short open/close; never call from Tk paths that also use clipboard_get."""
     import sys
     import time
 
@@ -226,36 +226,44 @@ def grab_clipboard_text(timeout_sec: float = 0.5) -> str | None:
     CF_UNICODETEXT = 13
     CF_TEXT = 1
 
-    deadline = time.time() + max(0.1, float(timeout_sec))
-    with _CLIPBOARD_LOCK:
+    deadline = time.time() + max(0.05, float(timeout_sec))
+    got_lock = _CLIPBOARD_LOCK.acquire(timeout=max(0.05, float(timeout_sec)))
+    if not got_lock:
+        return None
+    try:
         while time.time() < deadline:
             if not user32.OpenClipboard(0):
-                time.sleep(0.04)
+                time.sleep(0.02)
                 continue
             try:
-                # Prefer Unicode
                 if user32.IsClipboardFormatAvailable(CF_UNICODETEXT):
                     handle = user32.GetClipboardData(CF_UNICODETEXT)
                     if handle:
                         ptr = kernel32.GlobalLock(handle)
                         if ptr:
                             try:
-                                text = ctypes.wstring_at(ptr)
+                                size = int(kernel32.GlobalSize(handle) or 0)
+                                # UTF-16 bytes; leave room for odd sizes
+                                if size >= 2:
+                                    raw = ctypes.string_at(ptr, size)
+                                    text = raw.decode("utf-16-le", errors="ignore").rstrip("\x00")
+                                else:
+                                    text = ctypes.wstring_at(ptr)
                                 if text is not None:
                                     return text.strip()
                             finally:
                                 kernel32.GlobalUnlock(handle)
-                # Fallback ANSI
                 if user32.IsClipboardFormatAvailable(CF_TEXT):
                     handle = user32.GetClipboardData(CF_TEXT)
                     if handle:
                         ptr = kernel32.GlobalLock(handle)
                         if ptr:
                             try:
-                                raw = ctypes.string_at(ptr)
-                                text = raw.decode("utf-8", errors="ignore")
+                                size = int(kernel32.GlobalSize(handle) or 0)
+                                raw = ctypes.string_at(ptr, size if size > 0 else 4096)
+                                text = raw.split(b"\x00", 1)[0].decode("utf-8", errors="ignore")
                                 if not text:
-                                    text = raw.decode("cp1251", errors="ignore")
+                                    text = raw.split(b"\x00", 1)[0].decode("cp1251", errors="ignore")
                                 return text.strip()
                             finally:
                                 kernel32.GlobalUnlock(handle)
@@ -263,6 +271,51 @@ def grab_clipboard_text(timeout_sec: float = 0.5) -> str | None:
             finally:
                 user32.CloseClipboard()
         return None
+    finally:
+        _CLIPBOARD_LOCK.release()
+
+
+def grab_clipboard_text_powershell(timeout_sec: float = 2.0) -> str | None:
+    """Fallback via PowerShell Get-Clipboard (off UI thread only)."""
+    import subprocess
+    import sys
+
+    if sys.platform != "win32":
+        return None
+    try:
+        # CREATE_NO_WINDOW avoids flash; works from admin too
+        flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+        proc = subprocess.run(
+            [
+                "powershell",
+                "-NoProfile",
+                "-NonInteractive",
+                "-Command",
+                "Get-Clipboard -Raw",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=max(0.5, float(timeout_sec)),
+            creationflags=flags,
+        )
+        if proc.returncode != 0:
+            return None
+        text = (proc.stdout or "").strip()
+        return text or None
+    except Exception:
+        return None
+
+
+def read_clipboard_text(timeout_sec: float = 0.35, allow_powershell: bool = True) -> str:
+    """Best-effort clipboard text. Call from worker threads, not inside Tk clipboard_get."""
+    text = grab_clipboard_text(timeout_sec) or ""
+    if text.strip():
+        return text.strip()
+    if allow_powershell:
+        ps = grab_clipboard_text_powershell(1.5)
+        if ps:
+            return ps.strip()
+    return ""
 
 
 def prepare_coord_image(img, monitor_index: int, ocr_region: tuple[int, int, int, int]):
