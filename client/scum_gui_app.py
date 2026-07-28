@@ -54,6 +54,7 @@ class ScumMapApp(tk.Tk):
         self._fresh_clipboard_coords: tuple[float, float] | None = None
         self._copy_lock = threading.Lock()
         self._copy_busy = False
+        self._inject_works: bool | None = None  # None=unknown, False=game ignores synthetic Ctrl+C
         self._last_copy_trigger_at = 0.0
         self._hotkeys = GlobalHotkeyListener()
         self.current_page = 0
@@ -275,8 +276,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "После «Запустить»: F1 в игре → Ctrl+C → координаты на карту.\n"
-                "Если F1 молчит — кнопка «Ctrl+C + отправить» (фокус должен быть на игре)."
+                "Главное: в SCUM нажмите Ctrl+C сами — клиент сразу отправит координаты на карту.\n"
+                "F1 / авто: повтор последней позиции (эмуляция Ctrl+C игра часто блокирует)."
             ),
             style="CardMuted.TLabel",
             wraplength=580,
@@ -286,7 +287,7 @@ class ScumMapApp(tk.Tk):
         btns.pack(fill="x", pady=6)
         self.toggle_btn = ttk.Button(btns, text="Запустить", command=self._toggle_hotkeys)
         self.toggle_btn.pack(side="left")
-        ttk.Button(btns, text="Ctrl+C + отправить", command=self._manual_copy_send).pack(side="left", padx=6)
+        ttk.Button(btns, text="Отправить позицию", command=self._manual_copy_send).pack(side="left", padx=6)
         ttk.Button(btns, text="Из буфера", command=self._send_clipboard_now).pack(side="left", padx=6)
         ttk.Button(btns, text="Копировать лог", command=self._copy_log).pack(side="left", padx=6)
         if not is_admin():
@@ -345,7 +346,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             auto,
             text=(
-                "0 = только по горячей клавише. При 30: каждые 30 с клиент сам жмёт Ctrl+C и обновляет позицию."
+                "0 = выкл. При 30: каждые 30 с повторно шлёт последнюю известную позицию "
+                "(после вашего Ctrl+C). Карту открывать не нужно."
             ),
             style="CardMuted.TLabel",
             wraplength=560,
@@ -367,7 +369,7 @@ class ScumMapApp(tk.Tk):
             ("Приблизить (zoom in)", self.hotkey_zoom_in_var),
             ("Отдалить (zoom out)", self.hotkey_zoom_out_var),
             ("Найти себя (focus me)", self.hotkey_focus_me_var),
-            ("F1 → Ctrl+C + позиция", self.hotkey_send_pos_var),
+            ("F1 → отправить позицию", self.hotkey_send_pos_var),
         ):
             r = ttk.Frame(hk, style="Card.TFrame")
             r.pack(fill="x", pady=3)
@@ -501,9 +503,9 @@ class ScumMapApp(tk.Tk):
         self.toggle_btn.configure(text="Остановить")
         interval = self._auto_interval()
         self.status_var.set(
-            f"Работает — F1→Ctrl+C"
+            f"Работает — ждём ваш Ctrl+C"
             + (f" / авто {interval} с" if interval > 0 else "")
-            + " / PageUp·PageDown·End"
+            + " / F1=повтор"
         )
 
         bindings: list[tuple[str, int, str]] = []
@@ -549,25 +551,22 @@ class ScumMapApp(tk.Tk):
             threading.Thread(target=self._auto_loop, args=(interval,), daemon=True).start()
 
         names = [f"{a}:{n}" for a, _vk, n in bindings]
-        self.log_line(f"Запущено (RegisterHotKey): {', '.join(names)}")
-        self.log_line("Нажмите F1 в любом окне (в т.ч. в игре) — в логе появится «F1 пойман».")
+        self.log_line(f"Запущено: {', '.join(names)}")
+        self.log_line("В SCUM нажмите Ctrl+C — координаты уйдут на карту автоматически (карту открывать не нужно).")
+        self.log_line("F1 / авто: повтор последней позиции. Эмуляция Ctrl+C в SCUM обычно блокируется.")
         if not is_admin():
-            self.log_line("⚠ Не админ: если SCUM запущен от администратора, F1 и Ctrl+C не сработают.")
+            self.log_line("⚠ Не админ: для хоткеев лучше «От админа».")
 
     def _on_global_hotkey(self, action: str, name: str) -> None:
         """Called from hotkey thread."""
         if not self._hotkeys_on:
             return
-        if is_our_process_foreground():
-            # Allow F1 test even from our window — still useful; Ctrl+C will hit our UI though
-            self.after(0, lambda: self.log_line(f"[{name}] пойман (фокус в клиенте — кликните в SCUM)"))
-            if action == "copy":
-                # Still try after short delay in case user alt-tabs
-                self.after(0, lambda: self._handle_copy_hotkey(force_log=True))
-            return
         if action == "copy":
-            self.after(0, lambda: self._handle_copy_hotkey(force_log=True))
-        elif action == "zoom_in":
+            self.after(0, self._handle_copy_hotkey)
+            return
+        if is_our_process_foreground():
+            return
+        if action == "zoom_in":
             self.after(0, self._handle_zoom_in)
         elif action == "zoom_out":
             self.after(0, self._handle_zoom_out)
@@ -598,13 +597,29 @@ class ScumMapApp(tk.Tk):
 
     def _auto_loop(self, interval: int) -> None:
         while not self._stop_workers.wait(interval):
-            if is_our_process_foreground():
-                continue
-            self.after(0, lambda: self._trigger_copy_and_send("auto", delay_ms=50))
+            self.after(0, self._auto_resend)
+
+    def _auto_resend(self) -> None:
+        """Every N seconds: resend last known position (no synthetic Ctrl+C)."""
+        if not self._hotkeys_on or not self.map_client:
+            return
+        if self._last_sent:
+            self._send_coords(self._last_sent, source="auto/last")
+            return
+        if self._fresh_clipboard_coords:
+            self._send_coords(self._fresh_clipboard_coords, source="auto/clipboard")
+            return
+        # Quiet skip — don't spam inject failures every 30s
+        clip = parse_scum_clipboard(grab_clipboard_text(0.2))
+        if clip:
+            self._fresh_clipboard_coords = clip
+            self._send_coords(clip, source="auto/clipboard")
+            return
+        self.log_line("[auto] нет позиции — один раз нажмите Ctrl+C в SCUM")
 
     def _clipboard_loop(self) -> None:
         while not self._stop_workers.is_set():
-            text = grab_clipboard_text()
+            text = grab_clipboard_text(0.2)
             digest = (text or "").strip()
             if digest and digest != self._clipboard_digest:
                 coords = parse_scum_clipboard(digest)
@@ -613,53 +628,42 @@ class ScumMapApp(tk.Tk):
                     self._fresh_clipboard_coords = coords
                     self._clipboard_coords_at = time.time()
                     self.after(0, lambda c=coords: self._send_coords(c, source="Ctrl+C"))
+                    self.after(
+                        0,
+                        lambda: self.log_line("[буфер] поймал координаты из вашего Ctrl+C"),
+                    )
                 else:
-                    preview = digest.replace("\n", " ")[:100]
-                    if "X=" in digest.upper() or "{X" in digest.upper():
-                        self.after(0, lambda p=preview: self.log_line(f"[буфер] не распознано: {p!r}"))
-            time.sleep(0.35)
+                    preview = digest.replace("\n", " ")[:80]
+                    # Ignore known junk
+                    if preview and preview not in {"HideKillNotification"}:
+                        if "X=" in digest.upper() or "{X" in digest.upper():
+                            self.after(
+                                0,
+                                lambda p=preview: self.log_line(f"[буфер] не распознано: {p!r}"),
+                            )
+            time.sleep(0.25)
 
     def _manual_copy_send(self) -> None:
         if not self.map_client:
             self._save()
             if not self.map_client:
                 return
-        if is_our_process_foreground():
-            self.log_line("[ручной] Кликните в окно SCUM — через 1.5 с будет Ctrl+C.")
-            self.after(1500, lambda: self._trigger_copy_and_send("ручной", delay_ms=50))
+        # Prefer existing clipboard / last sent — don't rely on inject
+        clip = parse_scum_clipboard(grab_clipboard_text(0.2))
+        if clip:
+            self._send_coords(clip, source="кнопка/буфер")
             return
-        self._trigger_copy_and_send("ручной", delay_ms=50)
-
-    def _paste_client_key(self) -> None:
-        text = (self._clipboard_get_text() or "").strip()
-        if not text:
-            messagebox.showinfo("Буфер", "Буфер пуст — скопируйте ключ на сайте.")
+        if self._last_sent:
+            self._send_coords(self._last_sent, source="кнопка/last")
             return
-        if "\n" in text:
-            text = text.splitlines()[0].strip()
-        self.key_var.set(text)
-        self.log_line(f"Ключ вставлен из буфера ({len(text)} символов)")
-
-    def _toggle_key_visibility(self) -> None:
-        self._key_entry_shown = not getattr(self, "_key_entry_shown", False)
-        show = "" if self._key_entry_shown else "•"
-        try:
-            self.key_entry.configure(show=show)
-        except Exception:
-            pass
-
-    def _copy_log(self) -> None:
-        data = self.log.get("1.0", "end-1c")
-        if not data.strip():
-            messagebox.showinfo("Лог", "Лог пуст")
-            return
-        try:
-            self.clipboard_clear()
-            self.clipboard_append(data)
-            self.update_idletasks()
-            self.log_line("Лог скопирован в буфер")
-        except Exception as exc:
-            messagebox.showerror("Лог", f"Не удалось скопировать: {exc}")
+        self.log_line("[кнопка] В буфере нет {X=… Y=…}. Нажмите Ctrl+C в SCUM, затем снова кнопку.")
+        messagebox.showinfo(
+            "Нет координат",
+            "SCUM обычно блокирует эмуляцию Ctrl+C.\n\n"
+            "1. Запустите клиент\n"
+            "2. В игре нажмите Ctrl+C (карту открывать не нужно)\n"
+            "3. Клиент сам отправит позицию на карту",
+        )
 
     def _handle_copy_hotkey(self, force_log: bool = False) -> None:
         if not self._hotkeys_on:
@@ -669,6 +673,24 @@ class ScumMapApp(tk.Tk):
             return
         self._last_copy_trigger_at = now
         self.log_line("[F1] пойман")
+
+        # 1) If clipboard already has coords — send immediately
+        clip = parse_scum_clipboard(grab_clipboard_text(0.2))
+        if clip:
+            self.log_line("[F1] в буфере уже есть координаты — отправляю")
+            self._send_coords(clip, source="F1/буфер")
+            return
+
+        # 2) If we know inject doesn't work — resend last or ask for real Ctrl+C
+        if self._inject_works is False:
+            if self._last_sent:
+                self.log_line("[F1] эмуляция Ctrl+C в SCUM не работает — шлю последнюю позицию")
+                self._send_coords(self._last_sent, source="F1/last")
+            else:
+                self.log_line("[F1] нажмите Ctrl+C сами в SCUM — клиент подхватит буфер")
+            return
+
+        # 3) One attempt to inject (may be blocked by anti-cheat)
         self._start_copy_sequence("F1")
 
     def _trigger_copy_and_send(self, source: str, delay_ms: int = 200) -> None:
@@ -786,18 +808,59 @@ class ScumMapApp(tk.Tk):
             return
 
         preview = (text or "")[:100]
+        self._inject_works = False
         self.log_line(
-            f"[{source}] нет {{X=… Y=…}} после Ctrl+C. Буфер: {preview!r}. "
-            "Откройте карту в SCUM (M) и нажмите F1 снова."
+            f"[{source}] эмуляция Ctrl+C не сработала (игра не положила координаты в буфер). "
+            f"Сейчас в буфере: {preview!r}"
         )
+        self.log_line(
+            "→ В SCUM нажмите Ctrl+C сами (карту открывать не нужно) — клиент отправит сразу."
+        )
+        if self._last_sent:
+            self.log_line(f"[{source}] пока шлю последнюю известную позицию")
+            self._copy_busy = False
+            self._send_coords(self._last_sent, source=f"{source}/last")
+            return
         self._copy_busy = False
 
     def _finish_copy_ok(self, coords: tuple[float, float], text: str, source: str) -> None:
+        self._inject_works = True
         self._clipboard_digest = text
         self._fresh_clipboard_coords = coords
         self._clipboard_coords_at = time.time()
         self._copy_busy = False
         self._send_coords(coords, source=f"{source}/Ctrl+C")
+
+    def _paste_client_key(self) -> None:
+        text = (self._clipboard_get_text() or "").strip()
+        if not text:
+            messagebox.showinfo("Буфер", "Буфер пуст — скопируйте ключ на сайте.")
+            return
+        if "\n" in text:
+            text = text.splitlines()[0].strip()
+        self.key_var.set(text)
+        self.log_line(f"Ключ вставлен из буфера ({len(text)} символов)")
+
+    def _toggle_key_visibility(self) -> None:
+        self._key_entry_shown = not getattr(self, "_key_entry_shown", False)
+        show = "" if self._key_entry_shown else "•"
+        try:
+            self.key_entry.configure(show=show)
+        except Exception:
+            pass
+
+    def _copy_log(self) -> None:
+        data = self.log.get("1.0", "end-1c")
+        if not data.strip():
+            messagebox.showinfo("Лог", "Лог пуст")
+            return
+        try:
+            self.clipboard_clear()
+            self.clipboard_append(data)
+            self.update_idletasks()
+            self.log_line("Лог скопирован в буфер")
+        except Exception as exc:
+            messagebox.showerror("Лог", f"Не удалось скопировать: {exc}")
 
     # ------------------------------------------------------------------ capture
     def _send_clipboard_now(self) -> None:
@@ -805,7 +868,7 @@ class ScumMapApp(tk.Tk):
             self._save()
             if not self.map_client:
                 return
-        text = grab_clipboard_text()
+        text = grab_clipboard_text(0.3)
         if not text:
             try:
                 text = self.clipboard_get()
@@ -818,7 +881,7 @@ class ScumMapApp(tk.Tk):
             messagebox.showinfo(
                 "Буфер",
                 "В буфере нет координат вида {X=… Y=…}.\n"
-                "Откройте карту (M) в SCUM → F1, или скопируйте вручную Ctrl+C.",
+                "В SCUM нажмите Ctrl+C (карту открывать не нужно).",
             )
             return
         self._send_coords(coords, source="буфер-кнопка")
