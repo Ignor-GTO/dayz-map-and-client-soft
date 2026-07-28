@@ -18,6 +18,7 @@ from clipboard_util import grab_clipboard_text
 from config import load_config, normalize_hotkey_list, save_config
 from scum_coords import parse_scum_clipboard
 from version import __version__
+from win_input import send_ctrl_c
 
 try:
     import keyboard
@@ -48,6 +49,7 @@ class ScumMapApp(tk.Tk):
         self._clipboard_coords_at = 0.0
         self._fresh_clipboard_coords: tuple[float, float] | None = None
         self._copy_lock = threading.Lock()
+        self._last_copy_trigger_at = 0.0
         self.current_page = 0
 
         self._cleanup_old_exe()
@@ -423,6 +425,7 @@ class ScumMapApp(tk.Tk):
                     hk.strip().lower(),
                     lambda: self.after(0, self._handle_copy_hotkey),
                     suppress=False,
+                    trigger_on_release=True,
                 )
                 registered.append(hk)
             except Exception as e:
@@ -507,10 +510,15 @@ class ScumMapApp(tk.Tk):
     def _handle_copy_hotkey(self) -> None:
         if not self._hotkeys_on:
             return
-        delay = int(self.settings.get("scum_copy_delay_ms", 350) or 350)
+        now = time.time()
+        # F1 key-repeat / double fire — ignore quietly
+        if now - self._last_copy_trigger_at < 1.2:
+            return
+        self._last_copy_trigger_at = now
+        delay = int(self.settings.get("scum_copy_delay_ms", 200) or 200)
         self._trigger_copy_and_send("F1", delay_ms=delay)
 
-    def _trigger_copy_and_send(self, source: str, delay_ms: int = 350) -> None:
+    def _trigger_copy_and_send(self, source: str, delay_ms: int = 200) -> None:
         threading.Thread(
             target=self._copy_ctrl_c_and_send,
             args=(source, max(0, delay_ms) / 1000.0),
@@ -518,58 +526,62 @@ class ScumMapApp(tk.Tk):
         ).start()
 
     def _copy_ctrl_c_and_send(self, source: str, delay_before: float) -> None:
-        if not self._hotkeys_on or keyboard is None:
+        if not self._hotkeys_on:
             return
         if not self._copy_lock.acquire(blocking=False):
-            self.after(0, lambda: self.log_line(f"[{source}] пропуск — уже идёт Ctrl+C"))
-            return
+            return  # busy — no log spam
         try:
             if delay_before > 0:
                 time.sleep(delay_before)
             before = (grab_clipboard_text() or "").strip()
-            self.after(0, lambda: self.log_line(f"[{source}] симулирую Ctrl+C…"))
+            self.after(0, lambda: self.log_line(f"[{source}] Ctrl+C…"))
             try:
-                # Release modifiers first so game receives a clean chord
-                for mod in ("ctrl", "shift", "alt"):
-                    try:
-                        keyboard.release(mod)
-                    except Exception:
-                        pass
-                keyboard.send("ctrl+c")
+                send_ctrl_c()
             except Exception as exc:
                 self.after(0, lambda: self.log_line(f"[{source}] Ctrl+C ошибка: {exc}"))
                 return
 
             coords = None
             text_used = ""
-            for _ in range(20):
-                time.sleep(0.1)
+            deadline = time.time() + 2.0
+            while time.time() < deadline:
+                time.sleep(0.08)
                 text = (grab_clipboard_text() or "").strip()
                 parsed = parse_scum_clipboard(text)
                 if not parsed:
                     continue
-                # Prefer freshly changed clipboard; accept same text after inject too
-                if text != before or parsed:
-                    coords = parsed
-                    text_used = text
-                    break
+                coords = parsed
+                text_used = text
+                if text != before:
+                    break  # clipboard actually changed — done
 
             if not coords:
                 self.after(
                     0,
                     lambda: self.log_line(
-                        f"[{source}] после Ctrl+C нет {{X=… Y=…}}. "
-                        "Откройте карту (M) в игре и повторите, или запустите клиент от админа."
+                        f"[{source}] нет {{X=… Y=…}} в буфере. "
+                        "Откройте карту в игре (M), затем F1. Клиент — от администратора."
                     ),
                 )
                 return
+
+            if text_used == before:
+                self.after(
+                    0,
+                    lambda: self.log_line(
+                        f"[{source}] буфер не обновился — шлю координаты, которые уже были в буфере"
+                    ),
+                )
 
             self._clipboard_digest = text_used or self._clipboard_digest
             self._fresh_clipboard_coords = coords
             self._clipboard_coords_at = time.time()
             self.after(0, lambda c=coords: self._send_coords(c, source=f"{source}/Ctrl+C"))
         finally:
-            self._copy_lock.release()
+            try:
+                self._copy_lock.release()
+            except Exception:
+                pass
 
     # ------------------------------------------------------------------ capture
     def _send_clipboard_now(self) -> None:
