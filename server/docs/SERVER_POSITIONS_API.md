@@ -62,4 +62,5 @@ curl -X POST "https://YOUR_HOST/api/server/positions" \
 
 ## Настройка игроков
 
-Админка → **Пользователи** → колонка **SteamID64** → Сохранить.
+1. **Авто (рекомендуется):** ScumMapClient сам читает SteamID64 с ПК (активный Steam / `loginusers.vdf`) и шлёт `POST /api/client/steam-id`.
+2. **Вручную:** Админка → Пользователи → колонка SteamID64 → Сохранить.

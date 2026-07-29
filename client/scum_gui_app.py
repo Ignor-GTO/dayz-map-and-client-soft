@@ -21,6 +21,7 @@ from clipboard_util import (
 )
 from config import load_config, normalize_hotkey_list, save_config
 from scum_coords import looks_like_client_log, parse_scum_clipboard
+from steam_id import detect_local_steam_id
 from version import __version__
 from win_input import (
     GlobalHotkeyListener,
@@ -347,6 +348,19 @@ class ScumMapApp(tk.Tk):
         ttk.Button(key_row, text="Показать", command=self._toggle_key_visibility).pack(side="left", padx=(6, 0))
         self._key_entry_shown = False
 
+        ttk.Label(conn, text="SteamID64 (авто)", style="Card.TLabel").pack(anchor="w", pady=(8, 0))
+        steam_row = ttk.Frame(conn, style="Card.TFrame")
+        steam_row.pack(fill="x")
+        self.steam_id_var = tk.StringVar()
+        ttk.Entry(steam_row, textvariable=self.steam_id_var, width=40).pack(side="left", fill="x", expand=True)
+        ttk.Button(steam_row, text="Определить", command=self._detect_steam_id).pack(side="left", padx=(8, 0))
+        ttk.Label(
+            conn,
+            text="Берётся из активного аккаунта Steam на этом ПК. Нужен для позиций с сервера.",
+            style="CardMuted.TLabel",
+            wraplength=560,
+        ).pack(anchor="w", pady=(4, 0))
+
         auto = ttk.LabelFrame(body, text="Автоотправка позиции", padding=10)
         auto.pack(fill="x", pady=6)
         row = ttk.Frame(auto, style="Card.TFrame")
@@ -444,6 +458,77 @@ class ScumMapApp(tk.Tk):
             pos_keys = ["f1"]
             self.settings["scum_hotkey_send_pos"] = pos_keys
         self.hotkey_send_pos_var.set(", ".join(pos_keys))
+        stored = (self.settings.get("steam_id") or "").strip()
+        if stored:
+            self.steam_id_var.set(stored)
+        else:
+            self.after(300, self._detect_steam_id_silent)
+
+    def _detect_steam_id_silent(self) -> None:
+        sid, source = detect_local_steam_id()
+        if not sid:
+            self.log_line("[Steam] ID не найден — запустите Steam и нажмите «Определить» в Настройках")
+            return
+        self.steam_id_var.set(sid)
+        self.settings["steam_id"] = sid
+        try:
+            save_config(self.settings)
+        except Exception:
+            pass
+        self.log_line(f"[Steam] определён {sid} ({source})")
+        self._sync_steam_id_to_server(sid, quiet=True)
+
+    def _detect_steam_id(self) -> None:
+        sid, source = detect_local_steam_id()
+        if not sid:
+            messagebox.showwarning(
+                "SteamID",
+                "Не удалось определить SteamID.\n"
+                "Запустите клиент Steam под нужным аккаунтом и попробуйте снова.",
+            )
+            return
+        self.steam_id_var.set(sid)
+        self.settings["steam_id"] = sid
+        self.log_line(f"[Steam] определён {sid} ({source})")
+        if self.map_client or (self.server_var.get().strip() and self.key_var.get().strip()):
+            self._sync_steam_id_to_server(sid, quiet=False)
+        else:
+            messagebox.showinfo("SteamID", f"Найден: {sid}\n\nСохраните client key, чтобы привязать к профилю на карте.")
+
+    def _sync_steam_id_to_server(self, steam_id: str | None = None, *, quiet: bool = False) -> None:
+        sid = (steam_id or self.steam_id_var.get() or self.settings.get("steam_id") or "").strip()
+        if not sid:
+            return
+        client = self.map_client
+        if not client:
+            server = (self.server_var.get() or self.settings.get("server_url") or "").strip()
+            key = (self.key_var.get() or self.settings.get("client_key") or "").strip()
+            if server and key:
+                client = MapClient(server, key)
+            else:
+                return
+
+        def work() -> None:
+            ok, err = client.set_steam_id(sid)
+
+            def apply() -> None:
+                if ok:
+                    self.settings["steam_id"] = sid
+                    try:
+                        save_config(self.settings)
+                    except Exception:
+                        pass
+                    self.log_line(f"[Steam] привязан к профилю карты: {sid}")
+                    if not quiet:
+                        messagebox.showinfo("SteamID", f"Привязан к профилю:\n{sid}")
+                else:
+                    self.log_line(f"[Steam] не удалось отправить на сервер: {err}")
+                    if not quiet:
+                        messagebox.showerror("SteamID", f"Не удалось сохранить на сервере:\n{err}")
+
+            self.after(0, apply)
+
+        threading.Thread(target=work, daemon=True).start()
 
     def _maybe_init_client(self) -> None:
         server = (self.settings.get("server_url") or "").strip()
@@ -481,11 +566,18 @@ class ScumMapApp(tk.Tk):
         self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
         self.settings["hotkey_focus_me"] = self._parse_hotkeys(self.hotkey_focus_me_var.get(), ["end"])
         self.settings["scum_hotkey_send_pos"] = self._parse_hotkeys(self.hotkey_send_pos_var.get(), ["f1"])
+        sid = (self.steam_id_var.get() or "").strip()
+        if sid:
+            self.settings["steam_id"] = sid
         save_config(self.settings)
         self.map_client = MapClient(server, key)
         self.log_line("Настройки сохранены")
         if not self._hotkeys_on:
             self.status_var.set("Готов — нажмите «Запустить»")
+        if sid:
+            self._sync_steam_id_to_server(sid, quiet=True)
+        elif not (self.steam_id_var.get() or "").strip():
+            self._detect_steam_id_silent()
         messagebox.showinfo("Сохранено", "Настройки сохранены.")
 
     def _toggle_hotkeys(self) -> None:
@@ -565,6 +657,11 @@ class ScumMapApp(tk.Tk):
         self.log_line(f"Запущено: {', '.join(names)}")
         self.log_line("В SCUM: Ctrl+C — мгновенная отправка. F1/авто сами пробуют Ctrl+C в игре.")
         self.log_line("Если авто шлёт старые координаты — игра блокирует эмуляцию, жмите Ctrl+C вручную.")
+        sid = (self.steam_id_var.get() or self.settings.get("steam_id") or "").strip()
+        if sid:
+            self._sync_steam_id_to_server(sid, quiet=True)
+        else:
+            self._detect_steam_id_silent()
 
         # If coords already in clipboard at start — send now (off UI thread)
         def check_existing() -> None:

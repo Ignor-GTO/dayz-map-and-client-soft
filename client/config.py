@@ -73,6 +73,7 @@ DEFAULT_CONFIG = {
     "scum_auto_interval_sec": 30,
     "scum_hotkey_send_pos": ["f1"],
     "scum_copy_delay_ms": 350,
+    "steam_id": "",
 }
 
 

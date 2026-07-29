@@ -35,6 +35,7 @@ from app.models import MapPoi, Marker, Position, Room, ServerApiKey, Trader, Tra
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.server_ingest import ingest_players
 from app.schemas import (
+    ClientSteamIdRequest,
     CoordsPayload,
     LoginRequest,
     LoginRequirementsRequest,
@@ -830,6 +831,21 @@ async def send_map_command(
 
     await manager.send_to_user(user.id, {"type": "map_command", "data": {"action": action}})
     return {"ok": True}
+
+
+@router.post("/client/steam-id")
+async def client_set_steam_id(
+    payload: ClientSteamIdRequest,
+    user: Annotated[User, Depends(authenticate_client)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Bind SteamID64 to the map user (from ScumMapClient auto-detect)."""
+    raw = payload.steam_id.strip()
+    if not raw.isdigit() or not (15 <= len(raw) <= 20):
+        raise HTTPException(status_code=400, detail="steam_id must be SteamID64 digits")
+    user.steam_id = raw
+    await db.commit()
+    return {"ok": True, "steam_id": raw}
 
 
 @router.patch("/markers/{marker_id}", response_model=MarkerResponse)

@@ -49,3 +49,21 @@ class MapClient:
             return False, f"HTTP {r.status_code}"
         except httpx.HTTPError as e:
             return False, f"Ошибка сети: {e}"
+
+    def set_steam_id(self, steam_id: str) -> tuple[bool, str]:
+        try:
+            r = httpx.post(
+                f"{self.base}/api/client/steam-id",
+                json={"steam_id": steam_id},
+                headers=self.headers,
+                timeout=10,
+            )
+            if r.status_code == 200:
+                return True, ""
+            try:
+                detail = r.json().get("detail") or r.text
+            except Exception:
+                detail = r.text
+            return False, f"HTTP {r.status_code}: {detail}"
+        except httpx.HTTPError as e:
+            return False, f"Ошибка сети: {e}"

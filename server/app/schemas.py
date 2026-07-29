@@ -57,6 +57,10 @@ class CoordsPayload(BaseModel):
     type: str | None = None
 
 
+class ClientSteamIdRequest(BaseModel):
+    steam_id: str = Field(min_length=15, max_length=32)
+
+
 class MarkerResponse(BaseModel):
     id: int
     user_id: int
