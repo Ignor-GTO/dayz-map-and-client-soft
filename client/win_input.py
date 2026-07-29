@@ -55,7 +55,13 @@ class INPUT_UNION(ctypes.Union):
 
 
 class INPUT(ctypes.Structure):
-    _fields_ = [("type", wintypes.DWORD), ("union", INPUT_UNION)]
+    """Win32 INPUT — explicit pad so union is 8-byte aligned on x64 (sizeof must be 40)."""
+
+    _fields_ = [
+        ("type", wintypes.DWORD),
+        ("_pad", wintypes.DWORD),
+        ("union", INPUT_UNION),
+    ]
 
 
 class POINT(ctypes.Structure):
@@ -81,9 +87,12 @@ WM_HOTKEY = 0x0312
 WM_QUIT = 0x0012
 HWND_MESSAGE = wintypes.HWND(-3)
 
-# SendInput expects this size; wrong sizeof is a common cause of return 0.
+# SendInput expects this size; wrong sizeof is a common cause of AV / return 0.
 user32.SendInput.argtypes = [wintypes.UINT, ctypes.POINTER(INPUT), ctypes.c_int]
 user32.SendInput.restype = wintypes.UINT
+user32.keybd_event.argtypes = [wintypes.BYTE, wintypes.BYTE, wintypes.DWORD, ULONG_PTR]
+user32.keybd_event.restype = None
+
 
 VK_BY_NAME: dict[str, int] = {
     "f1": 0x70,
@@ -115,56 +124,69 @@ VK_BY_NAME: dict[str, int] = {
 
 
 def _key(vk: int, flags: int = 0) -> INPUT:
-    inp = INPUT(type=INPUT_KEYBOARD)
-    inp.union.ki = KEYBDINPUT(wVk=vk, wScan=0, dwFlags=flags, time=0, dwExtraInfo=0)
+    inp = INPUT()
+    inp.type = INPUT_KEYBOARD
+    inp._pad = 0
+    inp.union.ki.wVk = vk
+    inp.union.ki.wScan = 0
+    inp.union.ki.dwFlags = flags
+    inp.union.ki.time = 0
+    inp.union.ki.dwExtraInfo = 0
     return inp
 
 
 def _send_input(seq: ctypes.Array) -> int:
     n = len(seq)
-    sent = int(user32.SendInput(n, seq, ctypes.sizeof(INPUT)))
-    return sent
+    cb = ctypes.sizeof(INPUT)
+    # Must be 40 on x64; refuse rather than AV
+    if cb < 28:
+        return 0
+    return int(user32.SendInput(n, ctypes.byref(seq), cb))
 
 
 def _keybd_event_ctrl_c() -> None:
-    """Fallback when SendInput fails (legacy API, still works for many games)."""
+    """Legacy keybd_event — safer than a mis-sized SendInput."""
     user32.keybd_event(VK_CONTROL, 0, 0, 0)
     user32.keybd_event(VK_C, 0, 0, 0)
     user32.keybd_event(VK_C, 0, KEYEVENTF_KEYUP, 0)
     user32.keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0)
 
 
-def send_ctrl_c() -> None:
-    """Send Ctrl+C via SendInput, then always also keybd_event (some games ignore one API)."""
-    seq = (INPUT * 4)(
-        _key(VK_CONTROL),
-        _key(VK_C),
-        _key(VK_C, KEYEVENTF_KEYUP),
-        _key(VK_CONTROL, KEYEVENTF_KEYUP),
-    )
-    try:
-        _send_input(seq)
-    except Exception:
-        pass
-    # Small gap so the game sees a clean second attempt
+def send_ctrl_c() -> bool:
+    """Best-effort Ctrl+C. Never raises (auto/F1 must not crash on AV)."""
     import time
 
-    time.sleep(0.03)
-    _keybd_event_ctrl_c()
+    # Prefer keybd_event first — SendInput with wrong layout historically AVd here.
+    try:
+        _keybd_event_ctrl_c()
+    except Exception:
+        pass
+    time.sleep(0.02)
+    try:
+        seq = (INPUT * 4)(
+            _key(VK_CONTROL),
+            _key(VK_C),
+            _key(VK_C, KEYEVENTF_KEYUP),
+            _key(VK_CONTROL, KEYEVENTF_KEYUP),
+        )
+        sent = _send_input(seq)
+        return sent == 4
+    except Exception:
+        return False
 
 
 def send_key(vk: int) -> None:
-    seq = (INPUT * 2)(_key(vk), _key(vk, KEYEVENTF_KEYUP))
-    sent = _send_input(seq)
-    if sent == 2:
-        return
-    err = int(kernel32.GetLastError())
+    try:
+        seq = (INPUT * 2)(_key(vk), _key(vk, KEYEVENTF_KEYUP))
+        if _send_input(seq) == 2:
+            return
+    except Exception:
+        pass
     try:
         user32.keybd_event(vk, 0, 0, 0)
         user32.keybd_event(vk, 0, KEYEVENTF_KEYUP, 0)
     except Exception as exc:
-        raise OSError(f"SendInput key={sent} lastError={err}; keybd_event failed: {exc}") from exc
-
+        raise OSError(f"send_key failed for vk={vk}: {exc}") from exc
 def find_window_hwnd(*title_parts: str) -> int:
     """Find first visible top-level window whose title contains any of title_parts."""
     parts = [p.lower() for p in title_parts if p]
