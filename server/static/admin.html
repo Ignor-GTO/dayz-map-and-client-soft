@@ -47,6 +47,7 @@
         <button type="button" class="tab" data-tab="buildings">🏢 Здания</button>
         <button type="button" class="tab" data-tab="pins">PIN группы</button>
         <button type="button" class="tab" data-tab="users">Пользователи</button>
+        <button type="button" class="tab" data-tab="server-api">Server API</button>
         <button type="button" class="tab" data-tab="password">Аккаунты</button>
       </nav>
 
@@ -354,7 +355,7 @@
 
       <div id="tab-users" class="tab-panel hidden">
         <h2>Пользователи карты</h2>
-        <p class="muted">Все игроки, вошедшие по PIN. Можно сменить группу и назначить роль.</p>
+        <p class="muted">Все игроки, вошедшие по PIN. Для серверных позиций укажите SteamID64.</p>
         <label>
           Карта
           <select id="users-map-select">
@@ -363,6 +364,56 @@
         </label>
         <p id="users-role-hint" class="muted hidden">Модератор может назначать только роли «Игрок» и «VIP».</p>
         <div id="users-list" class="users-table-wrap"></div>
+      </div>
+
+      <div id="tab-server-api" class="tab-panel hidden">
+        <h2>Server API — позиции с игрового сервера</h2>
+        <p class="muted">
+          Агент на SCUM-сервере (RCON / логи) шлёт координаты сюда.
+          Клиент игроку нужен только для zoom / «на себя».
+        </p>
+
+        <div class="admin-form">
+          <h3>Формат запроса</h3>
+          <pre class="code-block" id="server-api-docs">POST /api/server/positions
+Authorization: Bearer smk_…
+Content-Type: application/json
+
+{
+  "players": [
+    {
+      "steam_id": "76561198011111111",
+      "nickname": "ShadowWolf",
+      "x": -145230.0,
+      "y": 87420.0,
+      "z": 12300.5
+    }
+  ]
+}</pre>
+          <p class="muted">
+            Сопоставление: сначала <code>steam_id</code>, иначе <code>nickname</code> (без учёта регистра)
+            среди пользователей карты (и PIN-группы, если ключ ограничен).
+            Поле <code>z</code> игнорируется. Ответ: <code>{"ok":true,"updated":N,"skipped":[…]}</code>.
+          </p>
+        </div>
+
+        <form id="server-api-key-form" class="admin-form">
+          <h3>Создать API-ключ</h3>
+          <div class="form-grid">
+            <label>Название <input name="name" value="SCUM server" required maxlength="128"></label>
+            <label>Карта
+              <select id="server-api-map-select" name="map_slug" required></select>
+            </label>
+            <label>PIN группа (опц.)
+              <select id="server-api-room-select" name="room_id">
+                <option value="">Все группы карты</option>
+              </select>
+            </label>
+          </div>
+          <button type="submit">Создать ключ</button>
+        </form>
+        <p id="server-api-key-created" class="success hidden"></p>
+        <div id="server-api-keys-list" class="card-list"></div>
       </div>
 
       <div id="tab-password" class="tab-panel hidden">

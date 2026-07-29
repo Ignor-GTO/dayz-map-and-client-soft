@@ -127,6 +127,8 @@ class User(Base):
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), index=True)
     nickname: Mapped[str] = mapped_column(String(64))
     client_key_hash: Mapped[str] = mapped_column(String(128))
+    # Optional SteamID64 for matching positions from game-server logs / RCON.
+    steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     # Optional password to protect nickname from impersonation within a PIN group.
     profile_password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -255,3 +257,23 @@ class AdminAccount(Base):
     # admin — full panel access; moderator — panel without account management
     role: Mapped[str] = mapped_column(String(16), default="admin", server_default="admin")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ServerApiKey(Base):
+    """API key for game-server agents pushing player positions (RCON/logs → map)."""
+
+    __tablename__ = "server_api_keys"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), default="SCUM server")
+    key_prefix: Mapped[str] = mapped_column(String(16))  # first chars for UI
+    key_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    # If set, only users in this PIN room; if null — any room on the map.
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"), nullable=True, index=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    map: Mapped["DayZMap"] = relationship()
+    room: Mapped["Room | None"] = relationship()

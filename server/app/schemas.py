@@ -272,6 +272,7 @@ class AdminUserUpdateRequest(BaseModel):
     room_id: int | None = None
     role: str | None = Field(default=None, pattern="^(user|vip|moderator|admin)$")
     nickname: str | None = Field(default=None, min_length=2, max_length=64)
+    steam_id: str | None = Field(default=None, max_length=32)
 
 
 class AdminUserResponse(BaseModel):
@@ -282,7 +283,54 @@ class AdminUserResponse(BaseModel):
     pin: str
     map_slug: str
     map_name: str
+    steam_id: str | None = None
     created_at: datetime
+
+
+class ServerPlayerPosition(BaseModel):
+    """One player snapshot from RCON #ListPlayers / login logs."""
+
+    x: float
+    y: float
+    z: float | None = None
+    steam_id: str | None = Field(default=None, max_length=32)
+    nickname: str | None = Field(default=None, max_length=64)
+    steam_name: str | None = Field(default=None, max_length=128)
+
+
+class ServerPositionsRequest(BaseModel):
+    players: list[ServerPlayerPosition] = Field(min_length=1, max_length=200)
+
+
+class ServerPositionsResponse(BaseModel):
+    ok: bool = True
+    updated: int
+    skipped: list[dict]
+
+
+class ServerApiKeyCreateRequest(BaseModel):
+    name: str = Field(default="SCUM server", min_length=1, max_length=128)
+    map_slug: str = Field(min_length=2, max_length=64)
+    room_id: int | None = None
+
+
+class ServerApiKeyResponse(BaseModel):
+    id: int
+    name: str
+    key_prefix: str
+    map_slug: str
+    map_name: str
+    room_id: int | None = None
+    room_pin: str | None = None
+    enabled: bool
+    created_at: datetime
+    last_used_at: datetime | None = None
+
+
+class ServerApiKeyCreatedResponse(ServerApiKeyResponse):
+    """Includes plaintext key — shown only once on create."""
+
+    api_key: str
 
 
 class AdminAccountResponse(BaseModel):

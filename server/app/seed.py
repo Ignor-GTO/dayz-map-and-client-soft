@@ -284,6 +284,13 @@ def _migrate_sqlite(conn) -> None:
     if user_cols and "avatar_url" not in user_cols:
         conn.execute(text("ALTER TABLE users ADD COLUMN avatar_url TEXT"))
         logger.info("Added users.avatar_url column")
+    if user_cols and "steam_id" not in user_cols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN steam_id VARCHAR(32)"))
+        logger.info("Added users.steam_id column")
+        try:
+            conn.execute(text("CREATE INDEX ix_users_steam_id ON users (steam_id)"))
+        except Exception:
+            pass
 
     room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
     if room_cols and "entry_password_hash" not in room_cols:
@@ -317,6 +324,24 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_admin_accounts_login ON admin_accounts (login)"))
         logger.info("Created admin_accounts table")
 
+    if "server_api_keys" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE server_api_keys ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  name VARCHAR(128) NOT NULL,"
+            "  key_prefix VARCHAR(16) NOT NULL,"
+            "  key_hash VARCHAR(128) NOT NULL UNIQUE,"
+            "  map_id INTEGER NOT NULL REFERENCES dayz_maps(id),"
+            "  room_id INTEGER REFERENCES rooms(id),"
+            "  enabled BOOLEAN NOT NULL DEFAULT 1,"
+            "  created_at DATETIME,"
+            "  last_used_at DATETIME"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_server_api_keys_key_hash ON server_api_keys (key_hash)"))
+        conn.execute(text("CREATE INDEX ix_server_api_keys_map_id ON server_api_keys (map_id)"))
+        conn.execute(text("CREATE INDEX ix_server_api_keys_room_id ON server_api_keys (room_id)"))
+        logger.info("Created server_api_keys table")
 
 
 def default_map_kwargs() -> dict:

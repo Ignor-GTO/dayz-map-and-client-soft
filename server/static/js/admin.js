@@ -36,6 +36,7 @@ function switchTab(name) {
     window.RadiationEditor.setMode?.(name === "psi" ? "psi" : "radiation");
   }
   if (name === "users") loadUsers();
+  if (name === "server-api") loadServerApiKeys();
   if (name === "password") loadAdminAccounts();
   if (name === "pois") {
     ensurePoiAdminMap().then(() => refreshPoiAdminMap());
@@ -323,6 +324,20 @@ async function loadMaps() {
     if (current) usersSel.value = current;
   }
 
+  const serverApiSel = document.getElementById("server-api-map-select");
+  if (serverApiSel) {
+    const current = serverApiSel.value;
+    serverApiSel.innerHTML = mapsCache.map((m) =>
+      `<option value="${m.slug}">${m.name}</option>`
+    ).join("");
+    const preferScum = mapsCache.find((m) => m.slug === "scum");
+    if (current && mapsCache.some((m) => m.slug === current)) {
+      serverApiSel.value = current;
+    } else if (preferScum) {
+      serverApiSel.value = "scum";
+    }
+  }
+
   if (window.RadiationEditor) {
     window.RadiationEditor.refreshMapSelect();
   }
@@ -410,6 +425,7 @@ async function loadUsers() {
       <thead>
         <tr>
           <th>Ник</th>
+          <th>SteamID64</th>
           <th>Карта</th>
           <th>PIN группа</th>
           <th>Роль</th>
@@ -426,6 +442,7 @@ async function loadUsers() {
           return `
             <tr data-user-id="${u.id}">
               <td><input class="user-nickname" type="text" value="${escapeHtml(u.nickname)}" maxlength="64"></td>
+              <td><input class="user-steam" type="text" value="${escapeHtml(u.steam_id || "")}" maxlength="32" placeholder="7656119…"></td>
               <td>${escapeHtml(u.map_name)}</td>
               <td><select class="user-room">${roomOptions}</select></td>
               <td><select class="user-role" ${roleLocked ? "disabled title=\"Роль admin/moderator может менять только администратор\"" : ""}>${mapUserRoleOptions(u.role || "user", isModerator)}</select></td>
@@ -548,6 +565,100 @@ document.getElementById("rooms-list")?.addEventListener("click", async (e) => {
 
 document.getElementById("users-map-select")?.addEventListener("change", loadUsers);
 
+async function refreshServerApiRooms() {
+  const slug = document.getElementById("server-api-map-select")?.value;
+  const sel = document.getElementById("server-api-room-select");
+  if (!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">Все группы карты</option>`;
+  if (!slug) return;
+  await loadRoomsForMap(slug);
+  const rooms = roomsByMap[slug] || [];
+  sel.innerHTML += rooms.map((r) =>
+    `<option value="${r.id}">${escapeHtml(r.pin)}</option>`
+  ).join("");
+  if (current) sel.value = current;
+}
+
+async function loadServerApiKeys() {
+  await loadMaps();
+  await refreshServerApiRooms();
+  const keys = await api("/api/admin/server-api-keys");
+  const list = document.getElementById("server-api-keys-list");
+  if (!list) return;
+  list.innerHTML = keys.length
+    ? keys.map((k) => `
+      <div class="card" data-id="${k.id}">
+        <div class="card-head">
+          <strong>${escapeHtml(k.name)}</strong>
+          <span class="badge ${k.enabled ? "on" : "off"}">${k.enabled ? "вкл" : "выкл"}</span>
+        </div>
+        <div class="card-meta">
+          префикс: <code>${escapeHtml(k.key_prefix)}…</code>
+          · ${escapeHtml(k.map_name)}
+          · PIN: ${k.room_pin ? escapeHtml(k.room_pin) : "все"}
+          ${k.last_used_at ? ` · last: ${escapeHtml(k.last_used_at)}` : ""}
+        </div>
+        <div class="card-actions">
+          <button type="button" class="secondary toggle-server-api-key" data-id="${k.id}">
+            ${k.enabled ? "Отключить" : "Включить"}
+          </button>
+          <button type="button" class="danger delete-server-api-key" data-id="${k.id}">Удалить</button>
+        </div>
+      </div>
+    `).join("")
+    : "<p class='muted'>Ключей пока нет — создайте выше.</p>";
+}
+
+document.getElementById("server-api-map-select")?.addEventListener("change", refreshServerApiRooms);
+
+document.getElementById("server-api-key-form")?.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const roomRaw = String(fd.get("room_id") || "").trim();
+  const msg = document.getElementById("server-api-key-created");
+  try {
+    const created = await api("/api/admin/server-api-keys", {
+      method: "POST",
+      body: JSON.stringify({
+        name: String(fd.get("name") || "SCUM server").trim(),
+        map_slug: String(fd.get("map_slug") || "scum").trim(),
+        room_id: roomRaw ? Number(roomRaw) : null,
+      }),
+    });
+    if (msg) {
+      msg.innerHTML =
+        `Ключ создан (скопируйте сейчас, больше не покажем):<br><code style="word-break:break-all">${escapeHtml(created.api_key)}</code>`;
+      msg.classList.remove("hidden");
+    }
+    await loadServerApiKeys();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+document.getElementById("server-api-keys-list")?.addEventListener("click", async (e) => {
+  const toggle = e.target.closest(".toggle-server-api-key");
+  const del = e.target.closest(".delete-server-api-key");
+  if (toggle) {
+    try {
+      await api(`/api/admin/server-api-keys/${toggle.dataset.id}/toggle`, { method: "POST" });
+      await loadServerApiKeys();
+    } catch (err) {
+      alert(err.message);
+    }
+    return;
+  }
+  if (!del) return;
+  if (!confirm("Удалить API-ключ?")) return;
+  try {
+    await api(`/api/admin/server-api-keys/${del.dataset.id}`, { method: "DELETE" });
+    await loadServerApiKeys();
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
 document.getElementById("users-list")?.addEventListener("click", async (e) => {
   const saveBtn = e.target.closest(".save-user");
   const delBtn = e.target.closest(".delete-user");
@@ -560,6 +671,7 @@ document.getElementById("users-list")?.addEventListener("click", async (e) => {
       const payload = {
         nickname: row.querySelector(".user-nickname")?.value?.trim(),
         room_id: Number(row.querySelector(".user-room")?.value),
+        steam_id: row.querySelector(".user-steam")?.value?.trim() || null,
       };
       if (roleEl && !roleEl.disabled) {
         payload.role = roleEl.value;

@@ -109,7 +109,16 @@
   color: var(--text);
 }
 
-.users-table-wrap {
+.code-block {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 12px 14px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
   margin-top: 1rem;
   overflow-x: auto;
 }

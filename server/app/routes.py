@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import (
     authenticate_client,
+    authenticate_server_api_key,
     channel_key,
     clear_session,
     generate_client_key,
@@ -30,14 +31,17 @@ from app.marker_upload import delete_marker_image_file, save_marker_image
 from app.avatar_upload import delete_avatar_file, save_avatar_image
 from app.poi_icons import normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
-from app.models import MapPoi, Marker, Position, Room, Trader, TraderItem, TraderSection, TraderSubsection, User
+from app.models import MapPoi, Marker, Position, Room, ServerApiKey, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
+from app.server_ingest import ingest_players
 from app.schemas import (
     CoordsPayload,
     LoginRequest,
     LoginRequirementsRequest,
     LoginRequirementsResponse,
     LoginResponse,
+    ServerPositionsRequest,
+    ServerPositionsResponse,
     MapConfigResponse,
     MapListItem,
     MapLocationsResponse,
@@ -706,6 +710,18 @@ async def update_position(
     }
     await manager.broadcast(ch, event)
     return {"ok": True}
+
+
+@router.post("/server/positions", response_model=ServerPositionsResponse)
+async def server_push_positions(
+    payload: ServerPositionsRequest,
+    api_key: Annotated[ServerApiKey, Depends(authenticate_server_api_key)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Game-server agent: push live player coords (RCON / logs). Auth: Bearer smk_…"""
+    players = [p.model_dump() for p in payload.players]
+    result = await ingest_players(db, api_key, players)
+    return ServerPositionsResponse(**result)
 
 
 @router.post("/client/marker", response_model=MarkerResponse)

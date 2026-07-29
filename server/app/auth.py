@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import SECRET_KEY, SESSION_COOKIE
 from app.database import get_db
-from app.models import AdminAccount, DayZMap, Room, User
+from app.models import AdminAccount, DayZMap, Room, ServerApiKey, User
 
 serializer = URLSafeSerializer(SECRET_KEY, salt="dayz-map-session")
 admin_serializer = URLSafeSerializer(SECRET_KEY, salt="dayz-map-admin")
@@ -33,6 +33,15 @@ def verify_password(password: str, stored_hash: str | None) -> bool:
 
 def generate_client_key() -> str:
     return secrets.token_urlsafe(32)
+
+
+def generate_server_api_key() -> str:
+    """Plaintext server ingest key (shown once). Prefix smk_ for easy recognition."""
+    return "smk_" + secrets.token_urlsafe(32)
+
+
+def hash_api_key(key: str) -> str:
+    return hash_client_key(key.strip())
 
 
 def channel_key(map_id: int, room_id: int) -> str:
@@ -200,6 +209,39 @@ async def authenticate_client(
     authorization: Annotated[str | None, Header()] = None,
 ) -> User:
     return await get_user_by_client_key(db, authorization)
+
+
+async def get_server_api_key(
+    db: AsyncSession,
+    authorization: str | None,
+    x_api_key: str | None = None,
+) -> ServerApiKey:
+    raw = None
+    if authorization and authorization.startswith("Bearer "):
+        raw = authorization.removeprefix("Bearer ").strip()
+    elif x_api_key:
+        raw = x_api_key.strip()
+    if not raw:
+        raise HTTPException(status_code=401, detail="Missing server API key")
+
+    key_hash = hash_api_key(raw)
+    result = await db.execute(
+        select(ServerApiKey)
+        .options(selectinload(ServerApiKey.map), selectinload(ServerApiKey.room))
+        .where(ServerApiKey.key_hash == key_hash)
+    )
+    api_key = result.scalar_one_or_none()
+    if not api_key or not api_key.enabled:
+        raise HTTPException(status_code=401, detail="Invalid server API key")
+    return api_key
+
+
+async def authenticate_server_api_key(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    authorization: Annotated[str | None, Header()] = None,
+    x_api_key: Annotated[str | None, Header(alias="X-Api-Key")] = None,
+) -> ServerApiKey:
+    return await get_server_api_key(db, authorization, x_api_key)
 
 
 async def get_current_user_from_ws(db: AsyncSession, token: str | None) -> User | None:

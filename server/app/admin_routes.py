@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import (
     clear_admin_session,
+    generate_server_api_key,
+    get_map_by_slug,
+    hash_api_key,
     require_admin,
     require_admin_role,
     set_admin_session,
@@ -19,6 +22,7 @@ from app.models import (
     MapPoi,
     Marker,
     Room,
+    ServerApiKey,
     Trader,
     TraderItem,
     TraderSection,
@@ -58,6 +62,9 @@ from app.schemas import (
     MapBuildingResponse,
     MapBuildingUpdate,
     PoiCreateRequest,
+    ServerApiKeyCreateRequest,
+    ServerApiKeyCreatedResponse,
+    ServerApiKeyResponse,
     PoiUpdateRequest,
     RadiationSaveRequest,
     RoadSegmentCreate,
@@ -167,7 +174,23 @@ def _user_response(user: User, room: Room, game_map: DayZMap) -> AdminUserRespon
         pin=room.pin,
         map_slug=game_map.slug,
         map_name=game_map.name,
+        steam_id=user.steam_id,
         created_at=user.created_at,
+    )
+
+
+def _server_api_key_response(row: ServerApiKey, game_map: DayZMap, room: Room | None) -> ServerApiKeyResponse:
+    return ServerApiKeyResponse(
+        id=row.id,
+        name=row.name,
+        key_prefix=row.key_prefix,
+        map_slug=game_map.slug,
+        map_name=game_map.name,
+        room_id=row.room_id,
+        room_pin=room.pin if room else None,
+        enabled=bool(row.enabled),
+        created_at=row.created_at,
+        last_used_at=row.last_used_at,
     )
 
 
@@ -349,6 +372,15 @@ async def admin_update_user(
             raise HTTPException(status_code=400, detail="Nickname is required")
         user.nickname = nickname
 
+    if "steam_id" in payload.model_fields_set:
+        raw = (payload.steam_id or "").strip()
+        if not raw:
+            user.steam_id = None
+        elif not raw.isdigit() or not (15 <= len(raw) <= 20):
+            raise HTTPException(status_code=400, detail="steam_id must be SteamID64 digits")
+        else:
+            user.steam_id = raw
+
     try:
         await db.commit()
     except IntegrityError:
@@ -356,6 +388,79 @@ async def admin_update_user(
         raise HTTPException(status_code=400, detail="Nickname already exists in this PIN group")
     await db.refresh(user)
     return _user_response(user, room, game_map)
+
+
+@router.get("/server-api-keys", response_model=list[ServerApiKeyResponse])
+async def admin_list_server_api_keys(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+):
+    rows = (
+        await db.execute(
+            select(ServerApiKey, DayZMap, Room)
+            .join(DayZMap, ServerApiKey.map_id == DayZMap.id)
+            .outerjoin(Room, ServerApiKey.room_id == Room.id)
+            .order_by(ServerApiKey.id.desc())
+        )
+    ).all()
+    return [_server_api_key_response(key, game_map, room) for key, game_map, room in rows]
+
+
+@router.post("/server-api-keys", response_model=ServerApiKeyCreatedResponse)
+async def admin_create_server_api_key(
+    payload: ServerApiKeyCreateRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+):
+    game_map = await get_map_by_slug(db, payload.map_slug, require_enabled=False)
+    room = None
+    if payload.room_id is not None:
+        room = await db.get(Room, payload.room_id)
+        if not room or room.map_id != game_map.id:
+            raise HTTPException(status_code=400, detail="room_id does not belong to this map")
+
+    plain = generate_server_api_key()
+    row = ServerApiKey(
+        name=payload.name.strip() or "SCUM server",
+        key_prefix=plain[:12],
+        key_hash=hash_api_key(plain),
+        map_id=game_map.id,
+        room_id=room.id if room else None,
+        enabled=True,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    base = _server_api_key_response(row, game_map, room)
+    return ServerApiKeyCreatedResponse(**base.model_dump(), api_key=plain)
+
+
+@router.post("/server-api-keys/{key_id}/toggle")
+async def admin_toggle_server_api_key(
+    key_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+):
+    row = await db.get(ServerApiKey, key_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="API key not found")
+    row.enabled = not bool(row.enabled)
+    await db.commit()
+    return {"ok": True, "enabled": row.enabled}
+
+
+@router.delete("/server-api-keys/{key_id}")
+async def admin_delete_server_api_key(
+    key_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[AdminAccount, Depends(require_admin)],
+):
+    row = await db.get(ServerApiKey, key_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="API key not found")
+    await db.delete(row)
+    await db.commit()
+    return {"ok": True}
 
 
 @router.delete("/users/{user_id}")
