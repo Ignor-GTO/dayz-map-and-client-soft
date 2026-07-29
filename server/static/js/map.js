@@ -12,6 +12,9 @@ const state = {
   poiMarkers: new Map(),
   locationLayer: null,
   locationEntries: [],
+  locationData: [],
+  locationMarkersByKey: new Map(),
+  locationRenderTimer: null,
   radiationLayer: null,
   psiLayer: null,
   radiationOverlay: null,
@@ -382,6 +385,7 @@ function initLeaflet(config) {
     maxBoundsViscosity: 1.0,
     zoomControl: true,
     attributionControl: true,
+    preferCanvas: scum,
   });
 
   if (scum && typeof SCUM_COORDS !== "undefined") {
@@ -399,16 +403,19 @@ function initLeaflet(config) {
   state.psiLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
   state.buildingLayer = L.layerGroup().addTo(state.map);
-  state.map.on("zoomend", updateLocationVisibility);
+  state.map.on("zoomend", () => {
+    updateLocationVisibility();
+    saveMapView();
+  });
   state.map.on("moveend", () => {
     // Keep anchor synced with where user is currently looking
     // unless this movement came from a programmatic client zoom step.
     if (!state.commandZoomApplying) {
       rememberCommandZoomAnchor(state.map.getCenter());
     }
+    updateLocationVisibility();
     saveMapView();
   });
-  state.map.on("zoomend", saveMapView);
 
   state.map.on("click", (e) => {
     closeMapContextMenu();
@@ -2323,12 +2330,122 @@ function locationMinMapZoom(minZoom) {
     if (z <= 1) return 0;
     if (z === 2) return 1;
     if (z === 3) return 2;
-    return 3;
+    if (z === 4) return 3;
+    return 4;
   }
   if (minZoom <= 1) return 0;
   if (minZoom === 2) return 2;
   if (minZoom === 3) return 3;
   return 4;
+}
+
+const LOCATION_MAX_VISIBLE = 900;
+const LOCATION_VIEW_PAD = 0.2;
+
+function clearLocationMarkers() {
+  if (state.locationLayer) state.locationLayer.clearLayers();
+  if (state.locationMarkersByKey) state.locationMarkersByKey.clear();
+  state.locationEntries = [];
+}
+
+function scheduleLocationRender(immediate = false) {
+  if (state.locationRenderTimer) {
+    clearTimeout(state.locationRenderTimer);
+    state.locationRenderTimer = null;
+  }
+  const delay = immediate ? 0 : 70;
+  state.locationRenderTimer = setTimeout(() => {
+    state.locationRenderTimer = null;
+    applyLocationFilters();
+  }, delay);
+}
+
+function scumLocationPopupHtml(loc) {
+  const title = escapeFilterHtml(loc.title || "");
+  const descRaw = String(loc.description || "").trim();
+  const desc =
+    descRaw && descRaw.toLowerCase() !== String(loc.title || "").trim().toLowerCase()
+      ? `<div class="poi-desc">${escapeFilterHtml(descRaw)}</div>`
+      : "";
+  const imgs = [];
+  if (Array.isArray(loc.images)) {
+    loc.images.forEach((u) => {
+      if (u && !imgs.includes(u)) imgs.push(u);
+    });
+  }
+  if (loc.image && !imgs.includes(loc.image)) imgs.unshift(loc.image);
+  const imgHtml = imgs.length
+    ? `<div class="scum-loc-gallery">${imgs
+        .slice(0, 4)
+        .map(
+          (u) =>
+            `<img class="marker-popup-img" src="${escapeFilterHtml(u)}" data-full="${escapeFilterHtml(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`,
+        )
+        .join("")}</div>`
+    : "";
+  const coords = `<div class="marker-popup-meta"><span class="poi-coords">${Math.round(loc.x)} / ${Math.round(loc.y)}</span></div>`;
+  const actions = `<div class="marker-popup-actions"><button type="button" class="marker-route" data-x="${loc.x}" data-y="${loc.y}">Маршрут</button></div>`;
+  return `<b>${title}</b>${desc}${imgHtml}${coords}${actions}`;
+}
+
+function createLocationMarker(entry) {
+  const loc = entry.loc;
+  const latlng = L.latLng(entry.lat, entry.lng);
+  const scumPins = isScumConfig() || loc.label_class === "scum-pin";
+  let marker;
+
+  if (scumPins && loc.dense) {
+    marker = L.circleMarker(latlng, {
+      radius: 5,
+      color: "#1a1a1a",
+      weight: 1,
+      fillColor: loc.color || "#888",
+      fillOpacity: 0.92,
+      pane: "labelsPane",
+      interactive: true,
+    });
+  } else if (scumPins) {
+    const color = loc.color || "#888";
+    const emoji = scumIconEmoji(loc.icon);
+    marker = L.marker(latlng, {
+      icon: L.divIcon({
+        className: "scum-map-pin-wrap",
+        html: `<div class="scum-map-pin" style="--pin:${escapeFilterHtml(color)}" title="${escapeFilterHtml(loc.title)}"><span>${emoji}</span></div>`,
+        iconSize: [28, 36],
+        iconAnchor: [14, 34],
+      }),
+      interactive: true,
+      pane: "labelsPane",
+    });
+  } else {
+    marker = L.marker(latlng, {
+      icon: L.divIcon({
+        className: `map-label type-${loc.label_class || "local"}`,
+        html: `<span>${escapeFilterHtml(loc.title)}</span>`,
+        iconSize: [200, 30],
+        iconAnchor: [100, 15],
+      }),
+      interactive: false,
+      pane: "labelsPane",
+    });
+  }
+
+  if (scumPins) {
+    marker.bindTooltip(escapeFilterHtml(loc.title), {
+      direction: "top",
+      offset: loc.dense ? [0, -6] : [0, -28],
+      opacity: 0.95,
+    });
+    marker.bindPopup(() => scumLocationPopupHtml(loc), {
+      maxWidth: 320,
+      className: "scum-loc-popup",
+    });
+  }
+
+  marker._locMeta = loc;
+  marker._locId = entry.idx;
+  marker._locKey = entry.key;
+  return marker;
 }
 
 const SCUM_FA_EMOJI = {
@@ -2435,59 +2552,71 @@ function ensureScumFilterDefaults(sections) {
 
 function renderLocationLabels(locations) {
   if (!state.locationLayer) return;
-  state.locationLayer.clearLayers();
-  state.locationEntries = [];
-
-  const scumPins = isScumConfig();
-  locations.forEach((loc, idx) => {
+  clearLocationMarkers();
+  state.locationData = (locations || []).map((loc, idx) => {
     const latlng = gameToLatLng(loc.x, loc.y);
-    let icon;
-    if (scumPins || loc.label_class === "scum-pin") {
-      const color = loc.color || "#888";
-      const emoji = scumIconEmoji(loc.icon);
-      icon = L.divIcon({
-        className: "scum-map-pin-wrap",
-        html: `<div class="scum-map-pin" style="--pin:${escapeFilterHtml(color)}" title="${escapeFilterHtml(loc.title)}"><span>${emoji}</span></div>`,
-        iconSize: [28, 36],
-        iconAnchor: [14, 34],
-      });
-    } else {
-      icon = L.divIcon({
-        className: `map-label type-${loc.label_class || "local"}`,
-        html: `<span>${escapeFilterHtml(loc.title)}</span>`,
-        iconSize: [200, 30],
-        iconAnchor: [100, 15],
-      });
-    }
-    const marker = L.marker(latlng, {
-      icon,
-      interactive: scumPins,
-      pane: "labelsPane",
-    });
-    if (scumPins) {
-      marker.bindTooltip(escapeFilterHtml(loc.title), { direction: "top", offset: [0, -28] });
-    }
-    marker._locMeta = loc;
-    marker._locId = idx;
-    state.locationEntries.push(marker);
+    return {
+      loc,
+      idx,
+      key: String(idx),
+      lat: latlng.lat,
+      lng: latlng.lng,
+    };
   });
-  applyLocationFilters();
+  scheduleLocationRender(true);
 }
 
 function applyLocationFilters() {
   if (!state.locationLayer || !state.map) return;
-  state.locationLayer.clearLayers();
-  if (!state.filters.labels) return;
+  if (!state.filters.labels) {
+    clearLocationMarkers();
+    return;
+  }
 
   const zoom = state.map.getZoom();
-  state.locationEntries.forEach((marker) => {
-    const loc = marker._locMeta;
+  const bounds = state.map.getBounds().pad(LOCATION_VIEW_PAD);
+  const center = state.map.getCenter();
+  const candidates = [];
+
+  for (const entry of state.locationData) {
+    const loc = entry.loc;
     const catId = loc.category;
     // DayZ legacy categories OR SCUM typed ids (scum_123)
-    if (state.filters[catId] === false) return;
-    if (zoom < locationMinMapZoom(loc.min_zoom || 4)) return;
-    state.locationLayer.addLayer(marker);
-  });
+    if (state.filters[catId] === false) continue;
+    if (zoom < locationMinMapZoom(loc.min_zoom || 4)) continue;
+    if (!bounds.contains(L.latLng(entry.lat, entry.lng))) continue;
+    const priority =
+      loc.section_id === "bunkers" || loc.section_id === "points_of_interest"
+        ? 0
+        : loc.dense
+          ? 2
+          : 1;
+    const dist =
+      (entry.lat - center.lat) * (entry.lat - center.lat) +
+      (entry.lng - center.lng) * (entry.lng - center.lng);
+    candidates.push({ entry, priority, dist });
+  }
+
+  candidates.sort((a, b) => a.priority - b.priority || a.dist - b.dist);
+  const visible = candidates.slice(0, LOCATION_MAX_VISIBLE);
+  const wantedKeys = new Set(visible.map((c) => c.entry.key));
+
+  for (const [key, marker] of [...state.locationMarkersByKey.entries()]) {
+    if (wantedKeys.has(key)) continue;
+    state.locationLayer.removeLayer(marker);
+    state.locationMarkersByKey.delete(key);
+  }
+
+  state.locationEntries = [];
+  for (const { entry } of visible) {
+    let marker = state.locationMarkersByKey.get(entry.key);
+    if (!marker) {
+      marker = createLocationMarker(entry);
+      state.locationMarkersByKey.set(entry.key, marker);
+      state.locationLayer.addLayer(marker);
+    }
+    state.locationEntries.push(marker);
+  }
 }
 
 function renderScumFilterPanel(sections) {
@@ -2682,7 +2811,7 @@ function renderFilterPanel(categories, sections = null) {
 }
 
 function updateLocationVisibility() {
-  applyLocationFilters();
+  scheduleLocationRender(false);
 }
 
 function clearRadiationLayers() {
