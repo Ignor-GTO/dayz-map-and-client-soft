@@ -73,7 +73,13 @@ CATEGORY_RU_FALLBACK: dict[str, str] = {
     "Loot containers": "Контейнеры с лутом",
     "Quests": "Квесты",
     "Olive trees": "Оливковые деревья",
+    # Prefer full phrasing over short i18n "Бункеры Второй мировой"
+    "WW2 bunkers": "Бункеры времён Второй мировой войны",
+    "World War 2 Bunkers": "Бункеры времён Второй мировой войны",
 }
+
+# Categories where image filenames are real bunker IDs (D0, C4…), not map-grid aerial codes.
+NAMED_BUNKER_CATEGORY_IDS = {1, 456, 763}
 
 # Higher min_zoom for dense categories (keeps map usable with many filters on).
 DENSE_CATEGORY_IDS = {
@@ -129,10 +135,11 @@ def tr(i18n: dict[str, str], key: str | None, fallback: str | None = None) -> st
     raw = (key or "").strip()
     if not raw:
         return (fallback or "").strip()
-    if raw in i18n:
-        return clean_ru_label(i18n[raw])
+    # Prefer explicit RU fallbacks (fuller phrasing) over short upstream i18n.
     if raw in CATEGORY_RU_FALLBACK:
         return CATEGORY_RU_FALLBACK[raw]
+    if raw in i18n:
+        return clean_ru_label(i18n[raw])
     return clean_ru_label(fallback or raw)
 
 
@@ -248,7 +255,8 @@ def fetch_layers(category_ids: list[int]) -> list[dict]:
     return all_layers
 
 
-def bunker_code_from_images(image_path: str | None, image_list: list | None) -> str | None:
+def grid_code_from_aerial(image_path: str | None, image_list: list | None) -> str | None:
+    """Map-grid codes from aerial photos (a0a, d4a…) — not bunker display names."""
     paths: list[str] = []
     if image_path:
         paths.append(str(image_path))
@@ -257,10 +265,40 @@ def bunker_code_from_images(image_path: str | None, image_list: list | None) -> 
         if fp:
             paths.append(str(fp))
     for path in paths:
-        m = re.search(r"/([a-z]\d+[a-z]?)(?:_bunker)?\.(?:jpg|jpeg|png|webp)$", path, re.I)
+        low = path.lower().replace("\\", "/")
+        if "aerial_photo" not in low and "ww2_bunker" not in low:
+            continue
+        m = re.search(r"/([a-z]\d+[a-z]?)\.(?:jpg|jpeg|png|webp)$", low)
         if m:
             return m.group(1).upper()
-        m = re.search(r"/bunker/([a-z0-9]+)\.(?:jpg|jpeg|png|webp)$", path, re.I)
+    return None
+
+
+def bunker_code_from_images(image_path: str | None, image_list: list | None) -> str | None:
+    """Only from real bunker asset paths — never from WW2 map-grid aerials."""
+    paths: list[str] = []
+    if image_path:
+        paths.append(str(image_path))
+    for item in image_list or []:
+        fp = (item or {}).get("filePath") if isinstance(item, dict) else None
+        if fp:
+            paths.append(str(fp))
+    for path in paths:
+        low = path.lower().replace("\\", "/")
+        if "ww2" in low:
+            continue
+        # Accept official bunker photos/plans, including aerial_photo/bunker/d0.jpg
+        if not any(
+            p in low
+            for p in (
+                "/bunker/",
+                "abandoned_bunker",
+                "place_photo",
+                "/plan/",
+            )
+        ):
+            continue
+        m = re.search(r"/([a-z]\d+[a-z]?)(?:_bunker)?\.(?:jpg|jpeg|png|webp)$", low)
         if m:
             return m.group(1).upper()
     return None
@@ -272,20 +310,14 @@ def nice_title(
     category_label_ru: str,
     number: object | None,
     i18n: dict[str, str],
+    category_id: int | None = None,
     image_path: str | None = None,
     image_list: list | None = None,
 ) -> str:
     title = (raw_title or "").strip()
     cat_en = (category_name_en or "").strip()
     num = str(number).strip() if number not in (None, "", 0, "0") else ""
-
-    # Translate known English titles via i18n when possible.
-    if title and title in i18n:
-        title = clean_ru_label(i18n[title])
-    elif title and title.lower() == cat_en.lower():
-        title = category_label_ru
-    elif not title:
-        title = category_label_ru
+    translated_cat = category_label_ru
 
     # "D1 Bunker" / "Z2 Bunker" → «Бункер D1»
     m = re.match(r"^([A-Za-z]\d+[A-Za-z]?)\s+Bunker$", title, re.I)
@@ -295,28 +327,40 @@ def nice_title(
     if m:
         return f"Бункер {m.group(1).upper()}"
 
-    generic = (not title) or title.lower() in {cat_en.lower(), category_label_ru.lower(), "bunkers", "бункеры"}
-    if generic:
-        code = bunker_code_from_images(image_path, image_list)
-        if code:
-            return f"Бункер {code}"
-        if num and category_label_ru:
-            return f"{category_label_ru} {num}"
-        return category_label_ru or title or "POI"
+    # Marker title is just the category name (WW2 bunkers, Villages, …)
+    title_is_category = (not title) or title.lower() == cat_en.lower()
+    if title_is_category:
+        # Named mega-bunkers (D0/C4…) get an ID; WW2 aerial grid codes must NOT become the title.
+        if category_id in NAMED_BUNKER_CATEGORY_IDS:
+            code = bunker_code_from_images(image_path, image_list)
+            if code:
+                return f"Бункер {code}"
+        if num:
+            return f"{translated_cat} {num}"
+        return translated_cat
+
+    if title in i18n:
+        title = clean_ru_label(i18n[title])
     if num and num not in title:
         return f"{title} ({num})"
-    return title
+    return title or translated_cat or "POI"
 
 
-def short_description(description: str | None, category_label_ru: str, title: str) -> str | None:
+def short_description(
+    description: str | None,
+    category_label_ru: str,
+    title: str,
+    grid_code: str | None = None,
+) -> str | None:
     text = (description or "").strip()
     if text:
-        # Translate if the whole description is an i18n key (rare).
         return text
-    # Lightweight fallback so popup is not empty for important places.
+    parts: list[str] = []
+    if grid_code and grid_code.lower() not in title.lower():
+        parts.append(f"Квадрат {grid_code}")
     if category_label_ru and category_label_ru.lower() not in title.lower():
-        return category_label_ru
-    return None
+        parts.append(category_label_ru)
+    return " · ".join(parts) if parts else None
 
 
 def main() -> None:
@@ -376,6 +420,7 @@ def main() -> None:
             meta["label"],
             layer.get("number"),
             i18n,
+            cid,
             layer.get("imagePath"),
             layer.get("imageList"),
         )
@@ -394,7 +439,8 @@ def main() -> None:
             min_zoom = 1
 
         images = pick_images(layer.get("imagePath"), layer.get("imageList"))
-        desc = short_description(layer.get("description"), meta["label"], title)
+        grid = grid_code_from_aerial(layer.get("imagePath"), layer.get("imageList"))
+        desc = short_description(layer.get("description"), meta["label"], title, grid)
         if images:
             with_img += 1
         if desc:

@@ -2379,7 +2379,7 @@ function scumLocationPopupHtml(loc) {
         .slice(0, 4)
         .map(
           (u) =>
-            `<img class="marker-popup-img" src="${escapeFilterHtml(u)}" data-full="${escapeFilterHtml(u)}" alt="" loading="lazy" referrerpolicy="no-referrer">`,
+            `<img class="marker-popup-img" src="${escapeFilterHtml(u)}" data-full="${escapeFilterHtml(u)}" alt="" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous">`,
         )
         .join("")}</div>`
     : "";
