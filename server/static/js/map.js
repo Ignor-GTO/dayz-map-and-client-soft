@@ -75,6 +75,8 @@ const state = {
   },
   commandZoomAnchor: null,
   commandZoomApplying: false,
+  /** After End/focus_me: pan map to own live updates until user drags the map. */
+  followMe: false,
   zoneHoverTooltip: null,
   ws: null,
 };
@@ -569,9 +571,11 @@ function upsertLive(pos) {
     state.liveMarkers.set(pos.user_id, marker);
   }
 
-  // Для текущего пользователя двигаем карту как навигатор.
+  // Follow own live position only after End/focus_me, until the user pans the map.
   if (state.me && pos.user_id === state.me.user_id && state.map) {
-    state.map.panTo(latlng, { animate: true, duration: 0.6 });
+    if (state.followMe) {
+      state.map.panTo(latlng, { animate: true, duration: 0.6 });
+    }
     trackPlayerOnRoute(pos.x, pos.y);
   }
   updatePlayersList();
@@ -831,6 +835,8 @@ function initMapDragCursor() {
   if (!state.map) return;
   const el = state.map.getContainer();
   state.map.on("dragstart", () => {
+    // User is exploring the map — stop chasing live player position.
+    state.followMe = false;
     el.style.cursor = "grabbing";
   });
   state.map.on("dragend", () => {
@@ -1770,6 +1776,7 @@ function showCoordLookup() {
 
 function focusMe() {
   if (!state.map || !state.me) return;
+  state.followMe = true;
   const marker = state.liveMarkers.get(state.me.user_id);
   if (marker) {
     const target = marker.getLatLng();
@@ -2374,12 +2381,13 @@ function scumLocationPopupHtml(loc) {
     });
   }
   if (loc.image && !imgs.includes(loc.image)) imgs.unshift(loc.image);
+  // Do not set crossorigin — scum-map.com has no CORS headers and the image would fail.
   const imgHtml = imgs.length
     ? `<div class="scum-loc-gallery">${imgs
         .slice(0, 4)
         .map(
           (u) =>
-            `<img class="marker-popup-img" src="${escapeFilterHtml(u)}" data-full="${escapeFilterHtml(u)}" alt="" loading="eager" referrerpolicy="no-referrer" crossorigin="anonymous">`,
+            `<img class="marker-popup-img" src="${escapeFilterHtml(u)}" data-full="${escapeFilterHtml(u)}" alt="" loading="eager" referrerpolicy="no-referrer" onerror="this.style.display='none'">`,
         )
         .join("")}</div>`
     : "";

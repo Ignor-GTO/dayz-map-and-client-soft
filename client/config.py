@@ -70,7 +70,7 @@ DEFAULT_CONFIG = {
     "item_tooltip_from_indicator": {"dx": 24, "dy": -88, "w": 480, "h": 56, "max_cursor_dist": 320},
     "ocr_preprocess_mode": "auto",
     "scum_ocr_region": [0, 0, 900, 280],
-    "scum_auto_interval_sec": 30,
+    "scum_auto_interval_sec": 0,
     "scum_hotkey_send_pos": ["f1"],
     "scum_copy_delay_ms": 350,
     "steam_id": "",

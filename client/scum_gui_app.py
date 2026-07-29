@@ -1,4 +1,4 @@
-"""SCUM Map Client — tabs, M + auto 30s position, zoom/focus, auto-update."""
+"""SCUM Map Client — clipboard watch, map zoom/focus hotkeys, auto-update."""
 
 from __future__ import annotations
 
@@ -25,19 +25,17 @@ from steam_id import detect_local_steam_id
 from version import __version__
 from win_input import (
     GlobalHotkeyListener,
-    focus_scum_window,
     is_admin,
     is_our_process_foreground,
     relaunch_as_admin,
     resolve_vk,
-    send_ctrl_c,
 )
 
 GITHUB_RELEASES_LATEST = (
     "https://api.github.com/repos/Ignor-GTO/dayz-map-and-client-soft/releases/latest"
 )
 UPDATE_ASSET = "ScumMapClient.exe"
-AUTO_INTERVAL_DEFAULT = 30
+AUTO_INTERVAL_DEFAULT = 0  # no auto Ctrl+C inject (EAC blocks it)
 
 
 class ScumMapApp(tk.Tk):
@@ -64,7 +62,6 @@ class ScumMapApp(tk.Tk):
         self.current_page = 0
         self._auto_warned_empty = False
         self._warned_log_clip = False
-        self._auto_inject_fail_logged_at = 0.0
 
         self._cleanup_old_exe()
         self._build_ui()
@@ -279,8 +276,8 @@ class ScumMapApp(tk.Tk):
             card,
             text=(
                 "Ctrl+C в SCUM — клиент сразу шлёт {X=… Y=…} на карту.\n"
-                "F1 / авто: пытаются сами нажать Ctrl+C в игре и взять свежие координаты.\n"
-                "Если эмуляция блокируется (EAC) — жмите Ctrl+C вручную; не копируйте лог клиента."
+                "Эмуляция Ctrl+C отключена (игра/EAC её игнорирует). F1 и кнопка читают буфер.\n"
+                "Можно также вставить координаты вручную в поле ниже."
             ),
             style="CardMuted.TLabel",
             wraplength=580,
@@ -361,7 +358,7 @@ class ScumMapApp(tk.Tk):
             wraplength=560,
         ).pack(anchor="w", pady=(4, 0))
 
-        auto = ttk.LabelFrame(body, text="Автоотправка позиции", padding=10)
+        auto = ttk.LabelFrame(body, text="Автоповтор последней позиции", padding=10)
         auto.pack(fill="x", pady=6)
         row = ttk.Frame(auto, style="Card.TFrame")
         row.pack(fill="x")
@@ -371,8 +368,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             auto,
             text=(
-                "0 = выкл. При 30: каждые 30 с повторно шлёт последнюю известную позицию "
-                "(после вашего Ctrl+C). Карту открывать не нужно."
+                "0 = выкл. (рекомендуется). При N>0: каждые N сек шлёт уже известную позицию "
+                "без эмуляции Ctrl+C. Свежие координаты — только ваш Ctrl+C в SCUM."
             ),
             style="CardMuted.TLabel",
             wraplength=560,
@@ -416,8 +413,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "По F1 симулирует Ctrl+C (SCUM копирует {X=… Y=…}) и шлёт позицию на веб-карту.\n"
-                "Автораз в N секунд делает то же · Page Up/Down/End — зум и фокус на сайте."
+                "Ctrl+C в SCUM копирует {X=… Y=…} — клиент сам читает буфер и шлёт на веб-карту.\n"
+                "F1 / кнопка — отправить то, что уже в буфере. Page Up/Down/End — зум и фокус на сайте."
             ),
             style="CardMuted.TLabel",
             wraplength=560,
@@ -448,7 +445,16 @@ class ScumMapApp(tk.Tk):
     def _load_fields(self) -> None:
         self.server_var.set(self.settings.get("server_url", ""))
         self.key_var.set(self.settings.get("client_key", ""))
-        self.auto_interval_var.set(int(self.settings.get("scum_auto_interval_sec", AUTO_INTERVAL_DEFAULT) or 0))
+        # Legacy builds defaulted to 30s auto Ctrl+C inject — disable it.
+        raw_interval = int(self.settings.get("scum_auto_interval_sec", AUTO_INTERVAL_DEFAULT) or 0)
+        if raw_interval == 30 and not self.settings.get("scum_auto_last_known_enabled"):
+            raw_interval = 0
+            self.settings["scum_auto_interval_sec"] = 0
+            try:
+                save_config(self.settings)
+            except Exception:
+                pass
+        self.auto_interval_var.set(raw_interval)
         self.hotkey_zoom_in_var.set(", ".join(self.settings.get("hotkey_zoom_in", ["page up"])))
         self.hotkey_zoom_out_var.set(", ".join(self.settings.get("hotkey_zoom_out", ["page down"])))
         self.hotkey_focus_me_var.set(", ".join(self.settings.get("hotkey_focus_me", ["end"])))
@@ -562,6 +568,8 @@ class ScumMapApp(tk.Tk):
         self.settings["client_key"] = key
         self.settings["map_slug"] = "scum"
         self.settings["scum_auto_interval_sec"] = self._auto_interval()
+        if self._auto_interval() > 0:
+            self.settings["scum_auto_last_known_enabled"] = True
         self.settings["hotkey_zoom_in"] = self._parse_hotkeys(self.hotkey_zoom_in_var.get(), ["page up"])
         self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
         self.settings["hotkey_focus_me"] = self._parse_hotkeys(self.hotkey_focus_me_var.get(), ["end"])
@@ -593,6 +601,8 @@ class ScumMapApp(tk.Tk):
                 return
         try:
             self.settings["scum_auto_interval_sec"] = self._auto_interval()
+            if self._auto_interval() > 0:
+                self.settings["scum_auto_last_known_enabled"] = True
             self.settings["hotkey_zoom_in"] = self._parse_hotkeys(self.hotkey_zoom_in_var.get(), ["page up"])
             self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
             self.settings["hotkey_focus_me"] = self._parse_hotkeys(self.hotkey_focus_me_var.get(), ["end"])
@@ -606,8 +616,8 @@ class ScumMapApp(tk.Tk):
         self.toggle_btn.configure(text="Остановить")
         interval = self._auto_interval()
         self.status_var.set(
-            f"Работает — Ctrl+C / F1 / авто обновление"
-            + (f" каждые {interval} с" if interval > 0 else "")
+            "Работает — ждите Ctrl+C в SCUM"
+            + (f" · автоповтор каждые {interval} с" if interval > 0 else "")
         )
 
         bindings: list[tuple[str, int, str]] = []
@@ -655,8 +665,9 @@ class ScumMapApp(tk.Tk):
 
         names = [f"{a}:{n}" for a, _vk, n in bindings]
         self.log_line(f"Запущено: {', '.join(names)}")
-        self.log_line("В SCUM: Ctrl+C — мгновенная отправка. F1/авто сами пробуют Ctrl+C в игре.")
-        self.log_line("Если авто шлёт старые координаты — игра блокирует эмуляцию, жмите Ctrl+C вручную.")
+        self.log_line("В SCUM нажмите Ctrl+C — координаты уйдут на карту. Эмуляция Ctrl+C отключена.")
+        if interval > 0:
+            self.log_line(f"Автоповтор последней позиции каждые {interval} с (без Ctrl+C).")
         sid = (self.steam_id_var.get() or self.settings.get("steam_id") or "").strip()
         if sid:
             self._sync_steam_id_to_server(sid, quiet=True)
@@ -725,8 +736,17 @@ class ScumMapApp(tk.Tk):
                 messagebox.showerror("Админ", "Не удалось запросить повышение прав.")
 
     def _auto_loop(self, interval: int) -> None:
+        """Resend last known coords only — never emulate Ctrl+C."""
         while not self._stop_workers.wait(interval):
-            self.after(0, lambda: self._request_position_refresh("auto"))
+            self.after(0, self._resend_last_position_auto)
+
+    def _resend_last_position_auto(self) -> None:
+        if not self._hotkeys_on or not self.map_client:
+            return
+        coords = self._fresh_clipboard_coords or self._last_sent
+        if not coords:
+            return
+        self._send_coords(coords, source="auto/last")
 
     def _read_clipboard_any(self) -> str:
         """Win32 only on hot paths — PowerShell can hang for many seconds."""
@@ -744,7 +764,7 @@ class ScumMapApp(tk.Tk):
         return f"в буфере нет {{X=… Y=…}}. Сейчас: {preview!r}"
 
     def _request_position_refresh(self, source: str) -> None:
-        """Focus SCUM → emulate Ctrl+C → read clipboard → POST if updated."""
+        """Read clipboard only (no key inject — EAC blocks synthetic Ctrl+C)."""
         if not self._hotkeys_on or not self.map_client:
             return
         if self._copy_busy:
@@ -753,58 +773,21 @@ class ScumMapApp(tk.Tk):
             return
         self._copy_busy = True
         self._pause_clipboard_poll = True
-        self.log_line(f"[{source}] фокус SCUM + Ctrl+C…")
 
         def work() -> None:
-            before = ""
-            before_seq = 0
-            focus_ok, focus_detail = False, ""
             text = ""
             coords = None
-            updated = False
             err = ""
             try:
-                before = (grab_clipboard_text(0.15) or "").strip()
-                before_seq = clipboard_sequence_number()
-                try:
-                    focus_ok, focus_detail = focus_scum_window()
-                except Exception as exc:
-                    focus_ok, focus_detail = False, str(exc)
-                time.sleep(0.08)
-                try:
-                    send_ctrl_c()
-                except Exception as exc:
-                    err = str(exc)
-                # Poll for clipboard change (sequence bump = game wrote something)
-                for _ in range(15):
-                    time.sleep(0.1)
-                    seq = clipboard_sequence_number()
-                    text = (grab_clipboard_text(0.12) or "").strip()
-                    coords = parse_scum_clipboard(text)
-                    if coords and (seq != before_seq or text != before):
-                        updated = True
-                        break
+                text = (grab_clipboard_text(0.25) or "").strip()
+                coords = parse_scum_clipboard(text)
             except Exception as exc:
                 err = str(exc)
             finally:
                 self.after(
                     0,
-                    lambda s=source,
-                    t=text,
-                    c=coords,
-                    b=before,
-                    u=updated,
-                    fo=focus_ok,
-                    fd=focus_detail,
-                    e=err: self._on_refresh_done(
-                        s,
-                        text=t,
-                        coords=c,
-                        before=b,
-                        updated=u,
-                        focus_ok=fo,
-                        focus_detail=fd,
-                        err=e,
+                    lambda s=source, t=text, c=coords, e=err: self._on_refresh_done(
+                        s, text=t, coords=c, err=e
                     ),
                 )
 
@@ -816,10 +799,6 @@ class ScumMapApp(tk.Tk):
         *,
         text: str,
         coords: tuple[float, float] | None,
-        before: str,
-        updated: bool,
-        focus_ok: bool,
-        focus_detail: str,
         err: str,
     ) -> None:
         self._copy_busy = False
@@ -828,49 +807,30 @@ class ScumMapApp(tk.Tk):
             return
 
         if err:
-            self.log_line(f"[{source}] Ctrl+C ошибка: {err}")
+            self.log_line(f"[{source}] ошибка чтения буфера: {err}")
 
-        if updated and coords:
+        if coords:
             self._clipboard_digest = text
             self._fresh_clipboard_coords = coords
             self._clipboard_coords_at = time.time()
             self._auto_warned_empty = False
             preview = (text or "").replace("\n", " ")[:70]
-            self.log_line(f"[{source}] буфер обновлён: {preview!r}")
-            self._send_coords(coords, source=f"{source}/Ctrl+C")
+            self.log_line(f"[{source}] буфер: {preview!r}")
+            self._send_coords(coords, source=source)
             return
 
-        # Inject did not change clipboard
-        self.log_line(
-            f"[{source}] буфер не обновился "
-            f"(фокус={'OK' if focus_ok else 'нет'}: {focus_detail}). "
-            "Игра, скорее всего, игнорирует эмуляцию Ctrl+C."
-        )
-
-        if source.startswith("F1"):
-            # Manual hotkey: still send whatever coords we can
-            clip = coords or parse_scum_clipboard(text) or self._fresh_clipboard_coords
+        # Fall back to last known for explicit F1/button presses
+        if source.startswith("F1") or source == "кнопка":
+            clip = self._fresh_clipboard_coords or self._last_sent
             if clip:
-                self.log_line(f"[{source}] шлю то, что уже было в буфере / последнюю")
-                self._send_coords(clip, source=f"{source}/буфер")
-                return
-            if self._last_sent:
-                self._send_coords(self._last_sent, source=f"{source}/last")
+                self.log_line(f"[{source}] в буфере нет свежих координат — шлю последнюю известную")
+                self._send_coords(clip, source=f"{source}/last")
                 return
             self.log_line(f"[{source}] {self._clipboard_hint(text)}")
-            self.log_line(f"[{source}] нажмите Ctrl+C сами в SCUM")
+            self.log_line(f"[{source}] нажмите Ctrl+C в SCUM")
             return
 
-        # auto: do NOT spam the same stale coords every 30s
-        now = time.time()
-        if now - self._auto_inject_fail_logged_at > 60:
-            self._auto_inject_fail_logged_at = now
-            self.log_line(
-                "[auto] чтобы обновить точку на карте — нажмите Ctrl+C в SCUM "
-                "(эмуляция не сработала)."
-            )
-        # Keep map alive rarely with last known position (every ~2 min via this path only if we want)
-        # Skip sending identical coords on failed refresh.
+        self.log_line(f"[{source}] {self._clipboard_hint(text)}")
 
     def _clipboard_loop(self) -> None:
         last_seq = -1
