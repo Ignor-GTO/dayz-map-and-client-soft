@@ -943,7 +943,8 @@ function initMapContextMenu() {
   document.getElementById("ctx-copy-coords-btn")?.addEventListener("click", async () => {
     const c = state.contextMenuCoords;
     if (!c) return;
-    const text = formatCoordLookupValue(c.x, c.y);
+    // Space-separated — ready for #Teleport … X Y Z (no slash).
+    const text = isScumConfig() ? formatGameTeleportXY(c.x, c.y) : formatCoordLookupValue(c.x, c.y);
     try {
       await navigator.clipboard.writeText(text);
       const btn = document.getElementById("ctx-copy-coords-btn");
@@ -954,6 +955,24 @@ function initMapContextMenu() {
       }
     } catch {
       alert("Не удалось скопировать координаты");
+    }
+    closeMapContextMenu();
+  });
+
+  document.getElementById("ctx-copy-teleport-btn")?.addEventListener("click", async () => {
+    const c = state.contextMenuCoords;
+    if (!c) return;
+    const text = formatTeleportCommand(c.x, c.y);
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = document.getElementById("ctx-copy-teleport-btn");
+      if (btn) {
+        const orig = btn.textContent;
+        btn.textContent = "✓ В буфере";
+        setTimeout(() => { btn.textContent = orig; }, 1400);
+      }
+    } catch {
+      alert("Не удалось скопировать команду");
     }
     closeMapContextMenu();
   });
@@ -1756,24 +1775,63 @@ function parseCoordLookupInputs() {
   const text = String(input?.value || "").trim();
   if (!text) return null;
 
-  const sepMatch = text.match(/^([\d.]+)\s*[/,\-–—]\s*([\d.]+)$/);
+  // SCUM clipboard: {X=… Y=… Z=…}
+  if (typeof SCUM_COORDS !== "undefined" && isScumConfig()) {
+    const fromClip = SCUM_COORDS.parseClipboard(text);
+    if (fromClip) return fromClip;
+  }
+
+  // Allow negatives (SCUM world coords are often < 0).
+  const sepMatch = text.match(/^(-?\d+(?:[.,]\d+)?)\s*[/,\-–—]\s*(-?\d+(?:[.,]\d+)?)$/);
   if (sepMatch) return parseCoordPair(sepMatch[1], sepMatch[2]);
 
-  const spaceMatch = text.match(/^([\d.]+)\s+([\d.]+)$/);
+  const spaceMatch = text.match(/^(-?\d+(?:[.,]\d+)?)\s+(-?\d+(?:[.,]\d+)?)$/);
   if (spaceMatch) return parseCoordPair(spaceMatch[1], spaceMatch[2]);
 
   return null;
 }
 
 function parseCoordPair(xRaw, yRaw) {
-  const x = Number(xRaw);
-  const y = Number(yRaw);
+  const x = Number(String(xRaw).replace(",", "."));
+  const y = Number(String(yRaw).replace(",", "."));
   if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
   return { x, y };
 }
 
 function formatCoordLookupValue(x, y) {
   return `${Math.round(x)} / ${Math.round(y)}`;
+}
+
+/** Space-separated X Y for paste into #Teleport / chat. */
+function formatGameTeleportXY(x, y) {
+  return `${Math.round(Number(x))} ${Math.round(Number(y))}`;
+}
+
+function suggestTeleportZ() {
+  const me = state.me && state.liveMarkers.get(state.me.user_id);
+  const z = me?._playerMeta?.z;
+  if (Number.isFinite(Number(z))) return Math.round(Number(z));
+  // Mid-island safe-ish default; user should replace with Z from Ctrl+C / #Location.
+  return 20000;
+}
+
+function formatTeleportCommand(x, y, z = suggestTeleportZ()) {
+  return `#Teleport ${formatGameTeleportXY(x, y)} ${Math.round(Number(z))}`;
+}
+
+function coordsWithinMap(x, y) {
+  if (isScumConfig() && typeof SCUM_COORDS !== "undefined") {
+    const b = SCUM_COORDS.BOUNDS;
+    const pad = 50000;
+    return (
+      x >= b.min_x - pad &&
+      x <= b.max_x + pad &&
+      y >= b.min_y - pad &&
+      y <= b.max_y + pad
+    );
+  }
+  const size = mapSize(state.config);
+  return x >= 0 && y >= 0 && x <= size && y <= size;
 }
 
 function fillCoordLookupFromCursor() {
@@ -1792,13 +1850,21 @@ function showCoordLookup() {
   const input = document.getElementById("coord-lookup-input");
   const coords = parseCoordLookupInputs();
   if (!coords) {
-    alert("Введите координаты в формате: X Y, X / Y, X - Y, X,Y или X-Y");
+    alert(
+      isScumConfig()
+        ? "Введите координаты: X Y, X / Y или вставьте {X=… Y=…} из SCUM"
+        : "Введите координаты в формате: X Y, X / Y, X - Y, X,Y или X-Y",
+    );
     return;
   }
 
-  const size = mapSize(state.config);
-  if (coords.x < 0 || coords.y < 0 || coords.x > size || coords.y > size) {
-    alert(`Координаты должны быть в пределах 0 — ${Math.round(size)}`);
+  if (!coordsWithinMap(coords.x, coords.y)) {
+    if (isScumConfig()) {
+      alert("Координаты вне карты SCUM (ожидаются игровые X/Y, не пиксели тайла)");
+    } else {
+      const size = mapSize(state.config);
+      alert(`Координаты должны быть в пределах 0 — ${Math.round(size)}`);
+    }
     return;
   }
 
