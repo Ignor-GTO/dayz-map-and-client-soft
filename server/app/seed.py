@@ -292,6 +292,17 @@ def _migrate_sqlite(conn) -> None:
         except Exception:
             pass
 
+    pos_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(positions)")).fetchall()}
+    if pos_cols and "travel_mode" not in pos_cols:
+        conn.execute(text("ALTER TABLE positions ADD COLUMN travel_mode VARCHAR(16)"))
+        logger.info("Added positions.travel_mode column")
+    if pos_cols and "vehicle_role" not in pos_cols:
+        conn.execute(text("ALTER TABLE positions ADD COLUMN vehicle_role VARCHAR(16)"))
+        logger.info("Added positions.vehicle_role column")
+    if pos_cols and "vehicle_type" not in pos_cols:
+        conn.execute(text("ALTER TABLE positions ADD COLUMN vehicle_type VARCHAR(64)"))
+        logger.info("Added positions.vehicle_type column")
+
     room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
     if room_cols and "entry_password_hash" not in room_cols:
         conn.execute(text("ALTER TABLE rooms ADD COLUMN entry_password_hash VARCHAR(128)"))

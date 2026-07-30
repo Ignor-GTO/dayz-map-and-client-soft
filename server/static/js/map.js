@@ -525,6 +525,52 @@ function initLeaflet(config) {
   initMapDragCursor();
 }
 
+function travelModeLabel(pos) {
+  const mode = String(pos?.travel_mode || "").toLowerCase();
+  if (mode === "vehicle") return "Транспорт";
+  if (mode === "foot") return "Пешком";
+  return "";
+}
+
+function vehicleRoleLabel(pos) {
+  const role = String(pos?.vehicle_role || "").toLowerCase();
+  if (role === "driver") return "водитель";
+  if (role === "passenger") return "пассажир";
+  return "";
+}
+
+function vehicleTypeLabel(pos) {
+  const raw = String(pos?.vehicle_type || "").trim();
+  if (!raw) return "";
+  return raw.replace(/_/g, " ");
+}
+
+function travelBadgeHtml(pos) {
+  const mode = String(pos?.travel_mode || "").toLowerCase();
+  if (mode === "vehicle") {
+    const role = String(pos?.vehicle_role || "").toLowerCase();
+    const emoji = role === "passenger" ? "🪑" : "🚗";
+    return `<span class="live-travel-badge" title="${markerEscapeHtml(
+      [travelModeLabel(pos), vehicleRoleLabel(pos), vehicleTypeLabel(pos)].filter(Boolean).join(" · "),
+    )}">${emoji}</span>`;
+  }
+  if (mode === "foot") {
+    return `<span class="live-travel-badge" title="Пешком">🚶</span>`;
+  }
+  return "";
+}
+
+function travelStatusText(pos) {
+  const mode = travelModeLabel(pos);
+  if (!mode) return "";
+  const bits = [mode];
+  const role = vehicleRoleLabel(pos);
+  const vtype = vehicleTypeLabel(pos);
+  if (role) bits.push(role);
+  if (vtype) bits.push(vtype);
+  return bits.join(" · ");
+}
+
 function upsertLive(pos) {
   if (!state.filters.players) return;
   const latlng = gameToLatLng(pos.x, pos.y);
@@ -532,16 +578,22 @@ function upsertLive(pos) {
   let marker = state.liveMarkers.get(pos.user_id);
 
   const isMe = state.me && pos.user_id === state.me.user_id;
+  const travelLine = travelStatusText(pos);
+  const travelHtml = travelLine
+    ? `<div class="live-travel-line">${markerEscapeHtml(travelLine)}</div>`
+    : "";
   const routeBtn = isMe
     ? ""
     : `<div class="marker-popup-actions"><button class="marker-route" data-x="${pos.x}" data-y="${pos.y}">Маршрут</button></div>`;
-  const popup = `<b>${markerEscapeHtml(pos.nickname)}</b><br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
+  const popup = `<b>${markerEscapeHtml(pos.nickname)}</b>${travelHtml}<br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
 
   const avatarSrc = resolveUserAvatarUrl(pos.user_id, pos.avatar_url);
+  const badge = travelBadgeHtml(pos);
   const iconHtml = `
     <div class="live-player-pin">
       <div class="live-player-avatar-wrap" style="border-color:${color}">
         <img class="live-player-avatar" src="${markerEscapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='${(window.ProfileUi?.DEFAULT_AVATAR_URL || '/img/default-avatar.svg?v=2').replace(/'/g, '')}'">
+        ${badge}
       </div>
       <div class="live-player-name">${markerEscapeHtml(pos.nickname)}</div>
     </div>
@@ -1559,6 +1611,10 @@ function updatePlayersList() {
     const color = colorForUser(pos.user_id);
     const isMe = state.me && pos.user_id === state.me.user_id;
     const nameLabel = isMe ? `${pos.nickname} (Вы)` : pos.nickname;
+    const travel = travelStatusText(pos);
+    const info = travel
+      ? `${travel}<br>${Math.round(pos.x)} / ${Math.round(pos.y)}`
+      : `${Math.round(pos.x)} / ${Math.round(pos.y)}`;
 
     rows.push(`
       <div class="sidebar-row" onclick="focusOnPlayer(${pos.user_id})">
@@ -1568,7 +1624,7 @@ function updatePlayersList() {
           </span>
           <span class="sidebar-name" title="${markerEscapeHtml(pos.nickname)}">${markerEscapeHtml(nameLabel)}</span>
         </div>
-        <span class="sidebar-info">${Math.round(pos.x)} / ${Math.round(pos.y)}</span>
+        <span class="sidebar-info">${info}</span>
       </div>
     `);
   });

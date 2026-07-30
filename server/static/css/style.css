@@ -1499,11 +1499,12 @@ button.secondary.small {
 }
 
 .live-player-avatar-wrap {
+  position: relative;
   width: 26px;
   height: 26px;
   border-radius: 50%;
   border: 2px solid #fff;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 0;
   background: #1a2332;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.65);
@@ -1514,6 +1515,28 @@ button.secondary.small {
   height: 100%;
   object-fit: cover;
   display: block;
+  border-radius: 50%;
+}
+
+.live-travel-badge {
+  position: absolute;
+  right: -8px;
+  bottom: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(12, 18, 28, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  font-size: 10px;
+  line-height: 14px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.live-travel-line {
+  margin-top: 2px;
+  font-size: 0.85rem;
+  color: #445;
 }
 
 .live-player-name {

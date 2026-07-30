@@ -33,7 +33,7 @@ from app.poi_icons import normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
 from app.models import MapPoi, Marker, Position, Room, ServerApiKey, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
-from app.server_ingest import ingest_players
+from app.server_ingest import ingest_players, position_event_data
 from app.schemas import (
     ClientSteamIdRequest,
     CoordsPayload,
@@ -700,14 +700,7 @@ async def update_position(
     ch = channel_key(user.room.map_id, user.room_id)
     event = {
         "type": "position",
-        "data": {
-            "user_id": user.id,
-            "nickname": user.nickname,
-            "avatar_url": user.avatar_url,
-            "x": position.x,
-            "y": position.y,
-            "updated_at": position.updated_at.isoformat(),
-        },
+        "data": position_event_data(user, position),
     }
     await manager.broadcast(ch, event)
     return {"ok": True}
@@ -1052,6 +1045,9 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                     x=u.position.x,
                     y=u.position.y,
                     updated_at=u.position.updated_at,
+                    travel_mode=u.position.travel_mode,
+                    vehicle_role=u.position.vehicle_role,
+                    vehicle_type=u.position.vehicle_type,
                 )
             )
         for m in u.markers:

@@ -129,6 +129,9 @@ class PositionResponse(BaseModel):
     x: float
     y: float
     updated_at: datetime
+    travel_mode: str | None = None
+    vehicle_role: str | None = None
+    vehicle_type: str | None = None
 
 
 class RoomStateResponse(BaseModel):
@@ -292,7 +295,7 @@ class AdminUserResponse(BaseModel):
 
 
 class ServerPlayerPosition(BaseModel):
-    """One player snapshot from RCON #ListPlayers / login logs."""
+    """One player snapshot from RCON / bridge agent."""
 
     x: float
     y: float
@@ -300,6 +303,9 @@ class ServerPlayerPosition(BaseModel):
     steam_id: str | None = Field(default=None, max_length=32)
     nickname: str | None = Field(default=None, max_length=64)
     steam_name: str | None = Field(default=None, max_length=128)
+    travel_mode: str | None = Field(default=None, max_length=16)  # foot | vehicle
+    vehicle_role: str | None = Field(default=None, max_length=16)  # driver | passenger
+    vehicle_type: str | None = Field(default=None, max_length=64)  # RIS, SUV_01, …
 
 
 class ServerPositionsRequest(BaseModel):

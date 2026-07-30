@@ -14,6 +14,8 @@ from app.models import Position, Room, ServerApiKey, User
 from app.websocket import manager
 
 _STEAM_ID_RE = re.compile(r"^\d{15,20}$")
+_TRAVEL_MODES = {"foot", "vehicle"}
+_VEHICLE_ROLES = {"driver", "passenger"}
 
 
 def normalize_steam_id(value: str | None) -> str | None:
@@ -23,6 +25,48 @@ def normalize_steam_id(value: str | None) -> str | None:
     if not _STEAM_ID_RE.match(raw):
         return None
     return raw
+
+
+def normalize_travel_fields(raw: dict) -> tuple[str | None, str | None, str | None]:
+    """Parse travel_mode / vehicle_role / vehicle_type from ingest payload."""
+    mode_raw = raw.get("travel_mode")
+    mode = str(mode_raw).strip().lower() if mode_raw is not None else None
+    if mode not in _TRAVEL_MODES:
+        mode = None
+
+    role_raw = raw.get("vehicle_role")
+    role = str(role_raw).strip().lower() if role_raw is not None else None
+    if role not in _VEHICLE_ROLES:
+        role = None
+
+    type_raw = raw.get("vehicle_type")
+    vtype: str | None
+    if type_raw is None:
+        vtype = None
+    else:
+        vtype = str(type_raw).strip()[:64] or None
+
+    if mode == "foot":
+        role = None
+        vtype = None
+    elif mode == "vehicle" and role is None and vtype:
+        # Still in a vehicle even if role omitted
+        pass
+    return mode, role, vtype
+
+
+def position_event_data(user: User, position: Position) -> dict:
+    return {
+        "user_id": user.id,
+        "nickname": user.nickname,
+        "avatar_url": user.avatar_url,
+        "x": position.x,
+        "y": position.y,
+        "updated_at": position.updated_at.isoformat(),
+        "travel_mode": position.travel_mode,
+        "vehicle_role": position.vehicle_role,
+        "vehicle_type": position.vehicle_type,
+    }
 
 
 async def find_user_for_ingest(
@@ -64,6 +108,11 @@ async def upsert_user_position(
     user: User,
     x: float,
     y: float,
+    *,
+    travel_mode: str | None = None,
+    vehicle_role: str | None = None,
+    vehicle_type: str | None = None,
+    update_travel: bool = False,
 ) -> Position:
     result = await db.execute(select(Position).where(Position.user_id == user.id))
     position = result.scalar_one_or_none()
@@ -71,8 +120,19 @@ async def upsert_user_position(
         position.x = x
         position.y = y
         position.updated_at = datetime.now(timezone.utc)
+        if update_travel:
+            position.travel_mode = travel_mode
+            position.vehicle_role = vehicle_role
+            position.vehicle_type = vehicle_type
     else:
-        position = Position(user_id=user.id, x=x, y=y)
+        position = Position(
+            user_id=user.id,
+            x=x,
+            y=y,
+            travel_mode=travel_mode if update_travel else None,
+            vehicle_role=vehicle_role if update_travel else None,
+            vehicle_type=vehicle_type if update_travel else None,
+        )
         db.add(position)
     await db.flush()
     await db.refresh(position)
@@ -88,14 +148,7 @@ async def broadcast_position(user: User, position: Position) -> None:
         ch,
         {
             "type": "position",
-            "data": {
-                "user_id": user.id,
-                "nickname": user.nickname,
-                "avatar_url": user.avatar_url,
-                "x": position.x,
-                "y": position.y,
-                "updated_at": position.updated_at.isoformat(),
-            },
+            "data": position_event_data(user, position),
         },
     )
 
@@ -141,7 +194,19 @@ async def ingest_players(
             )
             continue
 
-        position = await upsert_user_position(db, user, x, y)
+        travel_mode, vehicle_role, vehicle_type = normalize_travel_fields(raw)
+        # Update travel only when bridge sends those keys (keeps coords-only agents intact).
+        update_travel = any(k in raw for k in ("travel_mode", "vehicle_role", "vehicle_type"))
+        position = await upsert_user_position(
+            db,
+            user,
+            x,
+            y,
+            travel_mode=travel_mode,
+            vehicle_role=vehicle_role,
+            vehicle_type=vehicle_type,
+            update_travel=update_travel,
+        )
         await broadcast_position(user, position)
         updated += 1
 

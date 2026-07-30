@@ -382,18 +382,34 @@ Content-Type: application/json
 {
   "players": [
     {
-      "steam_id": "76561198011111111",
-      "nickname": "ShadowWolf",
-      "x": -145230.0,
-      "y": 87420.0,
-      "z": 12300.5
+      "steam_id": "76561198816629288",
+      "nickname": "IgnorGTO",
+      "x": 575144.6875,
+      "y": -220808.8125,
+      "z": 669.9,
+      "travel_mode": "foot",
+      "vehicle_role": null,
+      "vehicle_type": null
+    },
+    {
+      "steam_id": "76561198123456789",
+      "nickname": "AlexS",
+      "x": -879286.375,
+      "y": 535592.625,
+      "z": 60326.93,
+      "travel_mode": "vehicle",
+      "vehicle_role": "driver",
+      "vehicle_type": "SUV_01"
     }
   ]
 }</pre>
           <p class="muted">
-            Сопоставление: сначала <code>steam_id</code>, иначе <code>nickname</code> (без учёта регистра)
-            среди пользователей карты (и PIN-группы, если ключ ограничен).
-            Поле <code>z</code> игнорируется. Ответ: <code>{"ok":true,"updated":N,"skipped":[…]}</code>.
+            Сервер карты берётся из API-ключа (в теле не передаётся).
+            Сопоставление: сначала <code>steam_id</code>, иначе <code>nickname</code>.
+            <code>travel_mode</code>: <code>foot</code> | <code>vehicle</code>;
+            <code>vehicle_role</code>: <code>driver</code> | <code>passenger</code>;
+            <code>vehicle_type</code>: класс техники (<code>RIS</code>, <code>SUV_01</code>, …).
+            Поле <code>z</code> игнорируется.
           </p>
         </div>
 
