@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.auth import channel_key
+from app.elevation_service import record_elevation_sample
 from app.models import Position, Room, ServerApiKey, User
 from app.websocket import manager
 
@@ -25,6 +26,18 @@ def normalize_steam_id(value: str | None) -> str | None:
     if not _STEAM_ID_RE.match(raw):
         return None
     return raw
+
+
+def normalize_z(raw: dict) -> float | None:
+    if "z" not in raw or raw.get("z") is None:
+        return None
+    try:
+        z = float(raw["z"])
+    except (TypeError, ValueError):
+        return None
+    if not (abs(z) < 1_000_000):
+        return None
+    return z
 
 
 def normalize_travel_fields(raw: dict) -> tuple[str | None, str | None, str | None]:
@@ -49,9 +62,6 @@ def normalize_travel_fields(raw: dict) -> tuple[str | None, str | None, str | No
     if mode == "foot":
         role = None
         vtype = None
-    elif mode == "vehicle" and role is None and vtype:
-        # Still in a vehicle even if role omitted
-        pass
     return mode, role, vtype
 
 
@@ -62,6 +72,7 @@ def position_event_data(user: User, position: Position) -> dict:
         "avatar_url": user.avatar_url,
         "x": position.x,
         "y": position.y,
+        "z": position.z,
         "updated_at": position.updated_at.isoformat(),
         "travel_mode": position.travel_mode,
         "vehicle_role": position.vehicle_role,
@@ -109,6 +120,8 @@ async def upsert_user_position(
     x: float,
     y: float,
     *,
+    z: float | None = None,
+    update_z: bool = False,
     travel_mode: str | None = None,
     vehicle_role: str | None = None,
     vehicle_type: str | None = None,
@@ -120,6 +133,8 @@ async def upsert_user_position(
         position.x = x
         position.y = y
         position.updated_at = datetime.now(timezone.utc)
+        if update_z:
+            position.z = z
         if update_travel:
             position.travel_mode = travel_mode
             position.vehicle_role = vehicle_role
@@ -129,6 +144,7 @@ async def upsert_user_position(
             user_id=user.id,
             x=x,
             y=y,
+            z=z if update_z else None,
             travel_mode=travel_mode if update_travel else None,
             vehicle_role=vehicle_role if update_travel else None,
             vehicle_type=vehicle_type if update_travel else None,
@@ -160,6 +176,7 @@ async def ingest_players(
 ) -> dict:
     updated = 0
     skipped: list[dict] = []
+    map_slug = (api_key.map.slug if api_key.map else None) or ""
 
     for raw in players:
         steam_id = raw.get("steam_id")
@@ -176,6 +193,11 @@ async def ingest_players(
                 }
             )
             continue
+
+        z = normalize_z(raw)
+        # Always feed height map from bridge samples (even unmatched players).
+        if map_slug and z is not None:
+            record_elevation_sample(map_slug, x, y, z)
 
         user = await find_user_for_ingest(
             db,
@@ -195,13 +217,14 @@ async def ingest_players(
             continue
 
         travel_mode, vehicle_role, vehicle_type = normalize_travel_fields(raw)
-        # Update travel only when bridge sends those keys (keeps coords-only agents intact).
         update_travel = any(k in raw for k in ("travel_mode", "vehicle_role", "vehicle_type"))
         position = await upsert_user_position(
             db,
             user,
             x,
             y,
+            z=z,
+            update_z=("z" in raw),
             travel_mode=travel_mode,
             vehicle_role=vehicle_role,
             vehicle_type=vehicle_type,

@@ -302,6 +302,9 @@ def _migrate_sqlite(conn) -> None:
     if pos_cols and "vehicle_type" not in pos_cols:
         conn.execute(text("ALTER TABLE positions ADD COLUMN vehicle_type VARCHAR(64)"))
         logger.info("Added positions.vehicle_type column")
+    if pos_cols and "z" not in pos_cols:
+        conn.execute(text("ALTER TABLE positions ADD COLUMN z FLOAT"))
+        logger.info("Added positions.z column")
 
     room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
     if room_cols and "entry_password_hash" not in room_cols:

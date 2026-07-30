@@ -154,6 +154,8 @@ class Position(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
+    # World height from game-server bridge (SCUM Z).
+    z: Mapped[float | None] = mapped_column(Float, nullable=True)
     # From game-server ingest: foot | vehicle
     travel_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # driver | passenger when in a vehicle

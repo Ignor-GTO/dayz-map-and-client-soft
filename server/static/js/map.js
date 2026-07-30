@@ -579,13 +579,16 @@ function upsertLive(pos) {
 
   const isMe = state.me && pos.user_id === state.me.user_id;
   const travelLine = travelStatusText(pos);
+  const zLine = Number.isFinite(Number(pos.z))
+    ? `<div class="live-travel-line">Высота Z: ${Math.round(Number(pos.z))}</div>`
+    : "";
   const travelHtml = travelLine
     ? `<div class="live-travel-line">${markerEscapeHtml(travelLine)}</div>`
     : "";
   const routeBtn = isMe
     ? ""
     : `<div class="marker-popup-actions"><button class="marker-route" data-x="${pos.x}" data-y="${pos.y}">Маршрут</button></div>`;
-  const popup = `<b>${markerEscapeHtml(pos.nickname)}</b>${travelHtml}<br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
+  const popup = `<b>${markerEscapeHtml(pos.nickname)}</b>${travelHtml}${zLine}<br>Live: ${Math.round(pos.x)} / ${Math.round(pos.y)}${routeBtn}`;
 
   const avatarSrc = resolveUserAvatarUrl(pos.user_id, pos.avatar_url);
   const badge = travelBadgeHtml(pos);
@@ -912,6 +915,15 @@ function showMapContextMenu(clientX, clientY, gameCoords) {
   const coordsEl = document.getElementById("ctx-coords-display");
   if (coordsEl && gameCoords) {
     coordsEl.textContent = formatCoordLookupValue(gameCoords.x, gameCoords.y);
+    if (isScumConfig()) {
+      coordsEl.textContent += " · Z…";
+      resolveElevationZ(gameCoords.x, gameCoords.y).then((z) => {
+        if (!coordsEl || state.contextMenuCoords !== gameCoords) return;
+        coordsEl.textContent = Number.isFinite(Number(z))
+          ? `${formatCoordLookupValue(gameCoords.x, gameCoords.y)} · Z≈${Math.round(z)}`
+          : formatCoordLookupValue(gameCoords.x, gameCoords.y);
+      });
+    }
   }
   state.contextMenuCoords = gameCoords;
 
@@ -962,14 +974,15 @@ function initMapContextMenu() {
   document.getElementById("ctx-copy-teleport-btn")?.addEventListener("click", async () => {
     const c = state.contextMenuCoords;
     if (!c) return;
-    const text = formatTeleportCommand(c.x, c.y);
+    const z = await resolveElevationZ(c.x, c.y);
+    const text = formatTeleportCommand(c.x, c.y, z);
     try {
       await navigator.clipboard.writeText(text);
       const btn = document.getElementById("ctx-copy-teleport-btn");
       if (btn) {
         const orig = btn.textContent;
-        btn.textContent = "✓ В буфере";
-        setTimeout(() => { btn.textContent = orig; }, 1400);
+        btn.textContent = Number.isFinite(Number(z)) ? `✓ Z≈${Math.round(z)}` : "✓ В буфере";
+        setTimeout(() => { btn.textContent = orig; }, 1600);
       }
     } catch {
       alert("Не удалось скопировать команду");
@@ -1631,9 +1644,9 @@ function updatePlayersList() {
     const isMe = state.me && pos.user_id === state.me.user_id;
     const nameLabel = isMe ? `${pos.nickname} (Вы)` : pos.nickname;
     const travel = travelStatusText(pos);
-    const info = travel
-      ? `${travel}<br>${Math.round(pos.x)} / ${Math.round(pos.y)}`
-      : `${Math.round(pos.x)} / ${Math.round(pos.y)}`;
+    const zBit = Number.isFinite(Number(pos.z)) ? `Z:${Math.round(Number(pos.z))}` : "";
+    const infoParts = [travel, zBit, `${Math.round(pos.x)} / ${Math.round(pos.y)}`].filter(Boolean);
+    const info = infoParts.join("<br>");
 
     rows.push(`
       <div class="sidebar-row" onclick="focusOnPlayer(${pos.user_id})">
@@ -1811,12 +1824,33 @@ function suggestTeleportZ() {
   const me = state.me && state.liveMarkers.get(state.me.user_id);
   const z = me?._playerMeta?.z;
   if (Number.isFinite(Number(z))) return Math.round(Number(z));
-  // Mid-island safe-ish default; user should replace with Z from Ctrl+C / #Location.
-  return 20000;
+  return null;
 }
 
-function formatTeleportCommand(x, y, z = suggestTeleportZ()) {
-  return `#Teleport ${formatGameTeleportXY(x, y)} ${Math.round(Number(z))}`;
+function formatTeleportCommand(x, y, z) {
+  const zz = Number.isFinite(Number(z)) ? Math.round(Number(z)) : suggestTeleportZ();
+  if (Number.isFinite(Number(zz))) {
+    return `#Teleport ${formatGameTeleportXY(x, y)} ${Math.round(Number(zz))}`;
+  }
+  return `#Teleport ${formatGameTeleportXY(x, y)} 20000`;
+}
+
+async function resolveElevationZ(x, y) {
+  const slug = state.me?.map_slug || state.config?.slug;
+  if (!slug || !isScumConfig()) return suggestTeleportZ();
+  try {
+    const res = await fetch(
+      `/api/maps/${encodeURIComponent(slug)}/elevation?x=${encodeURIComponent(x)}&y=${encodeURIComponent(y)}`,
+      { credentials: "same-origin" },
+    );
+    if (!res.ok) return suggestTeleportZ();
+    const data = await res.json();
+    if (Number.isFinite(Number(data?.z))) return Math.round(Number(data.z));
+    if (Number.isFinite(Number(data?.nearest_z))) return Math.round(Number(data.nearest_z));
+  } catch {
+    /* ignore */
+  }
+  return suggestTeleportZ();
 }
 
 function coordsWithinMap(x, y) {

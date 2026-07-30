@@ -128,6 +128,7 @@ class PositionResponse(BaseModel):
     avatar_url: str | None = None
     x: float
     y: float
+    z: float | None = None
     updated_at: datetime
     travel_mode: str | None = None
     vehicle_role: str | None = None

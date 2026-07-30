@@ -33,6 +33,7 @@ from app.poi_icons import normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
 from app.models import MapPoi, Marker, Position, Room, ServerApiKey, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
+from app.elevation_service import elevation_stats, lookup_elevation
 from app.server_ingest import ingest_players, position_event_data
 from app.schemas import (
     ClientSteamIdRequest,
@@ -295,6 +296,22 @@ async def map_radiation(slug: str, db: Annotated[AsyncSession, Depends(get_db)])
     game_map = await get_map_by_slug(db, slug)
     data = await get_map_radiation(db, game_map)
     return MapRadiationResponse(**data)
+
+
+@router.get("/maps/{slug}/elevation")
+async def map_elevation(
+    slug: str,
+    x: float,
+    y: float,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Estimate terrain Z at game coords from bridge-fed elevation samples."""
+    await get_map_by_slug(db, slug)
+    result = lookup_elevation(slug, x, y)
+    stats = elevation_stats(slug)
+    result["cells"] = stats.get("cells")
+    result["cell_size"] = stats.get("cell_size")
+    return result
 
 
 @router.get("/maps/{slug}/traders/items", response_model=list[TraderItemResponse])
@@ -1044,6 +1061,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                     avatar_url=u.avatar_url,
                     x=u.position.x,
                     y=u.position.y,
+                    z=u.position.z,
                     updated_at=u.position.updated_at,
                     travel_mode=u.position.travel_mode,
                     vehicle_role=u.position.vehicle_role,
