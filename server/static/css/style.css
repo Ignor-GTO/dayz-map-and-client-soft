@@ -1198,7 +1198,7 @@ select {
   line-height: 1.2;
 }
 
-.marker-delete, .marker-route {
+.marker-delete, .marker-route, .death-delete {
   padding: 0.45rem 0.75rem;
   font-size: 0.8rem;
   border: none;
@@ -1210,12 +1210,12 @@ select {
   justify-content: center;
 }
 
-.marker-delete {
+.marker-delete, .death-delete {
   background: #c0392b;
   color: #fff;
 }
 
-.marker-delete:hover {
+.marker-delete:hover, .death-delete:hover {
   background: #e74c3c;
 }
 
