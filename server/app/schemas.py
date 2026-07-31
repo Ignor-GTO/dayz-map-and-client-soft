@@ -135,12 +135,24 @@ class PositionResponse(BaseModel):
     vehicle_type: str | None = None
 
 
+class DeathEventResponse(BaseModel):
+    id: int
+    nickname: str
+    steam_id: str | None = None
+    profile_id: int | None = None
+    x: float
+    y: float
+    z: float | None = None
+    died_at: datetime
+
+
 class RoomStateResponse(BaseModel):
     map_slug: str
     map_name: str
     positions: list[PositionResponse]
     markers: list[MarkerResponse]
     pois: list[PoiResponse]
+    deaths: list[DeathEventResponse] = []
 
 
 class MapListItem(BaseModel):
@@ -316,6 +328,27 @@ class ServerPositionsRequest(BaseModel):
 class ServerPositionsResponse(BaseModel):
     ok: bool = True
     updated: int
+    skipped: list[dict]
+
+
+class ServerGameEvent(BaseModel):
+    type: str = Field(default="death", max_length=32)
+    x: float
+    y: float
+    z: float | None = None
+    steam_id: str | None = Field(default=None, max_length=32)
+    nickname: str | None = Field(default=None, max_length=64)
+    profile_id: int | None = None
+    at: str | None = Field(default=None, max_length=64)
+
+
+class ServerEventsRequest(BaseModel):
+    events: list[ServerGameEvent] = Field(min_length=1, max_length=50)
+
+
+class ServerEventsResponse(BaseModel):
+    ok: bool = True
+    created: int
     skipped: list[dict]
 
 

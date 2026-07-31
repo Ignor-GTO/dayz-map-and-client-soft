@@ -10,6 +10,7 @@ const state = {
   liveMarkers: new Map(),
   pinMarkers: new Map(),
   poiMarkers: new Map(),
+  deathMarkers: new Map(),
   locationLayer: null,
   locationEntries: [],
   locationData: [],
@@ -54,6 +55,7 @@ const state = {
     mutants: true,
     hunting: true,
     poi: true,
+    deaths: true,
     radiation: true,
     psi: true,
     roads: false,
@@ -1573,6 +1575,61 @@ function upsertPin(m) {
   updateMarkersList();
 }
 
+function upsertDeath(d) {
+  if (!d || d.id == null || !state.map) return;
+  const latlng = gameToLatLng(d.x, d.y);
+  let marker = state.deathMarkers.get(d.id);
+  const when = d.died_at ? String(d.died_at).replace("T", " ").replace(/\.\d+Z?$/, " UTC") : "";
+  const zLine = Number.isFinite(Number(d.z)) ? `<div>Z: ${Math.round(Number(d.z))}</div>` : "";
+  const popup = `<b>💀 ${markerEscapeHtml(d.nickname || "Игрок")}</b>
+    <div class="live-travel-line">Смерть на сервере</div>
+    ${when ? `<div class="live-travel-line">${markerEscapeHtml(when)}</div>` : ""}
+    ${zLine}
+    <div class="marker-popup-meta"><span class="poi-coords">${Math.round(d.x)} / ${Math.round(d.y)}</span></div>
+    <div class="marker-popup-actions"><button type="button" class="marker-route" data-x="${d.x}" data-y="${d.y}">Маршрут</button></div>`;
+  const icon = L.divIcon({
+    className: "death-map-pin-wrap",
+    html: `<div class="death-map-pin" title="${markerEscapeHtml(d.nickname || "Смерть")}">💀</div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+
+  if (marker) {
+    marker.setLatLng(latlng);
+    marker.setIcon(icon);
+    marker.setPopupContent(popup);
+    marker._deathMeta = d;
+  } else {
+    marker = L.marker(latlng, { icon, zIndexOffset: 600 });
+    marker.bindPopup(popup);
+    marker._deathMeta = d;
+    state.deathMarkers.set(d.id, marker);
+  }
+  if (state.filters.deaths !== false) {
+    if (!state.map.hasLayer(marker)) marker.addTo(state.map);
+  } else if (state.map.hasLayer(marker)) {
+    state.map.removeLayer(marker);
+  }
+}
+
+function clearDeathMarkers() {
+  state.deathMarkers.forEach((layer) => {
+    if (state.map) state.map.removeLayer(layer);
+  });
+  state.deathMarkers.clear();
+}
+
+function applyDeathVisibility() {
+  state.deathMarkers.forEach((marker) => {
+    if (!state.map) return;
+    if (state.filters.deaths !== false) {
+      if (!state.map.hasLayer(marker)) marker.addTo(state.map);
+    } else if (state.map.hasLayer(marker)) {
+      state.map.removeLayer(marker);
+    }
+  });
+}
+
 function upsertPoi(p) {
   if (!state.filters.poi) return;
   const latlng = gameToLatLng(p.x, p.y);
@@ -2459,6 +2516,7 @@ function connectWebSocket() {
     if (msg.type === "marker_updated") upsertPin(msg.data);
     if (msg.type === "marker_deleted") removePin(msg.data.id);
     if (msg.type === "pois_changed") reloadPois();
+    if (msg.type === "death") upsertDeath(msg.data);
     if (msg.type === "user_profile") {
       const data = msg.data || {};
       if (data.user_id != null) {
@@ -2485,6 +2543,9 @@ async function loadRoomState() {
   if (state.filters.players) data.positions.forEach(upsertLive);
   if (state.filters.markers) data.markers.forEach(upsertPin);
   if (state.filters.poi) data.pois.forEach(upsertPoi);
+  clearDeathMarkers();
+  (data.deaths || []).forEach(upsertDeath);
+  applyDeathVisibility();
 }
 
 function locationMinMapZoom(minZoom) {
@@ -2796,6 +2857,7 @@ function renderScumFilterPanel(sections) {
     { id: "mutants", label: "Мутанты" },
     { id: "hunting", label: "Охота" },
     { id: "poi", label: "Метки сервера" },
+    { id: "deaths", label: "Смерти (24ч)" },
   ];
 
   const staticHtml = staticFilters
@@ -2951,6 +3013,7 @@ function renderFilterPanel(categories, sections = null) {
     { id: "mutants", label: "Мутанты" },
     { id: "hunting", label: "Охота" },
     { id: "poi", label: "Метки сервера" },
+    { id: "deaths", label: "Смерти (24ч)" },
     { id: "radiation", label: "Радиационные зоны" },
     { id: "psi", label: "Пси-зоны" },
   ];
@@ -3113,6 +3176,7 @@ function refreshDynamicLayers() {
     if (state.filters.poi) m.addTo(state.map);
     else state.map.removeLayer(m);
   });
+  applyDeathVisibility();
   applyRadiationVisibility();
 }
 

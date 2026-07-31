@@ -357,6 +357,29 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_server_api_keys_room_id ON server_api_keys (room_id)"))
         logger.info("Created server_api_keys table")
 
+    if "map_deaths" not in road_tables:
+        conn.execute(text(
+            "CREATE TABLE map_deaths ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  map_id INTEGER NOT NULL REFERENCES dayz_maps(id),"
+            "  room_id INTEGER REFERENCES rooms(id),"
+            "  steam_id VARCHAR(32),"
+            "  nickname VARCHAR(64) NOT NULL,"
+            "  profile_id INTEGER,"
+            "  x FLOAT NOT NULL,"
+            "  y FLOAT NOT NULL,"
+            "  z FLOAT,"
+            "  died_at DATETIME,"
+            "  created_at DATETIME"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_map_deaths_map_id ON map_deaths (map_id)"))
+        conn.execute(text("CREATE INDEX ix_map_deaths_room_id ON map_deaths (room_id)"))
+        conn.execute(text("CREATE INDEX ix_map_deaths_steam_id ON map_deaths (steam_id)"))
+        conn.execute(text("CREATE INDEX ix_map_deaths_profile_id ON map_deaths (profile_id)"))
+        conn.execute(text("CREATE INDEX ix_map_deaths_died_at ON map_deaths (died_at)"))
+        logger.info("Created map_deaths table")
+
 
 def default_map_kwargs() -> dict:
     return {

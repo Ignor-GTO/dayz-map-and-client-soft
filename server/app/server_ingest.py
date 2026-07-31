@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.auth import channel_key
 from app.elevation_service import record_elevation_sample
-from app.models import Position, Room, ServerApiKey, User
+from app.models import MapDeath, Position, Room, ServerApiKey, User
 from app.websocket import manager
 
 _STEAM_ID_RE = re.compile(r"^\d{15,20}$")
@@ -236,3 +236,147 @@ async def ingest_players(
     api_key.last_used_at = datetime.now(timezone.utc)
     await db.commit()
     return {"ok": True, "updated": updated, "skipped": skipped}
+
+
+async def ingest_events(
+    db: AsyncSession,
+    api_key: ServerApiKey,
+    events: list[dict],
+) -> dict:
+    """Ingest bridge events. Currently supports type=death."""
+    from datetime import datetime as dt
+    from datetime import timedelta
+
+    created = 0
+    skipped: list[dict] = []
+    map_slug = (api_key.map.slug if api_key.map else None) or ""
+    created_payloads: list[dict] = []
+
+    for raw in events:
+        event_type = str(raw.get("type") or "death").strip().lower()
+        if event_type != "death":
+            skipped.append(
+                {
+                    "type": event_type,
+                    "steam_id": raw.get("steam_id"),
+                    "reason": "unsupported_type",
+                }
+            )
+            continue
+        try:
+            x = float(raw["x"])
+            y = float(raw["y"])
+        except (KeyError, TypeError, ValueError):
+            skipped.append(
+                {
+                    "steam_id": raw.get("steam_id"),
+                    "nickname": raw.get("nickname"),
+                    "reason": "invalid_coords",
+                }
+            )
+            continue
+
+        # Bridge also skips 0,0 — reject near-origin junk.
+        if abs(x) < 1.0 and abs(y) < 1.0:
+            skipped.append(
+                {
+                    "steam_id": raw.get("steam_id"),
+                    "nickname": raw.get("nickname"),
+                    "reason": "zero_coords",
+                }
+            )
+            continue
+
+        z = normalize_z(raw)
+        steam_id = normalize_steam_id(str(raw.get("steam_id") or "") or None)
+        nickname = str(raw.get("nickname") or "").strip() or steam_id or "Игрок"
+        profile_id = raw.get("profile_id")
+        try:
+            profile_id_int = int(profile_id) if profile_id is not None else None
+        except (TypeError, ValueError):
+            profile_id_int = None
+
+        died_at = datetime.now(timezone.utc)
+        at_raw = raw.get("at")
+        if at_raw:
+            try:
+                parsed = dt.fromisoformat(str(at_raw).replace("Z", "+00:00"))
+                if parsed.tzinfo is None:
+                    parsed = parsed.replace(tzinfo=timezone.utc)
+                died_at = parsed
+            except ValueError:
+                pass
+
+        window_start = died_at - timedelta(minutes=2)
+        dedup_q = select(MapDeath).where(
+            MapDeath.map_id == api_key.map_id,
+            MapDeath.died_at >= window_start,
+            MapDeath.x >= x - 50,
+            MapDeath.x <= x + 50,
+            MapDeath.y >= y - 50,
+            MapDeath.y <= y + 50,
+        )
+        if profile_id_int is not None:
+            dedup_q = dedup_q.where(MapDeath.profile_id == profile_id_int)
+        elif steam_id:
+            dedup_q = dedup_q.where(MapDeath.steam_id == steam_id)
+        else:
+            dedup_q = dedup_q.where(func.lower(MapDeath.nickname) == nickname.lower())
+        existing = (await db.execute(dedup_q.limit(1))).scalar_one_or_none()
+        if existing:
+            skipped.append(
+                {
+                    "steam_id": steam_id,
+                    "nickname": nickname,
+                    "profile_id": profile_id_int,
+                    "reason": "duplicate",
+                }
+            )
+            continue
+
+        death = MapDeath(
+            map_id=api_key.map_id,
+            room_id=api_key.room_id,
+            steam_id=steam_id,
+            nickname=nickname[:64],
+            profile_id=profile_id_int,
+            x=x,
+            y=y,
+            z=z,
+            died_at=died_at,
+        )
+        db.add(death)
+        await db.flush()
+        created += 1
+
+        if map_slug and z is not None:
+            record_elevation_sample(map_slug, x, y, z)
+
+        created_payloads.append(
+            {
+                "id": death.id,
+                "nickname": death.nickname,
+                "steam_id": death.steam_id,
+                "profile_id": death.profile_id,
+                "x": death.x,
+                "y": death.y,
+                "z": death.z,
+                "died_at": death.died_at.isoformat(),
+            }
+        )
+
+    api_key.last_used_at = datetime.now(timezone.utc)
+    await db.commit()
+
+    if created_payloads:
+        if api_key.room_id is not None:
+            room_ids = [api_key.room_id]
+        else:
+            result = await db.execute(select(Room.id).where(Room.map_id == api_key.map_id))
+            room_ids = list(result.scalars().all())
+        for room_id in room_ids:
+            ch = channel_key(api_key.map_id, room_id)
+            for payload in created_payloads:
+                await manager.broadcast(ch, {"type": "death", "data": payload})
+
+    return {"ok": True, "created": created, "skipped": skipped}

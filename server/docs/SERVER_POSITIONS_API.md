@@ -115,3 +115,8 @@ curl -X POST "https://YOUR_HOST/api/server/positions" \
 
 1. **Авто (рекомендуется):** ScumMapClient сам читает SteamID64 с ПК и шлёт `POST /api/client/steam-id`.
 2. **Вручную:** Админка → Пользователи → колонка SteamID64 → Сохранить.
+
+## Смерти
+
+События смерти с bridge: см. [SERVER_EVENTS_API.md](./SERVER_EVENTS_API.md)
+(`POST /api/server/events`, `type: "death"`).

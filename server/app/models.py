@@ -285,3 +285,21 @@ class ServerApiKey(Base):
 
     map: Mapped["DayZMap"] = relationship()
     room: Mapped["Room | None"] = relationship()
+
+
+class MapDeath(Base):
+    """Death marker pushed by game-server bridge (SCUM.log prisoner died)."""
+
+    __tablename__ = "map_deaths"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    map_id: Mapped[int] = mapped_column(ForeignKey("dayz_maps.id"), index=True)
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("rooms.id"), nullable=True, index=True)
+    steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    nickname: Mapped[str] = mapped_column(String(64), default="Игрок")
+    profile_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    z: Mapped[float | None] = mapped_column(Float, nullable=True)
+    died_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -1,8 +1,9 @@
 import json
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -31,10 +32,10 @@ from app.marker_upload import delete_marker_image_file, save_marker_image
 from app.avatar_upload import delete_avatar_file, save_avatar_image
 from app.poi_icons import normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
-from app.models import MapPoi, Marker, Position, Room, ServerApiKey, Trader, TraderItem, TraderSection, TraderSubsection, User
+from app.models import MapDeath, MapPoi, Marker, Position, Room, ServerApiKey, Trader, TraderItem, TraderSection, TraderSubsection, User
 from app.roads_service import create_segment, delete_segment, find_route, list_segments
 from app.elevation_service import elevation_stats, lookup_elevation
-from app.server_ingest import ingest_players, position_event_data
+from app.server_ingest import ingest_events, ingest_players, position_event_data
 from app.schemas import (
     ClientSteamIdRequest,
     CoordsPayload,
@@ -44,6 +45,9 @@ from app.schemas import (
     LoginResponse,
     ServerPositionsRequest,
     ServerPositionsResponse,
+    ServerEventsRequest,
+    ServerEventsResponse,
+    DeathEventResponse,
     MapConfigResponse,
     MapListItem,
     MapLocationsResponse,
@@ -735,6 +739,18 @@ async def server_push_positions(
     return ServerPositionsResponse(**result)
 
 
+@router.post("/server/events", response_model=ServerEventsResponse)
+async def server_push_events(
+    payload: ServerEventsRequest,
+    api_key: Annotated[ServerApiKey, Depends(authenticate_server_api_key)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Game-server agent: push death and other map events. Auth: Bearer smk_…"""
+    events = [e.model_dump() for e in payload.events]
+    result = await ingest_events(db, api_key, events)
+    return ServerEventsResponse(**result)
+
+
 @router.post("/client/marker", response_model=MarkerResponse)
 async def add_marker(
     payload: CoordsPayload,
@@ -1094,6 +1110,35 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
             linked_stash_ids.add(m.id)
 
     game_map = user.room.map
+
+    # Recent deaths (24h), newest first — keep map readable.
+    # Include map-wide deaths (room_id null) and this room's deaths.
+    death_since = datetime.now(timezone.utc) - timedelta(hours=24)
+    deaths_q = (
+        select(MapDeath)
+        .where(
+            MapDeath.map_id == user.room.map_id,
+            MapDeath.died_at >= death_since,
+            or_(MapDeath.room_id.is_(None), MapDeath.room_id == user.room_id),
+        )
+        .order_by(MapDeath.died_at.desc())
+        .limit(200)
+    )
+    death_rows = (await db.execute(deaths_q)).scalars().all()
+    deaths = [
+        DeathEventResponse(
+            id=d.id,
+            nickname=d.nickname,
+            steam_id=d.steam_id,
+            profile_id=d.profile_id,
+            x=d.x,
+            y=d.y,
+            z=d.z,
+            died_at=d.died_at,
+        )
+        for d in death_rows
+    ]
+
     return RoomStateResponse(
         map_slug=game_map.slug,
         map_name=game_map.name,
@@ -1112,6 +1157,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
             )
             for p in pois
         ],
+        deaths=deaths,
     )
 
 
