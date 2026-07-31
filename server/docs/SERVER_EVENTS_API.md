@@ -62,3 +62,4 @@ Content-Type: application/json
 - Маркеры 💀 на веб-карте (фильтр **Смерти (24ч)**).
 - Live через WebSocket `{"type":"death","data":{…}}`.
 - В `/api/room/state` поле `deaths` — смерти за последние 24 часа.
+- Удаление с карты: `DELETE /api/deaths/{id}` (участник комнаты) → WS `death_deleted`.

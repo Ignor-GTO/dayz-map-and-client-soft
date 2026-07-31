@@ -1161,6 +1161,33 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
     )
 
 
+@router.delete("/deaths/{death_id}")
+async def delete_death(
+    death_id: int,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Remove a death marker from the map (any room member on that map)."""
+    result = await db.execute(select(MapDeath).where(MapDeath.id == death_id))
+    death = result.scalar_one_or_none()
+    if not death:
+        raise HTTPException(status_code=404, detail="Death not found")
+    if death.map_id != user.room.map_id:
+        raise HTTPException(status_code=403, detail="Death is on another map")
+    if death.room_id is not None and death.room_id != user.room_id:
+        raise HTTPException(status_code=403, detail="Death is in another room")
+
+    await db.delete(death)
+    await db.commit()
+
+    event = {"type": "death_deleted", "data": {"id": death_id}}
+    if death.room_id is not None:
+        await manager.broadcast(channel_key(death.map_id, death.room_id), event)
+    else:
+        await _broadcast_to_map(db, death.map_id, event)
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------------------
 # Server POIs — staff management on web map
 # ---------------------------------------------------------------------------

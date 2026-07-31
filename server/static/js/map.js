@@ -508,6 +508,11 @@ function initLeaflet(config) {
       poiDeleteBtn.onclick = () => deletePoi(Number(poiDeleteBtn.dataset.id));
     }
 
+    const deathDeleteBtn = container.querySelector(".death-delete");
+    if (deathDeleteBtn) {
+      deathDeleteBtn.onclick = () => deleteDeath(Number(deathDeleteBtn.dataset.id));
+    }
+
     const popupImg = container.querySelector(".marker-popup-img");
     if (popupImg) {
       popupImg.onclick = () => {
@@ -1586,7 +1591,10 @@ function upsertDeath(d) {
     ${when ? `<div class="live-travel-line">${markerEscapeHtml(when)}</div>` : ""}
     ${zLine}
     <div class="marker-popup-meta"><span class="poi-coords">${Math.round(d.x)} / ${Math.round(d.y)}</span></div>
-    <div class="marker-popup-actions"><button type="button" class="marker-route" data-x="${d.x}" data-y="${d.y}">Маршрут</button></div>`;
+    <div class="marker-popup-actions">
+      <button type="button" class="marker-route" data-x="${d.x}" data-y="${d.y}">Маршрут</button>
+      <button type="button" class="death-delete" data-id="${d.id}">Удалить</button>
+    </div>`;
   const icon = L.divIcon({
     className: "death-map-pin-wrap",
     html: `<div class="death-map-pin" title="${markerEscapeHtml(d.nickname || "Смерть")}">💀</div>`,
@@ -1628,6 +1636,22 @@ function applyDeathVisibility() {
       state.map.removeLayer(marker);
     }
   });
+}
+
+function removeDeath(id) {
+  const layer = state.deathMarkers.get(id);
+  if (layer && state.map) state.map.removeLayer(layer);
+  state.deathMarkers.delete(id);
+}
+
+async function deleteDeath(id) {
+  if (!confirm("Удалить метку смерти?")) return;
+  try {
+    await api(`/api/deaths/${id}`, { method: "DELETE" });
+    removeDeath(id);
+  } catch (err) {
+    alert(err.message || "Не удалось удалить");
+  }
 }
 
 function upsertPoi(p) {
@@ -2517,6 +2541,7 @@ function connectWebSocket() {
     if (msg.type === "marker_deleted") removePin(msg.data.id);
     if (msg.type === "pois_changed") reloadPois();
     if (msg.type === "death") upsertDeath(msg.data);
+    if (msg.type === "death_deleted") removeDeath(msg.data.id);
     if (msg.type === "user_profile") {
       const data = msg.data || {};
       if (data.user_id != null) {
