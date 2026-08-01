@@ -684,7 +684,6 @@ function layoutLivePlayerMarkers() {
   });
 
   bringMyLiveMarkerToFront();
-  layoutLivePlayerMarkers();
 }
 
 function upsertLive(pos) {
