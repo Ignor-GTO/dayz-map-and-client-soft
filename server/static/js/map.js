@@ -562,7 +562,16 @@ function vehicleTypeLabel(pos) {
 function playerHeadingHtml(yaw) {
   if (!Number.isFinite(Number(yaw))) return "";
   const deg = -Number(yaw);
-  return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)"><div class="live-player-heading"></div></div>`;
+  return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)" aria-hidden="true">
+    <svg class="live-player-heading" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <path d="M16 2 C19.5 13 23.5 20.5 27.5 25.5 C20.5 22.5 11.5 22.5 4.5 25.5 C8.5 20.5 12.5 13 16 2 Z"
+        fill="rgba(0, 228, 255, 0.68)"
+        stroke="rgba(0, 195, 215, 0.42)"
+        stroke-width="1.1"
+        stroke-linejoin="round"
+        stroke-linecap="round"/>
+    </svg>
+  </div>`;
 }
 
 function travelBadgeHtml(pos) {
@@ -615,8 +624,8 @@ function upsertLive(pos) {
   const heading = playerHeadingHtml(pos.yaw);
   const iconHtml = `
     <div class="live-player-pin">
-      ${heading}
       <div class="live-player-avatar-wrap" style="border-color:${color}">
+        ${heading}
         <img class="live-player-avatar" src="${markerEscapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='${(window.ProfileUi?.DEFAULT_AVATAR_URL || '/img/default-avatar.svg?v=2').replace(/'/g, '')}'">
         ${badge}
       </div>

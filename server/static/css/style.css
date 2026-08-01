@@ -1706,24 +1706,22 @@ button.secondary.small {
 
 .live-player-heading-wrap {
   position: absolute;
-  left: 12px;
-  top: 12px;
-  width: 0;
-  height: 0;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  margin-left: -17px;
+  margin-top: -17px;
   transform-origin: 50% 50%;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 .live-player-heading {
-  position: absolute;
-  left: -6px;
-  top: -18px;
-  width: 0;
-  height: 0;
-  border-left: 6px solid transparent;
-  border-right: 6px solid transparent;
-  border-bottom: 12px solid rgba(0, 240, 255, 0.95);
-  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.85));
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.55));
 }
 .live-player-pin {
   position: relative;
@@ -1743,9 +1741,12 @@ button.secondary.small {
   flex-shrink: 0;
   background: #1a2332;
   box-shadow: 0 0 4px rgba(0, 0, 0, 0.65);
+  z-index: 1;
 }
 
 .live-player-avatar {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1755,6 +1756,7 @@ button.secondary.small {
 
 .live-travel-badge {
   position: absolute;
+  z-index: 2;
   right: -8px;
   bottom: -6px;
   width: 16px;
