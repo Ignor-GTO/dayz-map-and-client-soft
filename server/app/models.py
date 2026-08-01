@@ -119,15 +119,37 @@ class Room(Base):
     )
 
 
+class Account(Base):
+    """Global identity shared across maps/rooms (avatar, password, steam)."""
+
+    __tablename__ = "accounts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    # Display name (usually last used nickname); memberships keep their own nick.
+    display_name: Mapped[str] = mapped_column(String(64))
+    steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    profile_password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    memberships: Mapped[list["User"]] = relationship(back_populates="account")
+
+
 class User(Base):
+    """Membership in a PIN room on a specific map (still the session identity)."""
+
     __tablename__ = "users"
     __table_args__ = (UniqueConstraint("room_id", "nickname", name="uq_room_nickname"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     room_id: Mapped[int] = mapped_column(ForeignKey("rooms.id"), index=True)
+    account_id: Mapped[int | None] = mapped_column(
+        ForeignKey("accounts.id"), nullable=True, index=True
+    )
     nickname: Mapped[str] = mapped_column(String(64))
     client_key_hash: Mapped[str] = mapped_column(String(128))
     # Optional SteamID64 for matching positions from game-server logs / RCON.
+    # Canonical copy also lives on Account; kept in sync for ingest matching.
     steam_id: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     # Optional password to protect nickname from impersonation within a PIN group.
     profile_password_hash: Mapped[str | None] = mapped_column(String(128), nullable=True)
@@ -140,6 +162,7 @@ class User(Base):
         back_populates="users",
         foreign_keys=[room_id],
     )
+    account: Mapped["Account | None"] = relationship(back_populates="memberships")
     position: Mapped["Position | None"] = relationship(
         back_populates="user", uselist=False, cascade="all, delete-orphan"
     )

@@ -43,7 +43,7 @@ def delete_avatar_file(url: str | None) -> None:
         path.unlink(missing_ok=True)
 
 
-async def save_avatar_image(user_id: int, file: UploadFile) -> str:
+async def save_avatar_image(owner_id: int | str, file: UploadFile) -> str:
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail="Unsupported image type")
 
@@ -54,7 +54,7 @@ async def save_avatar_image(user_id: int, file: UploadFile) -> str:
         raise HTTPException(status_code=400, detail="File too large (max 2 MB)")
 
     ensure_avatar_upload_dir()
-    out_name = f"{user_id}_{uuid.uuid4().hex[:12]}.webp"
+    out_name = f"{owner_id}_{uuid.uuid4().hex[:12]}.webp"
     out_path = AVATAR_UPLOAD_DIR / out_name
 
     try:
@@ -67,7 +67,7 @@ async def save_avatar_image(user_id: int, file: UploadFile) -> str:
         img.save(out_path, format="WEBP", quality=85, method=4)
     except ImportError:
         ext = ALLOWED_CONTENT_TYPES[file.content_type]
-        out_name = f"{user_id}_{uuid.uuid4().hex[:12]}{ext}"
+        out_name = f"{owner_id}_{uuid.uuid4().hex[:12]}{ext}"
         out_path = AVATAR_UPLOAD_DIR / out_name
         out_path.write_bytes(raw)
     except Exception as exc:

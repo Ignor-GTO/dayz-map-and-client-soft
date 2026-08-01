@@ -12,6 +12,7 @@
   const DEFAULT_AVATAR_FILE_URL = "/img/default-avatar.svg?v=2";
   let hooks = {};
   let bound = false;
+  let activeProfileTab = "settings";
 
   async function api(path, options = {}) {
     const res = await fetch(path, {
@@ -85,6 +86,72 @@
     document.getElementById("profile-modal")?.classList.add("hidden");
   }
 
+  function setProfileTab(tabId) {
+    activeProfileTab = tabId === "maps" ? "maps" : "settings";
+    document.querySelectorAll(".profile-tab").forEach((btn) => {
+      const active = btn.getAttribute("data-profile-tab") === activeProfileTab;
+      btn.classList.toggle("is-active", active);
+      btn.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    document.querySelectorAll(".profile-tab-panel").forEach((panel) => {
+      const active = panel.getAttribute("data-profile-panel") === activeProfileTab;
+      panel.classList.toggle("is-active", active);
+      if (active) panel.removeAttribute("hidden");
+      else panel.setAttribute("hidden", "");
+    });
+  }
+
+  function renderMemberships(me) {
+    const list = document.getElementById("profile-memberships-list");
+    if (!list) return;
+    const rows = Array.isArray(me?.memberships) ? me.memberships : [];
+    if (!rows.length) {
+      list.innerHTML = `<div class="list-empty">Пока только текущая группа. Войдите на другую карту с тем же ником и паролем профиля — она появится здесь.</div>`;
+      return;
+    }
+    list.innerHTML = rows
+      .map((m) => {
+        const current = !!m.is_current;
+        const label = `${escapeHtml(m.map_name)}`;
+        const meta = `PIN ${escapeHtml(m.pin)} · ${escapeHtml(m.nickname || "")}`;
+        const btn = current
+          ? `<span class="profile-membership-badge">Сейчас</span>`
+          : `<button type="button" class="profile-membership-go" data-user-id="${m.user_id}">Перейти</button>`;
+        return `
+          <div class="profile-membership-row${current ? " is-current" : ""}">
+            <div class="profile-membership-main">
+              <div class="profile-membership-title">${label}</div>
+              <div class="profile-membership-meta">${meta}</div>
+            </div>
+            ${btn}
+          </div>`;
+      })
+      .join("");
+  }
+
+  function escapeHtml(text) {
+    return String(text ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  async function switchMembership(userId) {
+    const data = await api("/api/auth/switch-membership", {
+      method: "POST",
+      body: JSON.stringify({ user_id: userId }),
+    });
+    setUser(data);
+    closeProfileModal();
+    if (typeof hooks.onSwitchMembership === "function") {
+      await hooks.onSwitchMembership(data);
+    } else {
+      const slug = data.map_slug || "";
+      window.location.href = slug ? `/?map=${encodeURIComponent(slug)}` : "/";
+    }
+  }
+
   function populateProfileModal() {
     const me = getUser();
     if (!me) return;
@@ -92,13 +159,24 @@
     document.getElementById("profile-nickname").textContent = me.nickname;
     document.getElementById("profile-room-info").textContent =
       `${me.map_name} · PIN: ${me.pin}`;
+    const steamEl = document.getElementById("profile-steam-info");
+    if (steamEl) {
+      steamEl.textContent = me.steam_id
+        ? `Steam ID: ${me.steam_id}`
+        : "Steam ID: не привязан";
+    }
+    const steamInput = document.getElementById("profile-steam-id");
+    if (steamInput) steamInput.value = me.steam_id || "";
+    document.getElementById("profile-clear-steam-btn")?.classList.toggle("hidden", !me.steam_id);
+    document.getElementById("profile-steam-error")?.classList.add("hidden");
     syncAvatarUi();
     document.getElementById("profile-avatar-error")?.classList.add("hidden");
+    renderMemberships(me);
 
     const hasPassword = !!me.has_profile_password;
     document.getElementById("profile-password-status").textContent = hasPassword
-      ? "Пароль включён — без него никто не войдёт под вашим никнеймом."
-      : "Пароль не задан — вход только по PIN и никнейму.";
+      ? "Пароль общий для всех карт. Без него никто не войдёт под вашим ником в защищённых группах."
+      : "Пароль не задан. Задайте его, чтобы связать один профиль на разных картах.";
     document.getElementById("profile-current-password-wrap").classList.toggle("hidden", !hasPassword);
     document.getElementById("profile-remove-password-btn").classList.toggle("hidden", !hasPassword);
     document.getElementById("profile-new-password-label").textContent = hasPassword
@@ -109,26 +187,54 @@
     document.getElementById("profile-password-error").classList.add("hidden");
 
     const roomSection = document.getElementById("room-settings-section");
-    if (me.can_manage_room) {
-      roomSection.classList.remove("hidden");
-      document.getElementById("room-settings-pin").value = me.pin;
-      document.getElementById("room-settings-current-password").value = "";
-      document.getElementById("room-settings-entry-password").value = "";
-      document.getElementById("room-settings-remove-entry-password").checked = false;
-      document.getElementById("room-settings-current-password-wrap").classList.toggle(
-        "hidden",
-        !me.room_entry_password_enabled
-      );
-      document.getElementById("room-settings-error").classList.add("hidden");
-    } else {
-      roomSection.classList.add("hidden");
+    if (roomSection) {
+      if (me.can_manage_room) {
+        roomSection.classList.remove("hidden");
+        document.getElementById("room-settings-pin").value = me.pin;
+        document.getElementById("room-settings-current-password").value = "";
+        document.getElementById("room-settings-entry-password").value = "";
+        document.getElementById("room-settings-remove-entry-password").checked = false;
+        document.getElementById("room-settings-current-password-wrap").classList.toggle(
+          "hidden",
+          !me.room_entry_password_enabled
+        );
+        document.getElementById("room-settings-error").classList.add("hidden");
+      } else {
+        roomSection.classList.add("hidden");
+      }
     }
   }
 
-  function openProfileModal() {
+  function openProfileModal(tabId = "settings") {
     if (!getUser()) return;
     populateProfileModal();
+    setProfileTab(tabId);
     document.getElementById("profile-modal")?.classList.remove("hidden");
+  }
+
+  async function saveProfileSteamId(clear = false) {
+    const errEl = document.getElementById("profile-steam-error");
+    errEl?.classList.add("hidden");
+    try {
+      let data;
+      const steam_id = clear ? "" : (document.getElementById("profile-steam-id")?.value.trim() || "");
+      if (clear || !steam_id) {
+        data = await api("/api/auth/profile/steam-id", { method: "DELETE" });
+      } else {
+        data = await api("/api/auth/profile/steam-id", {
+          method: "PUT",
+          body: JSON.stringify({ steam_id }),
+        });
+      }
+      const me = { ...getUser(), steam_id: data.steam_id || null };
+      setUser(me);
+      populateProfileModal();
+    } catch (err) {
+      if (errEl) {
+        errEl.textContent = err.message;
+        errEl.classList.remove("hidden");
+      }
+    }
   }
 
   async function saveProfilePassword(remove = false) {
@@ -212,10 +318,15 @@
     if (bound) return;
     bound = true;
 
-    document.getElementById("profile-btn")?.addEventListener("click", openProfileModal);
+    document.getElementById("profile-btn")?.addEventListener("click", () => openProfileModal("settings"));
     document.getElementById("close-profile-modal")?.addEventListener("click", closeProfileModal);
     document.getElementById("profile-modal")?.addEventListener("click", (e) => {
       if (e.target.id === "profile-modal") closeProfileModal();
+    });
+    document.querySelector(".profile-tabs")?.addEventListener("click", (e) => {
+      const tab = e.target.closest(".profile-tab");
+      if (!tab) return;
+      setProfileTab(tab.getAttribute("data-profile-tab"));
     });
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
@@ -228,6 +339,13 @@
     document.getElementById("profile-remove-password-btn")?.addEventListener("click", () => {
       if (!confirm("Отключить пароль профиля? Вход снова будет только по PIN и никнейму.")) return;
       saveProfilePassword(true);
+    });
+    document.getElementById("profile-save-steam-btn")?.addEventListener("click", () => {
+      saveProfileSteamId(false);
+    });
+    document.getElementById("profile-clear-steam-btn")?.addEventListener("click", () => {
+      if (!confirm("Отвязать Steam ID от профиля?")) return;
+      saveProfileSteamId(true);
     });
     document.getElementById("room-settings-save-btn")?.addEventListener("click", saveRoomSettings);
     document.getElementById("profile-avatar-input")?.addEventListener("change", async (e) => {
@@ -248,6 +366,17 @@
       if (!getUser()?.avatar_url) return;
       if (!confirm("Удалить фото профиля?")) return;
       await removeProfileAvatar();
+    });
+    document.getElementById("profile-memberships-list")?.addEventListener("click", async (e) => {
+      const btn = e.target.closest(".profile-membership-go");
+      if (!btn) return;
+      const userId = Number(btn.getAttribute("data-user-id"));
+      if (!userId) return;
+      try {
+        await switchMembership(userId);
+      } catch (err) {
+        alert(err.message || "Не удалось переключить группу");
+      }
     });
     document.getElementById("logout-btn")?.addEventListener("click", async () => {
       await api("/api/auth/logout", { method: "POST" });
@@ -289,6 +418,7 @@
     refreshSession,
     syncAvatarUi,
     syncAdminPanelLink,
+    setToolbarVisible,
     openProfileModal,
     resolveAvatarUrl,
     avatarImgHtml,

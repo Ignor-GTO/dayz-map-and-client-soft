@@ -29,6 +29,10 @@ class ProfilePasswordRequest(BaseModel):
     new_password: str | None = Field(default=None, max_length=128)
 
 
+class SwitchMembershipRequest(BaseModel):
+    user_id: int
+
+
 class RoomSettingsResponse(BaseModel):
     pin: str
     entry_password_enabled: bool
@@ -59,6 +63,10 @@ class CoordsPayload(BaseModel):
 
 class ClientSteamIdRequest(BaseModel):
     steam_id: str = Field(min_length=15, max_length=32)
+
+
+class ProfileSteamIdRequest(BaseModel):
+    steam_id: str = Field(default="", max_length=32)
 
 
 class MarkerResponse(BaseModel):

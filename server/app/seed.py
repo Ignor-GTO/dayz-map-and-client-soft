@@ -380,6 +380,114 @@ def _migrate_sqlite(conn) -> None:
         conn.execute(text("CREATE INDEX ix_map_deaths_died_at ON map_deaths (died_at)"))
         logger.info("Created map_deaths table")
 
+    _migrate_unified_accounts(conn)
+
+
+def _migrate_unified_accounts(conn) -> None:
+    """Create accounts table and backfill users.account_id without dropping any rows."""
+    tables = {
+        row[0]
+        for row in conn.execute(text("SELECT name FROM sqlite_master WHERE type='table'")).fetchall()
+    }
+    if "users" not in tables:
+        return
+
+    if "accounts" not in tables:
+        conn.execute(text(
+            "CREATE TABLE accounts ("
+            "  id INTEGER PRIMARY KEY AUTOINCREMENT,"
+            "  display_name VARCHAR(64) NOT NULL,"
+            "  steam_id VARCHAR(32),"
+            "  profile_password_hash VARCHAR(128),"
+            "  avatar_url TEXT,"
+            "  created_at DATETIME"
+            ")"
+        ))
+        conn.execute(text("CREATE INDEX ix_accounts_steam_id ON accounts (steam_id)"))
+        logger.info("Created accounts table")
+
+    user_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(users)")).fetchall()}
+    if "account_id" not in user_cols:
+        conn.execute(text("ALTER TABLE users ADD COLUMN account_id INTEGER REFERENCES accounts(id)"))
+        logger.info("Added users.account_id column")
+        try:
+            conn.execute(text("CREATE INDEX ix_users_account_id ON users (account_id)"))
+        except Exception:
+            pass
+
+    # 1:1 account for every membership that still lacks one (no data loss).
+    orphans = conn.execute(text(
+        "SELECT id, nickname, steam_id, profile_password_hash, avatar_url, created_at "
+        "FROM users WHERE account_id IS NULL"
+    )).fetchall()
+    for row in orphans:
+        user_id, nickname, steam_id, pw_hash, avatar_url, created_at = row
+        conn.execute(
+            text(
+                "INSERT INTO accounts (display_name, steam_id, profile_password_hash, avatar_url, created_at) "
+                "VALUES (:display_name, :steam_id, :profile_password_hash, :avatar_url, :created_at)"
+            ),
+            {
+                "display_name": nickname or f"user-{user_id}",
+                "steam_id": steam_id,
+                "profile_password_hash": pw_hash,
+                "avatar_url": avatar_url,
+                "created_at": created_at,
+            },
+        )
+        account_id = conn.execute(text("SELECT last_insert_rowid()")).scalar()
+        conn.execute(
+            text("UPDATE users SET account_id = :account_id WHERE id = :user_id"),
+            {"account_id": account_id, "user_id": user_id},
+        )
+    if orphans:
+        logger.info("Backfilled accounts for %s user memberships", len(orphans))
+
+    # Safe merge: same non-null steam_id → one account (keep lowest account id).
+    steam_groups = conn.execute(text(
+        "SELECT steam_id, MIN(account_id) AS keep_id, GROUP_CONCAT(DISTINCT account_id) AS ids "
+        "FROM users "
+        "WHERE steam_id IS NOT NULL AND steam_id != '' AND account_id IS NOT NULL "
+        "GROUP BY steam_id "
+        "HAVING COUNT(DISTINCT account_id) > 1"
+    )).fetchall()
+    merged_accounts = 0
+    for steam_id, keep_id, ids_csv in steam_groups:
+        ids = [int(x) for x in str(ids_csv).split(",") if x]
+        for old_id in ids:
+            if old_id == keep_id:
+                continue
+            # Prefer non-null profile fields onto keep account.
+            conn.execute(text(
+                "UPDATE accounts SET "
+                "  avatar_url = COALESCE(accounts.avatar_url, (SELECT avatar_url FROM accounts WHERE id = :old_id)), "
+                "  profile_password_hash = COALESCE(accounts.profile_password_hash, "
+                "    (SELECT profile_password_hash FROM accounts WHERE id = :old_id)), "
+                "  display_name = COALESCE(NULLIF(accounts.display_name, ''), "
+                "    (SELECT display_name FROM accounts WHERE id = :old_id)) "
+                "WHERE id = :keep_id"
+            ), {"old_id": old_id, "keep_id": keep_id})
+            conn.execute(
+                text("UPDATE users SET account_id = :keep_id WHERE account_id = :old_id"),
+                {"keep_id": keep_id, "old_id": old_id},
+            )
+            conn.execute(text("DELETE FROM accounts WHERE id = :old_id"), {"old_id": old_id})
+            merged_accounts += 1
+    if merged_accounts:
+        logger.info("Merged %s duplicate accounts by steam_id", merged_accounts)
+
+    # Sync denormalized user fields from account (canonical).
+    conn.execute(text(
+        "UPDATE users SET "
+        "  avatar_url = (SELECT avatar_url FROM accounts WHERE accounts.id = users.account_id), "
+        "  profile_password_hash = (SELECT profile_password_hash FROM accounts WHERE accounts.id = users.account_id), "
+        "  steam_id = COALESCE("
+        "    (SELECT steam_id FROM accounts WHERE accounts.id = users.account_id), "
+        "    users.steam_id"
+        "  ) "
+        "WHERE account_id IS NOT NULL"
+    ))
+
 
 def default_map_kwargs() -> dict:
     return {

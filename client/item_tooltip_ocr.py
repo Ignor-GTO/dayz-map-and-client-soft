@@ -3,248 +3,88 @@
 from __future__ import annotations
 
 import re
-from typing import Callable
 
-import numpy as np
-from PIL import Image, ImageEnhance
+from PIL import Image
 
-from item_tooltip_locator import (
-    SearchArea,
-    _find_title_regions_fallback,
-    find_title_regions_in_search,
-    grab_tooltip_search_area,
-)
+from capture import grab_region, resolve_monitor
 from item_tooltip_preprocess import preprocess_tooltip_variants
+from mouse_util import get_cursor_pos
 
 
-_OVERLAY_GARBAGE_RE = re.compile(
-    r"(цены\s*инвентар|наведите\s*курсор|ищу\s*цен|цена\s*не\s*найдена|"
-    r"куп\s*:|прод\s*:|черный\s*рынок)",
-    re.IGNORECASE,
-)
-_HUD_GARBAGE_RE = re.compile(
-    r"(\[\s*T\s*\d|floor|удержив|tab\b|shift|ctrl|alt\b|win\b|esc\b|page\s*up|page\s*down|"
-    r"num\s*lock|caps|space|enter|click|double|mouse|клавиш|нажмите|удерж)",
-    re.IGNORECASE,
-)
-_OCR_NOISE_RE = re.compile(r"^[0oоOО\s\W]{4,}$")
 _SKIP_LINE_RE = re.compile(
-    r"(нетронуто|не\s*тронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+|"
-    r"техническ|раскач|отдач|урон|состоян|снаряжение|экипиров|сервопривод|контейнер|руки|поблизости|"
-    r"штан|артефакт|floor|удержив|какая-то\s+дичь|passive|battery|magnification|"
-    r"generation|optical|required|operation|army|container|artifact)",
+    r"(нетронуто|поврежден|изношен|испорчен|кг|шт\.?|меньше|около|\d+\s*/\s*\d+)",
     re.IGNORECASE,
 )
-_DESC_LINE_RE = re.compile(
-    r"^[A-Za-zäöüßÄÖÜ][A-Za-zäöüßÄÖÜ\s,\.\-]{35,}$",
-)
-_GARBAGE_LINE_RE = re.compile(r"^[\d\W_]+$")
-_LATIN_CONFUSABLES = str.maketrans(
-    {
-        "A": "А",
-        "B": "В",
-        "C": "С",
-        "E": "Е",
-        "H": "Н",
-        "K": "К",
-        "M": "М",
-        "O": "О",
-        "P": "Р",
-        "T": "Т",
-        "X": "Х",
-        "Y": "У",
-        "a": "а",
-        "c": "с",
-        "e": "е",
-        "o": "о",
-        "p": "р",
-        "x": "х",
-        "y": "у",
-    }
-)
 
 
-def _line_score(line: str) -> tuple[int, int, int]:
-    cyr = len(re.findall(r"[А-Яа-яЁё]", line))
-    latin = len(re.findall(r"[A-Za-z]", line))
-    alnum = len(re.findall(r"[\wА-Яа-яЁё]", line))
-    return (cyr + latin, alnum, len(line))
+def _recognize_general(prepared: Image.Image) -> str:
+    from ocr_engine import _recognize_prepared, ensure_ocr_backend, recognize_text_fallback, _use_windows
 
-
-def _name_quality_score(name: str) -> tuple[int, int, int]:
-    line = name.strip()
-    score = _line_score(line)
-    bonus = 0
-    if _HUD_GARBAGE_RE.search(line):
-        bonus -= 1000
-    if _OVERLAY_GARBAGE_RE.search(line):
-        bonus -= 2000
-    if "[" in line or "]" in line:
-        bonus -= 500
-    if "/" in line or "-" in line:
-        bonus += 80
-    if re.search(r"\d", line) and re.search(r"[A-Za-zА-Яа-яЁё]", line):
-        bonus += 40
-    return (score[0] + bonus, score[1], score[2])
-
-
-def _upscale_raw(image: Image.Image, *, fast: bool = False) -> Image.Image:
-    rgb = image.convert("RGB")
-    w, h = rgb.size
-    if fast:
-        scale = max(2, min(3, 220 // max(h, 1)))
-    else:
-        scale = max(3, min(5, 260 // max(h, 1)))
-    if scale > 1:
-        rgb = rgb.resize((w * scale, h * scale), Image.Resampling.LANCZOS)
-    return ImageEnhance.Contrast(rgb).enhance(1.15)
-
-
-def _recognize_tooltip_variant(prepared: Image.Image) -> str:
-    from ocr_engine import recognize_general_text
-
-    return recognize_general_text(prepared).strip()
+    ensure_ocr_backend()
+    if _use_windows:
+        try:
+            text = _recognize_prepared(prepared).strip()
+            if text:
+                return text
+        except Exception:
+            pass
+    try:
+        return recognize_text_fallback(prepared).strip()
+    except Exception:
+        return ""
 
 
 def recognize_tooltip_text(image: Image.Image) -> str:
-    seen: set[str] = set()
-    names: list[str] = []
-
-    for prepared in [_upscale_raw(image), *preprocess_tooltip_variants(image)]:
-        text = _recognize_tooltip_variant(prepared)
-        if not text or text in seen:
-            continue
-        seen.add(text)
-        name = extract_item_name(text)
-        if name:
-            names.append(name)
-
-    return pick_best_name(names) or ""
-
-
-def recognize_tooltip_text_fast(image: Image.Image) -> str:
-    """Fast path: orange title first; white title only if crop looks like a white name strip."""
-    from item_tooltip_locator import _orange_title_mask, _white_title_mask
-    from item_tooltip_preprocess import preprocess_tooltip_color_boost, preprocess_tooltip_orange, preprocess_tooltip_white
-
-    for prepared in (
-        preprocess_tooltip_color_boost(image),
-        preprocess_tooltip_orange(image),
-    ):
-        text = _recognize_tooltip_variant(prepared)
-        name = extract_item_name(text)
-        if not name:
-            continue
-        cleaned = normalize_item_name(name)
-        if is_valid_item_name(cleaned):
-            return cleaned
-
-    rgb = np.asarray(image.convert("RGB"))
-    top = rgb[: max(12, rgb.shape[0] // 2)]
-    orange_px = int(_orange_title_mask(top).sum())
-    white_px = int(_white_title_mask(top).sum())
-    if white_px >= 35 and white_px > orange_px * 2:
-        text = _recognize_tooltip_variant(preprocess_tooltip_white(image))
-        name = extract_item_name(text)
-        if name:
-            cleaned = normalize_item_name(name)
-            if is_valid_item_name(cleaned):
-                return cleaned
+    for prepared in preprocess_tooltip_variants(image):
+        text = _recognize_general(prepared)
+        if text.strip():
+            return text.strip()
     return ""
 
 
-def normalize_item_name(name: str) -> str:
-    cleaned = re.sub(r"\s+", " ", str(name or "").strip())
-    cleaned = cleaned.strip("·|•-— ")
-    return cleaned.translate(_LATIN_CONFUSABLES)
-
-
-def is_valid_item_name(name: str | None) -> bool:
-    if not name:
-        return False
-    line = re.sub(r"\s+", " ", name.strip())
-    if len(line) < 2 or len(line) > 72:
-        return False
-    if _GARBAGE_LINE_RE.match(line):
-        return False
-    if re.fullmatch(r"\d+", line.replace(" ", "")):
-        return False
-    if re.fullmatch(r"[A-Za-zА-Яа-яЁё]", line):
-        return False
-    if _SKIP_LINE_RE.search(line):
-        return False
-    if _DESC_LINE_RE.match(line):
-        return False
-    if _HUD_GARBAGE_RE.search(line):
-        return False
-    if _OVERLAY_GARBAGE_RE.search(line):
-        return False
-    if _OCR_NOISE_RE.match(line):
-        return False
-    letters = re.findall(r"[\wА-Яа-яЁё]", line)
-    if letters:
-        o_like = sum(1 for ch in letters if ch.lower() in {"o", "о", "0"})
-        if o_like / len(letters) > 0.55:
-            return False
-    if re.search(r"[\[\]]", line):
-        return False
-    return bool(re.search(r"[\wА-Яа-яЁё]", line))
-
-
 def extract_item_name(ocr_text: str) -> str | None:
-    """Tooltip title is always the first valid line top-to-bottom."""
     lines = [ln.strip() for ln in ocr_text.replace("\r", "\n").split("\n") if ln.strip()]
     for line in lines:
-        cleaned = normalize_item_name(line)
-        if is_valid_item_name(cleaned):
-            return cleaned
-    return None
-
-
-def pick_best_name(names: list[str]) -> str | None:
-    valid: list[str] = []
-    seen: set[str] = set()
-    for raw in names:
-        name = normalize_item_name(raw)
-        key = name.casefold()
-        if not is_valid_item_name(name) or key in seen:
+        if _SKIP_LINE_RE.search(line):
             continue
-        seen.add(key)
-        valid.append(name)
-    if not valid:
-        return None
-    valid.sort(key=_name_quality_score, reverse=True)
-    return valid[0]
+        if len(line) >= 2 and re.search(r"[\wА-Яа-яЁё]", line):
+            return line
+    return lines[0] if lines else None
 
 
-def read_item_name_at_cursor(
-    cfg: dict,
+def grab_tooltip_near_cursor(
+    monitor_index: int,
     *,
-    on_search: Callable[[str], None] | None = None,
-    on_capture_ready: Callable[[SearchArea, list[tuple[int, int, int, int]]], None] | None = None,
-    before_capture: Callable[[], None] | None = None,
-) -> str | None:
-    if before_capture:
-        before_capture()
-
-    search = grab_tooltip_search_area(cfg)
-    if search is None:
-        if on_search:
-            on_search("hint")
+    dx: int = 24,
+    dy: int = -90,
+    width: int = 420,
+    height: int = 72,
+) -> Image.Image | None:
+    mon = resolve_monitor(monitor_index)
+    if not mon:
         return None
+    cx, cy = get_cursor_pos()
+    lx = cx - mon.left
+    ly = cy - mon.top
+    left = max(0, lx + dx)
+    top = max(0, ly + dy)
+    right = min(mon.width, left + max(40, width))
+    bottom = min(mon.height, top + max(24, height))
+    if right <= left + 8 or bottom <= top + 8:
+        return None
+    return grab_region(monitor_index, (left, top, right, bottom))
 
-    debug_regions = find_title_regions_in_search(search, fast=True)
-    if on_capture_ready:
-        on_capture_ready(search, debug_regions)
 
-    regions = debug_regions or _find_title_regions_fallback(search, fast=True)
-
-    for box in regions[:2]:
-        crop = search.image.crop(box)
-        name = recognize_tooltip_text_fast(crop)
-        if name and is_valid_item_name(name):
-            return name
-
-    if on_search:
-        on_search("hint")
-    return None
+def read_item_name_at_cursor(cfg: dict) -> str | None:
+    capture = cfg.get("item_tooltip_capture") or {}
+    image = grab_tooltip_near_cursor(
+        int(cfg.get("monitor_index", 1)),
+        dx=int(capture.get("dx", 24)),
+        dy=int(capture.get("dy", -90)),
+        width=int(capture.get("w", 420)),
+        height=int(capture.get("h", 72)),
+    )
+    if image is None:
+        return None
+    text = recognize_tooltip_text(image)
+    return extract_item_name(text)

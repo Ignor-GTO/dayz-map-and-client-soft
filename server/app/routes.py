@@ -30,6 +30,19 @@ from app.radiation_service import get_map_radiation
 from app.maps_service import list_enabled_maps, resolve_map_config
 from app.marker_upload import delete_marker_image_file, save_marker_image
 from app.avatar_upload import delete_avatar_file, save_avatar_image
+from app.accounts import (
+    adopt_matching_memberships,
+    avatar_url_of,
+    broadcast_avatar_to_memberships,
+    create_account_for_user,
+    ensure_user_account,
+    find_account_for_new_membership,
+    list_memberships_for_account,
+    profile_password_hash_of,
+    sync_all_memberships,
+    sync_membership_profile_fields,
+    verify_user_profile_password,
+)
 from app.poi_icons import normalize_poi_icon
 from app.poi_upload import delete_poi_image_file, save_poi_image
 from app.models import MapDeath, MapPoi, Marker, Position, Room, ServerApiKey, Trader, TraderItem, TraderSection, TraderSubsection, User
@@ -68,6 +81,8 @@ from app.schemas import (
     RoomStateResponse,
     StaffPoiCreateRequest,
     StaffPoiUpdateRequest,
+    SwitchMembershipRequest,
+    ProfileSteamIdRequest,
     TraderItemResponse,
 )
 from app.buildings_service import list_buildings
@@ -177,9 +192,9 @@ def _verify_room_entry_password(room: Room, room_password: str | None) -> None:
 
 
 def _verify_profile_password(user: User, profile_password: str | None) -> None:
-    if not user.profile_password_hash:
+    if not profile_password_hash_of(user):
         return
-    if not profile_password or not verify_password(profile_password, user.profile_password_hash):
+    if not verify_user_profile_password(user, profile_password):
         raise HTTPException(status_code=401, detail="Неверный пароль профиля")
 
 
@@ -418,14 +433,16 @@ async def login_requirements(
         )
 
     result = await db.execute(
-        select(User).where(User.room_id == room.id, User.nickname == nickname)
+        select(User)
+        .options(selectinload(User.account))
+        .where(User.room_id == room.id, User.nickname == nickname)
     )
     user = result.scalar_one_or_none()
     return LoginRequirementsResponse(
         room_exists=True,
         is_new_user=user is None,
         room_password_required=bool(room.entry_password_hash),
-        profile_password_required=bool(user and user.profile_password_hash),
+        profile_password_required=bool(user and profile_password_hash_of(user)),
     )
 
 
@@ -454,33 +471,64 @@ async def login(
         _verify_room_entry_password(room, payload.room_password)
 
     result = await db.execute(
-        select(User).where(User.room_id == room.id, User.nickname == nickname)
+        select(User)
+        .options(selectinload(User.account))
+        .where(User.room_id == room.id, User.nickname == nickname)
     )
     user = result.scalar_one_or_none()
 
     if user:
         _verify_profile_password(user, payload.profile_password)
+        account = await ensure_user_account(db, user)
+        if payload.profile_password and not account.profile_password_hash:
+            account.profile_password_hash = hash_password(payload.profile_password.strip())
+            sync_membership_profile_fields(user, account)
+        account.display_name = nickname
+        await adopt_matching_memberships(db, account)
         client_key = None
         message = "С возвращением! Используйте сохранённый ключ клиента."
     else:
         client_key = generate_client_key()
         profile_hash = None
-        if payload.profile_password:
-            if len(payload.profile_password.strip()) < 4:
+        raw_pw = (payload.profile_password or "").strip() or None
+        if raw_pw:
+            if len(raw_pw) < 4:
                 raise HTTPException(status_code=400, detail="Пароль профиля — минимум 4 символа")
-            profile_hash = hash_password(payload.profile_password.strip())
+            profile_hash = hash_password(raw_pw)
+
+        account = await find_account_for_new_membership(
+            db,
+            nickname=nickname,
+            profile_password=raw_pw,
+        )
+        if account is None:
+            account = await create_account_for_user(
+                db,
+                nickname=nickname,
+                profile_password_hash=profile_hash,
+            )
+        else:
+            account.display_name = nickname
+            if profile_hash and not account.profile_password_hash:
+                account.profile_password_hash = profile_hash
+
         user = User(
             room_id=room.id,
             nickname=nickname,
             client_key_hash=hash_client_key(client_key),
-            profile_password_hash=profile_hash,
+            profile_password_hash=account.profile_password_hash,
+            avatar_url=account.avatar_url,
+            steam_id=account.steam_id,
+            account_id=account.id,
         )
         db.add(user)
         await db.flush()
+        sync_membership_profile_fields(user, account)
         if room.created_by_user_id is None:
             room.created_by_user_id = user.id
+        await adopt_matching_memberships(db, account)
         message = "Аккаунт создан. Сохраните ключ клиента — он показывается один раз."
-        if profile_hash:
+        if account.profile_password_hash:
             message += " Пароль профиля установлен."
 
     try:
@@ -552,19 +600,75 @@ async def me(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    account = await ensure_user_account(db, user)
+    await adopt_matching_memberships(db, account)
+    await sync_all_memberships(db, account)
+    await db.commit()
+    memberships = await list_memberships_for_account(
+        db, account.id, current_user_id=user.id
+    )
     return {
         "nickname": user.nickname,
         "pin": user.room.pin,
         "map_slug": user.room.map.slug,
         "map_name": user.room.map.name,
         "user_id": user.id,
+        "account_id": account.id,
         "role": user.role or "user",
         "can_manage_stashes": _can_manage_stashes(user),
         "can_access_admin_panel": await user_has_admin_panel_access(request, db, user),
-        "has_profile_password": bool(user.profile_password_hash),
+        "has_profile_password": bool(profile_password_hash_of(user)),
         "can_manage_room": _can_manage_room(user),
         "room_entry_password_enabled": bool(user.room.entry_password_hash),
-        "avatar_url": user.avatar_url,
+        "avatar_url": avatar_url_of(user),
+        "steam_id": account.steam_id or user.steam_id,
+        "memberships": memberships,
+    }
+
+
+@router.post("/auth/switch-membership")
+async def switch_membership(
+    payload: SwitchMembershipRequest,
+    response: Response,
+    request: Request,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    account = await ensure_user_account(db, user)
+    result = await db.execute(
+        select(User)
+        .options(
+            selectinload(User.room).selectinload(Room.map),
+            selectinload(User.account),
+        )
+        .where(User.id == payload.user_id, User.account_id == account.id)
+    )
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="Членство не найдено в вашем профиле")
+
+    client_key = read_session_client_key(request)
+    set_session(response, target.id, client_key)
+    memberships = await list_memberships_for_account(
+        db, account.id, current_user_id=target.id
+    )
+    return {
+        "ok": True,
+        "nickname": target.nickname,
+        "pin": target.room.pin,
+        "map_slug": target.room.map.slug,
+        "map_name": target.room.map.name,
+        "user_id": target.id,
+        "account_id": account.id,
+        "role": target.role or "user",
+        "can_manage_stashes": _can_manage_stashes(target),
+        "can_access_admin_panel": await user_has_admin_panel_access(request, db, target),
+        "has_profile_password": bool(profile_password_hash_of(target)),
+        "can_manage_room": _can_manage_room(target),
+        "room_entry_password_enabled": bool(target.room.entry_password_hash),
+        "avatar_url": avatar_url_of(target),
+        "steam_id": account.steam_id or target.steam_id,
+        "memberships": memberships,
     }
 
 
@@ -574,24 +678,30 @@ async def update_profile_password(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    account = await ensure_user_account(db, user)
+    stored = profile_password_hash_of(user)
     new_password = (payload.new_password or "").strip()
-    if user.profile_password_hash:
-        if not payload.current_password or not verify_password(
-            payload.current_password, user.profile_password_hash
-        ):
+    if stored:
+        if not payload.current_password or not verify_password(payload.current_password, stored):
             raise HTTPException(status_code=401, detail="Неверный текущий пароль профиля")
 
     if not new_password:
-        user.profile_password_hash = None
+        account.profile_password_hash = None
         message = "Пароль профиля отключён. Вход снова только по PIN и никнейму."
     else:
         if len(new_password) < 4:
             raise HTTPException(status_code=400, detail="Пароль профиля — минимум 4 символа")
-        user.profile_password_hash = hash_password(new_password)
+        account.profile_password_hash = hash_password(new_password)
         message = "Пароль профиля обновлён."
 
+    await sync_all_memberships(db, account)
+    await adopt_matching_memberships(db, account)
     await db.commit()
-    return {"ok": True, "has_profile_password": bool(user.profile_password_hash), "message": message}
+    return {
+        "ok": True,
+        "has_profile_password": bool(account.profile_password_hash),
+        "message": message,
+    }
 
 
 @router.post("/auth/profile/avatar")
@@ -600,18 +710,20 @@ async def upload_profile_avatar(
     db: Annotated[AsyncSession, Depends(get_db)],
     file: UploadFile = File(...),
 ):
-    delete_avatar_file(user.avatar_url)
-    user.avatar_url = await save_avatar_image(user.id, file)
-    await db.commit()
-    ch = channel_key(user.room.map_id, user.room_id)
-    await manager.broadcast(
-        ch,
-        {
-            "type": "user_profile",
-            "data": {"user_id": user.id, "avatar_url": user.avatar_url},
-        },
+    account = await ensure_user_account(db, user)
+    delete_avatar_file(account.avatar_url)
+    account.avatar_url = await save_avatar_image(f"acc{account.id}", file)
+    await sync_all_memberships(db, account)
+    # Room relation needed for WS fan-out.
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.room))
+        .where(User.account_id == account.id)
     )
-    return {"ok": True, "avatar_url": user.avatar_url}
+    members = list(result.scalars().all())
+    await db.commit()
+    await broadcast_avatar_to_memberships(manager, members, account.avatar_url)
+    return {"ok": True, "avatar_url": account.avatar_url}
 
 
 @router.delete("/auth/profile/avatar")
@@ -619,17 +731,18 @@ async def remove_profile_avatar(
     user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    delete_avatar_file(user.avatar_url)
-    user.avatar_url = None
-    await db.commit()
-    ch = channel_key(user.room.map_id, user.room_id)
-    await manager.broadcast(
-        ch,
-        {
-            "type": "user_profile",
-            "data": {"user_id": user.id, "avatar_url": None},
-        },
+    account = await ensure_user_account(db, user)
+    delete_avatar_file(account.avatar_url)
+    account.avatar_url = None
+    await sync_all_memberships(db, account)
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.room))
+        .where(User.account_id == account.id)
     )
+    members = list(result.scalars().all())
+    await db.commit()
+    await broadcast_avatar_to_memberships(manager, members, None)
     return {"ok": True, "avatar_url": None}
 
 
@@ -859,6 +972,38 @@ async def send_map_command(
     return {"ok": True}
 
 
+@router.put("/auth/profile/steam-id")
+async def update_profile_steam_id(
+    payload: ProfileSteamIdRequest,
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    raw = (payload.steam_id or "").strip()
+    account = await ensure_user_account(db, user)
+    if not raw:
+        account.steam_id = None
+    elif not raw.isdigit() or not (15 <= len(raw) <= 20):
+        raise HTTPException(status_code=400, detail="Укажите SteamID64 (15–20 цифр)")
+    else:
+        account.steam_id = raw
+    await sync_all_memberships(db, account)
+    await adopt_matching_memberships(db, account)
+    await db.commit()
+    return {"ok": True, "steam_id": account.steam_id}
+
+
+@router.delete("/auth/profile/steam-id")
+async def clear_profile_steam_id(
+    user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    account = await ensure_user_account(db, user)
+    account.steam_id = None
+    await sync_all_memberships(db, account)
+    await db.commit()
+    return {"ok": True, "steam_id": None}
+
+
 @router.post("/client/steam-id")
 async def client_set_steam_id(
     payload: ClientSteamIdRequest,
@@ -869,7 +1014,10 @@ async def client_set_steam_id(
     raw = payload.steam_id.strip()
     if not raw.isdigit() or not (15 <= len(raw) <= 20):
         raise HTTPException(status_code=400, detail="steam_id must be SteamID64 digits")
-    user.steam_id = raw
+    account = await ensure_user_account(db, user)
+    account.steam_id = raw
+    await sync_all_memberships(db, account)
+    await adopt_matching_memberships(db, account)
     await db.commit()
     return {"ok": True, "steam_id": raw}
 
@@ -1050,6 +1198,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
         .options(
             selectinload(User.position),
             selectinload(User.markers),
+            selectinload(User.account),
         )
         .where(User.room_id == user.room_id)
     )
@@ -1069,12 +1218,13 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
     markers: list[MarkerResponse] = []
 
     for u in users:
+        avatar = avatar_url_of(u)
         if u.position:
             positions.append(
                 PositionResponse(
                     user_id=u.id,
                     nickname=u.nickname,
-                    avatar_url=u.avatar_url,
+                    avatar_url=avatar,
                     x=u.position.x,
                     y=u.position.y,
                     z=u.position.z,
@@ -1087,7 +1237,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
         for m in u.markers:
             if _is_map_scoped_category(m.marker_category):
                 continue
-            markers.append(_marker_response(m, u.nickname, u.avatar_url))
+            markers.append(_marker_response(m, u.nickname, avatar))
 
     scoped_result = await db.execute(
         select(Marker)

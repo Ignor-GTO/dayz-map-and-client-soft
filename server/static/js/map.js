@@ -1730,19 +1730,26 @@ function updatePlayersList() {
     const isMe = state.me && pos.user_id === state.me.user_id;
     const nameLabel = isMe ? `${pos.nickname} (Вы)` : pos.nickname;
     const travel = travelStatusText(pos);
-    const zBit = Number.isFinite(Number(pos.z)) ? `Z:${Math.round(Number(pos.z))}` : "";
-    const infoParts = [travel, zBit, `${Math.round(pos.x)} / ${Math.round(pos.y)}`].filter(Boolean);
-    const info = infoParts.join("<br>");
+    const zVal = Number.isFinite(Number(pos.z)) ? Number(pos.z) : (isScumConfig() ? 0 : null);
+    const coords = isScumConfig()
+      ? formatScumXYZ(pos.x, pos.y, zVal ?? 0)
+      : `${Math.round(pos.x)} / ${Math.round(pos.y)}${zVal != null ? ` · Z:${Math.round(zVal)}` : ""}`;
+    const showTp = canCopyScumTeleport();
 
     rows.push(`
-      <div class="sidebar-row" onclick="focusOnPlayer(${pos.user_id})">
-        <div class="sidebar-row-left">
+      <div class="sidebar-card" onclick="focusOnPlayer(${pos.user_id})" title="${markerEscapeHtml(pos.nickname)}">
+        <div class="sidebar-card-top">
           <span class="sidebar-avatar-wrap" style="--user-color: ${color}">
             ${userAvatarHtml(pos.user_id, pos.avatar_url, 22, "sidebar-avatar")}
           </span>
-          <span class="sidebar-name" title="${markerEscapeHtml(pos.nickname)}">${markerEscapeHtml(nameLabel)}</span>
+          <div class="sidebar-card-main">
+            <div class="sidebar-card-title">${markerEscapeHtml(nameLabel)}</div>
+            ${travel ? `<div class="sidebar-card-meta">${markerEscapeHtml(travel)}</div>` : ""}
+          </div>
+          ${showTp ? `<button type="button" class="sidebar-card-action" title="Копировать #Teleport"
+            onclick="event.stopPropagation(); copyPlayerTeleport(${pos.user_id})">🚀</button>` : ""}
         </div>
-        <span class="sidebar-info">${info}</span>
+        <div class="sidebar-card-coords">${markerEscapeHtml(coords)}</div>
       </div>
     `);
   });
@@ -1750,6 +1757,14 @@ function updatePlayersList() {
   el.innerHTML = rows.length
     ? rows.join("")
     : `<div class="list-empty">Никого онлайн</div>`;
+}
+
+function copyPlayerTeleport(userId) {
+  const marker = state.liveMarkers.get(userId);
+  const pos = marker?._playerMeta;
+  if (!pos) return;
+  const text = formatTeleportCommand(pos.x, pos.y, isScumConfig() ? 0 : pos.z);
+  navigator.clipboard.writeText(text).catch(() => alert("Не удалось скопировать"));
 }
 
 function updateMarkersList() {
@@ -1783,20 +1798,21 @@ function updateMarkersList() {
       : `<span class="sidebar-avatar-wrap" style="--user-color: ${userColor}">
             ${userAvatarHtml(m.user_id, m.avatar_url, 22, "sidebar-avatar")}
           </span>`;
+    const coords = isScumConfig()
+      ? formatScumXYZ(m.x, m.y, 0)
+      : `${Math.round(m.x)} / ${Math.round(m.y)}`;
 
     const rowHtml = `
-      <div class="sidebar-row" onclick="focusOnMarker('${m.id}')">
-        <div class="sidebar-row-left">
+      <div class="sidebar-card" onclick="focusOnMarker('${m.id}')" title="${markerEscapeHtml(label)}">
+        <div class="sidebar-card-top">
           ${rowIconHtml}
-          <div style="min-width:0">
-            <div class="sidebar-name" title="${markerEscapeHtml(label)}" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px">${markerEscapeHtml(label)}</div>
-            <div class="sidebar-info">${markerEscapeHtml(subLabel)}</div>
+          <div class="sidebar-card-main">
+            <div class="sidebar-card-title">${markerEscapeHtml(label)}</div>
+            <div class="sidebar-card-meta">${markerEscapeHtml(subLabel)}</div>
           </div>
+          ${showDelete ? `<button type="button" class="delete-btn-small sidebar-card-action" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Удалить">✕</button>` : ""}
         </div>
-        <div style="display: flex; align-items: center; gap: 4px;">
-          <span class="sidebar-info" style="margin-right: 4px;">${Math.round(m.x)}/${Math.round(m.y)}</span>
-          ${showDelete ? `<button class="delete-btn-small" onclick="event.stopPropagation(); deleteMarker('${m.id}')" title="Удалить">✕</button>` : ""}
-        </div>
+        <div class="sidebar-card-coords">${markerEscapeHtml(coords)}</div>
       </div>
     `;
     if (isStash) {
@@ -2163,6 +2179,7 @@ function syncAppModalForMap() {
 window.focusOnPlayer = focusOnPlayer;
 window.focusOnMarker = focusOnMarker;
 window.deleteMarker = deleteMarker;
+window.copyPlayerTeleport = copyPlayerTeleport;
 window.switchLegendTab = switchLegendTab;
 window.navRouteTo = navRouteTo;
 window.openMarkerEditModal = openMarkerEditModal;
@@ -3561,6 +3578,7 @@ async function bootstrapMapView() {
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;
+  window.ProfileUi?.setToolbarVisible?.(true);
   window.ProfileUi?.syncAvatarUi();
   window.ProfileUi?.syncAdminPanelLink?.();
   await ensureClientKey();
@@ -3926,6 +3944,10 @@ async function initClientDownloadLinks() {
       if (!state.me) return;
       state.me.pin = pin;
       document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${pin}`;
+    },
+    onSwitchMembership: (data) => {
+      const slug = data?.map_slug || "";
+      window.location.href = slug ? `/?map=${encodeURIComponent(slug)}` : "/";
     },
     onLogout: performMapLogoutCleanup,
   });

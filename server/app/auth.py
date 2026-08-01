@@ -173,7 +173,10 @@ async def get_current_user(
 
     result = await db.execute(
         select(User)
-        .options(selectinload(User.room).selectinload(Room.map))
+        .options(
+            selectinload(User.room).selectinload(Room.map),
+            selectinload(User.account),
+        )
         .where(User.id == user_id)
     )
     user = result.scalar_one_or_none()
@@ -195,7 +198,10 @@ async def get_user_by_client_key(
     key_hash = hash_client_key(key)
     result = await db.execute(
         select(User)
-        .options(selectinload(User.room).selectinload(Room.map))
+        .options(
+            selectinload(User.room).selectinload(Room.map),
+            selectinload(User.account),
+        )
         .where(User.client_key_hash == key_hash)
     )
     user = result.scalar_one_or_none()
@@ -255,7 +261,10 @@ async def get_current_user_from_ws(db: AsyncSession, token: str | None) -> User 
 
     result = await db.execute(
         select(User)
-        .options(selectinload(User.room).selectinload(Room.map))
+        .options(
+            selectinload(User.room).selectinload(Room.map),
+            selectinload(User.account),
+        )
         .where(User.id == user_id)
     )
     return result.scalar_one_or_none()

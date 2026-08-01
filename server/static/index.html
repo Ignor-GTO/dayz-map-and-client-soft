@@ -6,7 +6,7 @@
   <title>DayZ Map — GTO Team</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="/css/style.css?v=46">
+  <link rel="stylesheet" href="/css/style.css?v=50">
 </head>
 <body>
   <div id="app">
@@ -466,6 +466,7 @@
             <div class="profile-identity">
               <strong id="profile-nickname" class="profile-nickname"></strong>
               <p class="profile-room-line muted-inline" id="profile-room-info"></p>
+              <p class="profile-steam-line muted-inline" id="profile-steam-info"></p>
             </div>
             <div class="profile-avatar-controls">
               <label class="profile-avatar-upload-btn">
@@ -480,55 +481,86 @@
         </div>
       </div>
 
-      <section class="profile-section">
-        <h3>Пароль профиля</h3>
-        <p class="muted-inline" id="profile-password-status"></p>
-        <label id="profile-current-password-wrap" class="hidden">
-          Текущий пароль
-          <input type="password" id="profile-current-password" autocomplete="current-password">
-        </label>
-        <label>
-          <span id="profile-new-password-label">Новый пароль</span>
-          <input type="password" id="profile-new-password" placeholder="Минимум 4 символа" autocomplete="new-password">
-        </label>
-        <div class="profile-actions">
-          <button type="button" id="profile-save-password-btn">Сохранить пароль</button>
-          <button type="button" id="profile-remove-password-btn" class="secondary hidden">Отключить пароль</button>
-        </div>
-        <p id="profile-password-error" class="error hidden"></p>
-      </section>
+      <nav class="profile-tabs" role="tablist" aria-label="Разделы профиля">
+        <button type="button" class="profile-tab is-active" data-profile-tab="settings" role="tab" aria-selected="true">Настройки</button>
+        <button type="button" class="profile-tab" data-profile-tab="maps" role="tab" aria-selected="false">Карты и группы</button>
+      </nav>
 
-      <section id="room-settings-section" class="profile-section hidden">
-        <h3>Настройки группы</h3>
-        <p class="muted-inline">Вы создали эту PIN-группу и можете менять её параметры.</p>
-        <label>
-          PIN группы
-          <input type="text" id="room-settings-pin" minlength="4" maxlength="16">
-        </label>
-        <label id="room-settings-current-password-wrap" class="hidden">
-          Текущий пароль группы
-          <input type="password" id="room-settings-current-password" autocomplete="current-password">
-        </label>
-        <label>
-          Пароль входа в группу <span class="muted-inline">(необязательно)</span>
-          <input type="password" id="room-settings-entry-password" placeholder="Оставьте пустым — без изменений" autocomplete="new-password">
-        </label>
-        <label class="checkbox-label">
-          <input type="checkbox" id="room-settings-remove-entry-password">
-          Отключить пароль группы
-        </label>
-        <div class="profile-actions">
-          <button type="button" id="room-settings-save-btn">Сохранить настройки группы</button>
+      <div class="profile-tab-panels">
+        <div class="profile-tab-panel is-active" data-profile-panel="settings" role="tabpanel">
+          <section class="profile-section">
+            <h3>Steam ID</h3>
+            <p class="muted-inline">SteamID64 нужен для привязки позиции с сервера и объединения профиля на разных картах.</p>
+            <label>
+              SteamID64
+              <input type="text" id="profile-steam-id" placeholder="7656119…" inputmode="numeric" autocomplete="off" maxlength="20">
+            </label>
+            <div class="profile-actions">
+              <button type="button" id="profile-save-steam-btn">Сохранить Steam ID</button>
+              <button type="button" id="profile-clear-steam-btn" class="secondary hidden">Отвязать</button>
+            </div>
+            <p id="profile-steam-error" class="error hidden"></p>
+          </section>
+
+          <section class="profile-section">
+            <h3>Пароль профиля</h3>
+            <p class="muted-inline" id="profile-password-status"></p>
+            <label id="profile-current-password-wrap" class="hidden">
+              Текущий пароль
+              <input type="password" id="profile-current-password" autocomplete="current-password">
+            </label>
+            <label>
+              <span id="profile-new-password-label">Новый пароль</span>
+              <input type="password" id="profile-new-password" placeholder="Минимум 4 символа" autocomplete="new-password">
+            </label>
+            <div class="profile-actions">
+              <button type="button" id="profile-save-password-btn">Сохранить пароль</button>
+              <button type="button" id="profile-remove-password-btn" class="secondary hidden">Отключить пароль</button>
+            </div>
+            <p id="profile-password-error" class="error hidden"></p>
+          </section>
+
+          <section id="room-settings-section" class="profile-section hidden">
+            <h3>Настройки группы</h3>
+            <p class="muted-inline">Вы создали эту PIN-группу и можете менять её параметры.</p>
+            <label>
+              PIN группы
+              <input type="text" id="room-settings-pin" minlength="4" maxlength="16">
+            </label>
+            <label id="room-settings-current-password-wrap" class="hidden">
+              Текущий пароль группы
+              <input type="password" id="room-settings-current-password" autocomplete="current-password">
+            </label>
+            <label>
+              Пароль входа в группу <span class="muted-inline">(необязательно)</span>
+              <input type="password" id="room-settings-entry-password" placeholder="Оставьте пустым — без изменений" autocomplete="new-password">
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" id="room-settings-remove-entry-password">
+              Отключить пароль группы
+            </label>
+            <div class="profile-actions">
+              <button type="button" id="room-settings-save-btn">Сохранить настройки группы</button>
+            </div>
+            <p id="room-settings-error" class="error hidden"></p>
+          </section>
         </div>
-        <p id="room-settings-error" class="error hidden"></p>
-      </section>
+
+        <div class="profile-tab-panel" data-profile-panel="maps" role="tabpanel" hidden>
+          <section class="profile-section profile-section-maps">
+            <h3>Карты и группы</h3>
+            <p class="muted-inline">Выберите карту и PIN-группу, чтобы перейти туда из единого профиля.</p>
+            <div id="profile-memberships-list" class="profile-memberships-list"></div>
+          </section>
+        </div>
+      </div>
     </div>
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="/js/scum-coords.js?v=4"></script>
   <script src="/js/poi-icons.js?v=13"></script>
-  <script src="/js/profile-ui.js?v=6"></script>
-  <script src="/js/map.js?v=80"></script>
+  <script src="/js/profile-ui.js?v=10"></script>
+  <script src="/js/map.js?v=83"></script>
 </body>
 </html>

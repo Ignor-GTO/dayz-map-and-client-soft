@@ -373,13 +373,19 @@ async def admin_update_user(
         user.nickname = nickname
 
     if "steam_id" in payload.model_fields_set:
+        from app.accounts import adopt_matching_memberships, ensure_user_account, sync_all_memberships
+
+        account = await ensure_user_account(db, user)
         raw = (payload.steam_id or "").strip()
         if not raw:
+            account.steam_id = None
             user.steam_id = None
         elif not raw.isdigit() or not (15 <= len(raw) <= 20):
             raise HTTPException(status_code=400, detail="steam_id must be SteamID64 digits")
         else:
-            user.steam_id = raw
+            account.steam_id = raw
+        await sync_all_memberships(db, account)
+        await adopt_matching_memberships(db, account)
 
     try:
         await db.commit()

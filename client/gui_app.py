@@ -17,11 +17,9 @@ from clipboard_util import grab_clipboard_image, grab_clipboard_text, prepare_co
 from config import load_config, normalize_hotkey_token, save_config
 from ocr import extract_coordinates, extract_coordinates_with_text, parse_coordinates
 from price_overlay import ItemPriceOverlay
-from item_tooltip_debug_overlay import TooltipDebugOverlay
 from region_overlay import OcrRegionEditor
 from status_overlay import GameHudOverlay
 from item_tooltip_ocr import read_item_name_at_cursor
-from item_tooltip_locator import SearchArea
 from trader_lookup import lookup_item_price
 from ocr_preprocess import IZURVIVE_OCR_REGION
 from version import __version__
@@ -86,8 +84,6 @@ class ClientApp(tk.Tk):
         self._region_editor: OcrRegionEditor | None = None
         self._hud: GameHudOverlay | None = None
         self._price_overlay: ItemPriceOverlay | None = None
-        self._tooltip_debug_overlay: TooltipDebugOverlay | None = None
-        self._debug_topmost_after_id: str | None = None
         self._inventory_watch = False
         self._inventory_stop = threading.Event()
         self._inventory_thread: threading.Thread | None = None
@@ -721,42 +717,6 @@ class ClientApp(tk.Tk):
 
         hotkey_lf.columnconfigure(1, weight=1)
 
-        # Inventory prices panel
-        inv_lf = ttk.LabelFrame(scrollable_frame, text=" Цены инвентаря ", padding=10)
-        inv_lf.pack(fill="x", padx=10, pady=5)
-
-        self.inventory_price_enabled_var = tk.BooleanVar()
-        self.inventory_price_enabled_chk = ttk.Checkbutton(
-            inv_lf,
-            text="Включить поиск цен в инвентаре (Tab)",
-            variable=self.inventory_price_enabled_var,
-            command=self._on_inventory_price_enabled_toggle,
-            style="Card.TCheckbutton",
-        )
-        self.inventory_price_enabled_chk.pack(anchor="w", pady=(2, 6))
-        ttk.Label(
-            inv_lf,
-            text="Tab в открытом инвентаре: OCR названия предмета и цена с сервера. Снимите галочку, чтобы Tab не перехватывался.",
-            style="CardMuted.TLabel",
-            wraplength=520,
-        ).pack(anchor="w", pady=(0, 8))
-
-        self.inventory_debug_frame_var = tk.BooleanVar()
-        self.inventory_debug_frame_chk = ttk.Checkbutton(
-            inv_lf,
-            text="Тестировать: показывать рамку захвата названия предмета (Tab)",
-            variable=self.inventory_debug_frame_var,
-            command=self._on_inventory_debug_frame_toggle,
-            style="Card.TCheckbutton",
-        )
-        self.inventory_debug_frame_chk.pack(anchor="w", pady=(2, 4))
-        ttk.Label(
-            inv_lf,
-            text="Tab в игре. Голубая «ПОИСК», зелёная «ЗАХВАТ» (основная), жёлтые #2–#6 (запасные). Рамки обновляются постоянно.",
-            style="CardMuted.TLabel",
-            wraplength=520,
-        ).pack(anchor="w")
-
         # Mouse Nudge Panel
         nudge_lf = ttk.LabelFrame(scrollable_frame, text=" Сдвиг курсора мыши перед OCR ", padding=10)
         nudge_lf.pack(fill="x", padx=10, pady=5)
@@ -934,9 +894,7 @@ class ClientApp(tk.Tk):
         add_bullet(hk_lf, "Снимок координат (по умолчанию: Ctrl+Shift+S, Ctrl+Shift+C)", 
                    "Позволяет принудительно запустить разовое распознавание координат с экрана в любой момент.")
         add_bullet(hk_lf, "Закрыть карту (по умолчанию: Esc)", 
-                   "Закрывает сессию считывания и скрывает оверлей на экране. Также останавливает поиск цен в инвентаре.")
-        add_bullet(hk_lf, "Цены в инвентаре (по умолчанию: Tab)", 
-                   "Tab — включить поиск описания по зелёному маркеру на экране. Повторный Tab (закрытие инвентаря) или Esc — остановить.")
+                   "Закрывает сессию считывания и скрывает оверлей на экране.")
 
         # --- Section 3: Настройка области распознавания (OCR) ---
         ocr_lf = create_section(scrollable_frame, "🔍 Настройка распознавания (OCR)")
@@ -1095,9 +1053,6 @@ class ClientApp(tk.Tk):
         self.mouse_nudge_delay_var.set(str(self.cfg.get("mouse_nudge_delay_ms", 400)))
         self.mouse_nudge_offset_var.set(str(self.cfg.get("mouse_nudge_edge_offset", 8)))
         self.mouse_nudge_restore_var.set(self.cfg.get("mouse_nudge_restore", True))
-        self.inventory_price_enabled_var.set(self.cfg.get("inventory_price_enabled", True))
-        self.inventory_debug_frame_var.set(self.cfg.get("inventory_price_debug_frame", False))
-        self._sync_inventory_price_controls()
         self._update_help_labels()
 
     def _update_help_labels(self) -> None:
@@ -1379,8 +1334,6 @@ class ClientApp(tk.Tk):
                 "mouse_nudge_delay_ms": delay,
                 "mouse_nudge_edge_offset": offset,
                 "mouse_nudge_restore": self.mouse_nudge_restore_var.get(),
-                "inventory_price_enabled": self.inventory_price_enabled_var.get(),
-                "inventory_price_debug_frame": self.inventory_debug_frame_var.get(),
             }
         )
         save_config(self.cfg)
@@ -1598,7 +1551,7 @@ class ClientApp(tk.Tk):
     def _update_price_overlay(self, item_name: str, match: dict | None) -> None:
         overlay = self._ensure_price_overlay()
         if not item_name:
-            overlay.show_hint("Цены инвентаря", "Наведите курсор на предмет")
+            overlay.hide()
             return
         if match:
             overlay.show_price(
@@ -1610,171 +1563,21 @@ class ClientApp(tk.Tk):
         else:
             overlay.show_not_found(item_name)
 
-    def _ensure_tooltip_debug_overlay(self) -> TooltipDebugOverlay:
-        if self._tooltip_debug_overlay is None:
-            self._tooltip_debug_overlay = TooltipDebugOverlay(self, self._monitor_index)
-        return self._tooltip_debug_overlay
-
-    def _stop_debug_topmost_timer(self) -> None:
-        if self._debug_topmost_after_id is not None:
-            try:
-                self.after_cancel(self._debug_topmost_after_id)
-            except tk.TclError:
-                pass
-            self._debug_topmost_after_id = None
-
-    def _keep_debug_overlay_topmost(self) -> None:
-        self._debug_topmost_after_id = None
-        if not self._inventory_watch or not self.cfg.get("inventory_price_debug_frame"):
-            return
-        overlay = self._tooltip_debug_overlay
-        if overlay is not None:
-            overlay.raise_topmost()
-        self._debug_topmost_after_id = self.after(350, self._keep_debug_overlay_topmost)
-
-    def _start_debug_topmost_timer(self) -> None:
-        self._stop_debug_topmost_timer()
-        if self.cfg.get("inventory_price_debug_frame"):
-            self._keep_debug_overlay_topmost()
-
-    def _sync_inventory_price_controls(self) -> None:
-        enabled = bool(self.inventory_price_enabled_var.get())
-        state = "normal" if enabled else "disabled"
-        try:
-            self.inventory_debug_frame_chk.configure(state=state)
-        except tk.TclError:
-            pass
-        if not enabled:
-            self.inventory_debug_frame_var.set(False)
-            self.cfg["inventory_price_debug_frame"] = False
-            self._stop_debug_topmost_timer()
-            self._ensure_tooltip_debug_overlay().hide()
-
-    def _on_inventory_price_enabled_toggle(self) -> None:
-        enabled = bool(self.inventory_price_enabled_var.get())
-        self.cfg["inventory_price_enabled"] = enabled
-        self._sync_inventory_price_controls()
-        if not enabled:
-            self._stop_inventory_watch(log=True)
-        if self.hotkeys_active:
-            self.stop_hotkeys()
-            self.start_hotkeys()
-
-    def _on_inventory_debug_frame_toggle(self) -> None:
-        enabled = bool(self.inventory_debug_frame_var.get())
-        self.cfg["inventory_price_debug_frame"] = enabled
-        if enabled and self._inventory_watch:
-            self._start_debug_topmost_timer()
-        else:
-            self._stop_debug_topmost_timer()
-            self._ensure_tooltip_debug_overlay().hide()
-
-    def _show_tooltip_debug_frames(
-        self,
-        regions: list[tuple[int, int, int, int]],
-        search: tuple[int, int, int, int] | None,
-        cursor: tuple[int, int] | None = None,
-    ) -> None:
-        if not self.cfg.get("inventory_price_debug_frame") or not self._inventory_watch:
-            return
-        if search is None and not regions and cursor is None:
-            return
-        self._ensure_tooltip_debug_overlay().show(search, regions, cursor)
-
-    def _ui_sync(self, fn, timeout: float = 0.45) -> None:
-        if threading.current_thread() is threading.main_thread():
-            fn()
-            return
-        done = threading.Event()
-
-        def run() -> None:
-            try:
-                fn()
-            finally:
-                done.set()
-
-        self.after(0, run)
-        done.wait(timeout)
-
-    def _prepare_inventory_screen_capture(self) -> None:
-        """Hide our own overlays so they are not captured as fake tooltips."""
-        def hide() -> None:
-            if self._price_overlay is not None:
-                self._price_overlay.hide()
-
-        self._ui_sync(hide)
-        time.sleep(0.02)
-
-    def _present_tooltip_capture(
-        self,
-        search: SearchArea,
-        regions: list[tuple[int, int, int, int]],
-    ) -> None:
-        if not self.cfg.get("inventory_price_debug_frame"):
-            return
-        from item_tooltip_locator import (
-            cursor_monitor_point,
-            search_monitor_rect,
-            to_monitor_boxes,
-        )
-
-        display_regions = regions[:1]
-        self._show_tooltip_debug_frames(
-            to_monitor_boxes(search, display_regions),
-            search_monitor_rect(search),
-            cursor_monitor_point(search),
-        )
-
-    def _on_tooltip_capture_ready(
-        self,
-        search: SearchArea,
-        regions: list[tuple[int, int, int, int]],
-    ) -> None:
-        self._present_tooltip_capture(search, regions)
-
-    def _inventory_search_status(self, phase: str) -> None:
-        if not self._inventory_watch or phase != "hint":
-            return
-        self._ensure_price_overlay().show_hint("Цены инвентаря", "Наведите курсор на предмет")
-
     def _inventory_watch_loop(self) -> None:
         last_name: str | None = None
-        last_phase: str | None = None
         poll_s = max(0.25, int(self.cfg.get("inventory_poll_ms", 450)) / 1000.0)
         server = str(self.cfg.get("server_url") or "").strip()
         map_slug = str(self.cfg.get("map_slug") or "pripyat").strip()
         while not self._inventory_stop.is_set():
             try:
-                if not self._inventory_watch:
-                    break
-                capture_cb = None
-                if self.cfg.get("inventory_price_debug_frame"):
-                    capture_cb = lambda search, regions: self._ui_sync(
-                        lambda s=search, r=regions: self._on_tooltip_capture_ready(s, r)
-                    )
-                name = read_item_name_at_cursor(
-                    self.cfg,
-                    on_search=lambda t: self.after(0, lambda msg=t: self._inventory_search_status(msg)),
-                    on_capture_ready=capture_cb,
-                    before_capture=self._prepare_inventory_screen_capture,
-                )
+                name = read_item_name_at_cursor(self.cfg)
                 if name != last_name:
                     last_name = name
-                    last_phase = None
                     if not name:
-                        self.after(
-                            0,
-                            lambda: self._ensure_price_overlay().show_hint(
-                                "Цены инвентаря", "Наведите курсор на предмет"
-                            ),
-                        )
+                        self.after(0, lambda: self._ensure_price_overlay().hide())
                     else:
                         cache_key = name.casefold()
                         if cache_key not in self._inventory_price_cache:
-                            self.after(
-                                0,
-                                lambda: self._ensure_price_overlay().show_hint(name, "Ищу цену…"),
-                            )
                             try:
                                 self._inventory_price_cache[cache_key] = lookup_item_price(
                                     server, map_slug, name
@@ -1784,18 +1587,6 @@ class ClientApp(tk.Tk):
                                 self._inventory_price_cache[cache_key] = None
                         match = self._inventory_price_cache.get(cache_key)
                         self.after(0, lambda n=name, m=match: self._update_price_overlay(n, m))
-                elif name:
-                    cache_key = name.casefold()
-                    match = self._inventory_price_cache.get(cache_key)
-                    self.after(0, lambda n=name, m=match: self._update_price_overlay(n, m))
-                elif last_phase != "hint":
-                    last_phase = "hint"
-                    self.after(
-                        0,
-                        lambda: self._ensure_price_overlay().show_hint(
-                            "Цены инвентаря", "Наведите курсор на предмет"
-                        ),
-                    )
             except Exception as exc:
                 self.after(0, lambda e=exc: self.log_line(f"[Цены] OCR: {e}"))
             self._inventory_stop.wait(poll_s)
@@ -1811,43 +1602,25 @@ class ClientApp(tk.Tk):
         )
         self._inventory_thread.start()
 
-    def _stop_inventory_watch(self, *, log: bool = True) -> None:
-        was_active = self._inventory_watch
+    def _stop_inventory_watch(self) -> None:
         self._inventory_watch = False
         self._inventory_stop.set()
-        self._stop_debug_topmost_timer()
         self._ensure_price_overlay().hide()
-        self._ensure_tooltip_debug_overlay().hide()
-        if self._hud:
-            self._hud.hide()
-        if log and was_active:
-            self.log_line("[Цены] Инвентарь: слежение остановлено")
 
-    def _start_inventory_price_watch(self) -> None:
+    def _toggle_inventory_price_watch(self) -> None:
+        self._inventory_watch = not self._inventory_watch
         if self._inventory_watch:
-            return
-        self.cfg["inventory_price_debug_frame"] = bool(self.inventory_debug_frame_var.get())
-        self._inventory_watch = True
-        self._inventory_price_cache.clear()
-        self._inventory_stop.clear()
-        self._start_inventory_watch()
-        self._start_debug_topmost_timer()
-        self._ensure_hud().hide()
-        self._ensure_price_overlay().show_hint("Цены инвентаря", "Наведите курсор на предмет")
-        if self.cfg.get("inventory_price_debug_frame"):
-            self.log_line("[Цены] Debug-рамки включены")
-        self.log_line("[Цены] Инвентарь: слежение включено (Tab/Esc — стоп)")
+            self._inventory_price_cache.clear()
+            self._start_inventory_watch()
+            self.log_line("[Цены] Инвентарь: слежение включено (Tab — выкл)")
+        else:
+            self._stop_inventory_watch()
+            self.log_line("[Цены] Инвентарь: слежение выключено")
 
     def _handle_inventory_price_hotkey(self) -> None:
         if not self.hotkeys_active:
             return
-        if not self.cfg.get("inventory_price_enabled", True):
-            return
-        if self._inventory_watch:
-            # Повторный Tab закрывает инвентарь в игре — останавливаем OCR.
-            self._stop_inventory_watch(log=True)
-            return
-        self._start_inventory_price_watch()
+        self._toggle_inventory_price_watch()
 
     def _ensure_hud(self) -> GameHudOverlay:
         if self._hud is None:
@@ -2152,15 +1925,14 @@ class ClientApp(tk.Tk):
             f"приблизить: {', '.join(self.cfg.get('hotkey_zoom_in', ['page up'])).upper()}, "
             f"отдалить: {', '.join(self.cfg.get('hotkey_zoom_out', ['page down'])).upper()}, "
             f"на себя: {', '.join(self.cfg.get('hotkey_focus_me', ['end'])).upper()}; "
-            f"цены инвентаря: {', '.join(self.cfg.get('hotkey_inventory_price', ['tab'])).upper()}"
-            f"{' (выкл.)' if not self.cfg.get('inventory_price_enabled', True) else ''}; "
+            f"цены инвентаря: {', '.join(self.cfg.get('hotkey_inventory_price', ['tab'])).upper()}; "
             f"Win+Shift+S — авто из буфера"
         )
 
     def stop_hotkeys(self) -> None:
         if not self.hotkeys_active:
             return
-        self._stop_inventory_watch(log=False)
+        self._stop_inventory_watch()
         self.hotkeys_active = False
         self._end_map_session(silent=True)
         self._stop_clipboard.set()
@@ -2424,8 +2196,6 @@ class ClientApp(tk.Tk):
     def _handle_esc_hotkey(self) -> None:
         if not self.hotkeys_active:
             return
-        if self._inventory_watch:
-            self._stop_inventory_watch(log=True)
         if self._map_session_active:
             self._end_map_session()
 
@@ -2567,13 +2337,10 @@ class ClientApp(tk.Tk):
     def on_close(self) -> None:
         if self._region_editor and self._region_editor.active:
             self._region_editor.stop()
-        self._stop_inventory_watch(log=False)
+        self._stop_inventory_watch()
         if self._price_overlay:
             self._price_overlay.destroy()
             self._price_overlay = None
-        if self._tooltip_debug_overlay:
-            self._tooltip_debug_overlay.destroy()
-            self._tooltip_debug_overlay = None
         if self._hud:
             self._hud.destroy()
         if self.hotkeys_active:
