@@ -415,6 +415,7 @@ function initLeaflet(config) {
   state.buildingLayer = L.layerGroup().addTo(state.map);
   state.sectorLayer = null;
   state.map.on("zoomend", () => {
+    layoutLivePlayerMarkers();
     updateLocationVisibility();
     saveMapView();
   });
@@ -598,6 +599,9 @@ function travelStatusText(pos) {
 
 const LIVE_PLAYER_Z = 500;
 const LIVE_PLAYER_ME_Z = 2500;
+const LIVE_OVERLAP_PX = 36;
+const LIVE_SPREAD_BASE_PX = 34;
+const LIVE_SPREAD_PER_PLAYER_PX = 5;
 
 function bringMyLiveMarkerToFront() {
   if (!state.me?.user_id) return;
@@ -605,6 +609,82 @@ function bringMyLiveMarkerToFront() {
   if (marker && typeof marker.bringToFront === "function") {
     marker.bringToFront();
   }
+}
+
+/** Spread overlapping live pins in a circle so every avatar stays visible. */
+function layoutLivePlayerMarkers() {
+  if (!state.map || !state.filters.players) return;
+
+  const entries = [];
+  state.liveMarkers.forEach((marker, userId) => {
+    const pos = marker._playerMeta;
+    if (!pos || !Number.isFinite(Number(pos.x)) || !Number.isFinite(Number(pos.y))) return;
+    const trueLatLng = gameToLatLng(pos.x, pos.y);
+    entries.push({
+      userId,
+      marker,
+      pos,
+      trueLatLng,
+      point: state.map.latLngToContainerPoint(trueLatLng),
+    });
+  });
+
+  if (entries.length === 0) return;
+
+  const parent = entries.map((_, i) => i);
+  const find = (i) => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  const union = (a, b) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent[rb] = ra;
+  };
+
+  const overlap2 = LIVE_OVERLAP_PX * LIVE_OVERLAP_PX;
+  for (let i = 0; i < entries.length; i++) {
+    for (let j = i + 1; j < entries.length; j++) {
+      const dx = entries[i].point.x - entries[j].point.x;
+      const dy = entries[i].point.y - entries[j].point.y;
+      if (dx * dx + dy * dy <= overlap2) union(i, j);
+    }
+  }
+
+  const clusters = new Map();
+  entries.forEach((entry, idx) => {
+    const root = find(idx);
+    if (!clusters.has(root)) clusters.set(root, []);
+    clusters.get(root).push(entry);
+  });
+
+  clusters.forEach((group) => {
+    if (group.length === 1) {
+      group[0].marker.setLatLng(group[0].trueLatLng);
+      group[0].marker._displaySpread = false;
+      return;
+    }
+
+    group.sort((a, b) => a.userId - b.userId);
+    const n = group.length;
+    const cx = group.reduce((sum, g) => sum + g.point.x, 0) / n;
+    const cy = group.reduce((sum, g) => sum + g.point.y, 0) / n;
+    const radiusPx = LIVE_SPREAD_BASE_PX + Math.max(0, n - 3) * LIVE_SPREAD_PER_PLAYER_PX;
+
+    group.forEach((entry, idx) => {
+      const angle = (2 * Math.PI * idx) / n - Math.PI / 2;
+      const px = cx + radiusPx * Math.cos(angle);
+      const py = cy + radiusPx * Math.sin(angle);
+      entry.marker.setLatLng(state.map.containerPointToLatLng(L.point(px, py)));
+      entry.marker._displaySpread = true;
+    });
+  });
+
+  bringMyLiveMarkerToFront();
+  layoutLivePlayerMarkers();
 }
 
 function upsertLive(pos) {
@@ -676,6 +756,7 @@ function upsertLive(pos) {
     }
     trackPlayerOnRoute(pos.x, pos.y);
   }
+  layoutLivePlayerMarkers();
   updatePlayersList();
 }
 
@@ -2659,6 +2740,7 @@ async function loadRoomState() {
   (data.deaths || []).forEach(upsertDeath);
   applyDeathVisibility();
   bringMyLiveMarkerToFront();
+  layoutLivePlayerMarkers();
 }
 
 function locationMinMapZoom(minZoom) {
@@ -3530,6 +3612,7 @@ function refreshDynamicLayers() {
     else state.map.removeLayer(m);
   });
   bringMyLiveMarkerToFront();
+  layoutLivePlayerMarkers();
   state.pinMarkers.forEach((m) => {
     const shouldShow = markerVisibleOnMap(m._markerMeta?.marker_category);
     if (shouldShow) m.addTo(state.map);
