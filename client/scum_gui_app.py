@@ -667,9 +667,12 @@ class ScumMapApp(tk.Tk):
 
                 def apply() -> None:
                     if visible:
-                        self.log_line("[F1] оверлей карты открыт")
+                        self.log_line(
+                            "[F1] оверлей запущен (окно поверх). "
+                            "Если не видно — в SCUM поставьте Borderless / Windowed."
+                        )
                     else:
-                        self.log_line("[F1] оверлей карты скрыт")
+                        self.log_line("[F1] оверлей закрыт")
 
                 self.after(0, apply)
             except Exception as exc:
@@ -679,9 +682,11 @@ class ScumMapApp(tk.Tk):
                     0,
                     lambda m=msg: messagebox.showerror(
                         "Оверлей карты",
-                        f"{m}\n\n1) Задеплойте сервер с /api/auth/overlay-handoff\n"
-                        "2) Нужен Edge WebView2 Runtime\n"
-                        "3) Клиент должен быть собран с pywebview",
+                        f"{m}\n\n"
+                        "1) Задеплойте сервер с /api/auth/overlay-handoff\n"
+                        "2) Edge WebView2 Runtime\n"
+                        "3) SCUM: Borderless windowed (не Exclusive fullscreen)\n"
+                        "4) Клиент собран с pywebview",
                     ),
                 )
 
