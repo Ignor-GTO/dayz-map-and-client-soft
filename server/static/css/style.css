@@ -763,7 +763,6 @@ button.secondary:hover { background: #3a4858; }
 
 .scum-sector-canvas {
   pointer-events: none !important;
-  z-index: 0;
 }
 
 .death-map-pin-wrap {

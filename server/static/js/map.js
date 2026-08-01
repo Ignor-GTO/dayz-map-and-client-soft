@@ -742,7 +742,7 @@ function updateMouseCoordsDisplay(latlng) {
   }
   const game = latLngToGame(latlng);
   state.lastMouseGameCoords = { x: game.x, y: game.y };
-  let text = `${Math.round(game.x)} / ${Math.round(game.y)}`;
+  let text = formatCoordLookupValue(game.x, game.y);
   if (isScumConfig() && typeof SCUM_COORDS !== "undefined") {
     const sector = SCUM_COORDS.sectorCode(game.x, game.y);
     if (sector && sector !== "??") text += ` · ${sector}`;
@@ -979,8 +979,8 @@ function initMapContextMenu() {
   document.getElementById("ctx-copy-coords-btn")?.addEventListener("click", async () => {
     const c = state.contextMenuCoords;
     if (!c) return;
-    // Space-separated — ready for #Teleport … X Y Z (no slash).
-    const text = isScumConfig() ? formatGameTeleportXY(c.x, c.y) : formatCoordLookupValue(c.x, c.y);
+    // SCUM: same precision as scum-map.com / in-game clipboard.
+    const text = isScumConfig() ? formatScumClipboardXY(c.x, c.y) : formatCoordLookupValue(c.x, c.y);
     try {
       await navigator.clipboard.writeText(text);
       const btn = document.getElementById("ctx-copy-coords-btn");
@@ -1909,13 +1909,28 @@ function parseCoordPair(xRaw, yRaw) {
   return { x, y };
 }
 
+function formatCoordNumber(n, digits = null) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "0";
+  if (digits == null) {
+    digits = isScumConfig() ? 4 : 0;
+  }
+  if (digits <= 0) return String(Math.round(v));
+  return v.toFixed(digits);
+}
+
 function formatCoordLookupValue(x, y) {
-  return `${Math.round(x)} / ${Math.round(y)}`;
+  return `${formatCoordNumber(x)} / ${formatCoordNumber(y)}`;
 }
 
 /** Space-separated X Y for paste into #Teleport / chat. */
 function formatGameTeleportXY(x, y) {
-  return `${Math.round(Number(x))} ${Math.round(Number(y))}`;
+  return `${formatCoordNumber(x)} ${formatCoordNumber(y)}`;
+}
+
+/** SCUM clipboard-style: X=… Y=… */
+function formatScumClipboardXY(x, y) {
+  return `X=${formatCoordNumber(x, 4)} Y=${formatCoordNumber(y, 4)}`;
 }
 
 function suggestTeleportZ() {
@@ -3212,18 +3227,16 @@ function scumMapPointToLatLng(mapX, mapY) {
 
 /**
  * Single canvas overlay for SCUM sector grid (lines + labels).
- * Avoids ~250 Leaflet markers/polylines — one DOM node, redraw on move/zoom.
+ * One DOM node; positioned like Leaflet overlay canvases so container-points match.
  */
 const ScumSectorGridLayer = L.Layer.extend({
   onAdd(map) {
     this._map = map;
-    const pane = map.getPane("sectorsPane") || map.getPanes().overlayPane;
-    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas");
+    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas leaflet-zoom-animated");
     this._canvas.style.pointerEvents = "none";
-    this._canvas.style.position = "absolute";
-    this._canvas.style.left = "0";
-    this._canvas.style.top = "0";
+    const pane = map.getPane("sectorsPane") || map.getPanes().overlayPane;
     pane.appendChild(this._canvas);
+
     this._onView = () => {
       if (this._raf) cancelAnimationFrame(this._raf);
       this._raf = requestAnimationFrame(() => {
@@ -3231,12 +3244,12 @@ const ScumSectorGridLayer = L.Layer.extend({
         this._redraw();
       });
     };
-    map.on("move zoom viewreset resize zoomanim", this._onView, this);
+    map.on("move zoom moveend zoomend viewreset resize", this._onView, this);
     this._onView();
   },
 
   onRemove(map) {
-    map.off("move zoom viewreset resize zoomanim", this._onView, this);
+    map.off("move zoom moveend zoomend viewreset resize", this._onView, this);
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = 0;
     if (this._canvas?.parentNode) this._canvas.parentNode.removeChild(this._canvas);
@@ -3256,11 +3269,18 @@ const ScumSectorGridLayer = L.Layer.extend({
 
     const size = map.getSize();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = size.x;
-    const h = size.y;
-    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
+    const w = Math.max(1, size.x);
+    const h = Math.max(1, size.y);
+
+    // Align canvas with map container (required when living inside a transformed pane).
+    const topLeft = map.containerPointToLayerPoint([0, 0]);
+    L.DomUtil.setPosition(canvas, topLeft);
+
+    const bw = Math.round(w * dpr);
+    const bh = Math.round(h * dpr);
+    if (canvas.width !== bw || canvas.height !== bh) {
+      canvas.width = bw;
+      canvas.height = bh;
       canvas.style.width = `${w}px`;
       canvas.style.height = `${h}px`;
     }
@@ -3278,8 +3298,8 @@ const ScumSectorGridLayer = L.Layer.extend({
     const zoom = map.getZoom();
     const showKeypadLines = zoom >= 2;
     const showKeypadLabels = zoom >= 3;
-    const showSectorLabels = zoom < 3;
-    const pad = Math.max(4, 6 - zoom); // label inset from cell corner
+    const showSectorLabels = true; // always: top-left of each major square
+    const pad = Math.max(4, 8 - zoom);
 
     const pt = (mx, my) => this._project(mx, my);
 
@@ -3306,18 +3326,17 @@ const ScumSectorGridLayer = L.Layer.extend({
       ctx.stroke();
     };
 
-    if (showKeypadLines) strokeGrid(keypadN, 1, 0.25);
-    strokeGrid(sectorN, zoom < 2 ? 1.6 : 2.2, 0.55);
+    if (showKeypadLines) strokeGrid(keypadN, 1, 0.28);
+    strokeGrid(sectorN, zoom < 2 ? 1.8 : 2.4, 0.6);
 
     const drawLabel = (text, mx, my, fontPx, alpha) => {
       const p = pt(mx, my);
       if (!p) return;
-      // Skip if far outside viewport (with margin).
-      if (p.x < -80 || p.y < -40 || p.x > w + 20 || p.y > h + 20) return;
+      if (p.x < -100 || p.y < -40 || p.x > w + 40 || p.y > h + 40) return;
       ctx.font = `700 ${fontPx}px "Segoe UI", system-ui, sans-serif`;
-      ctx.lineWidth = Math.max(2, fontPx * 0.18);
-      ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.85, alpha + 0.35)})`;
-      ctx.fillStyle = `rgba(20,20,20,${alpha})`;
+      ctx.lineWidth = Math.max(2.5, fontPx * 0.2);
+      ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.9, alpha + 0.4)})`;
+      ctx.fillStyle = `rgba(15,15,15,${alpha})`;
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
       const x = p.x + pad;
@@ -3327,16 +3346,17 @@ const ScumSectorGridLayer = L.Layer.extend({
     };
 
     if (showSectorLabels) {
-      const fontPx = zoom <= 1 ? 18 : zoom <= 2 ? 20 : 16;
+      // Hide major labels only when keypad labels crowd the same corner.
+      const fontPx = zoom <= 1 ? 18 : zoom <= 2 ? 20 : zoom <= 3 ? 15 : 13;
+      const alpha = showKeypadLabels ? 0.55 : 0.6;
       for (let row = 0; row < sectorN; row += 1) {
         for (let col = 0; col < sectorN; col += 1) {
-          // Top-left corner of the sector square.
           drawLabel(
             `${letters[row]}${4 - col}`,
             sectorW * col,
             sectorW * row,
             fontPx,
-            zoom >= 4 ? 0.35 : 0.5,
+            alpha,
           );
         }
       }
@@ -3352,6 +3372,8 @@ const ScumSectorGridLayer = L.Layer.extend({
         for (let o = 1; o <= sectorN; o += 1) {
           const i0 = sectorW * (o - 1);
           for (let c = 1; c <= 3; c += 1) {
+            // Skip the top-left keypad cell of each sector — major label sits there.
+            if ((n - 1) % 3 === 0 && c === 1) continue;
             const keyRow = 3 - ((n - 1) % 3);
             const key = keyTable[keyRow - 1][c - 1];
             drawLabel(
@@ -3359,7 +3381,7 @@ const ScumSectorGridLayer = L.Layer.extend({
               i0 + (c - 1) * keyW,
               (n - 1) * keyW,
               11,
-              0.4,
+              0.42,
             );
           }
         }
