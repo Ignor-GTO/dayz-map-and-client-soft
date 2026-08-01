@@ -1,4 +1,4 @@
-"""SCUM Map Client — clipboard watch, map zoom/focus hotkeys, auto-update."""
+"""SCUM Map Client — map overlay (F1), zoom/focus hotkeys, SteamID sync, auto-update."""
 
 from __future__ import annotations
 
@@ -14,13 +14,9 @@ from tkinter import messagebox, ttk
 import httpx
 
 from api_client import MapClient
-from clipboard_util import (
-    clipboard_sequence_number,
-    grab_clipboard_text,
-    read_clipboard_text,
-)
+from clipboard_util import read_clipboard_text
 from config import load_config, normalize_hotkey_list, save_config
-from scum_coords import looks_like_client_log, parse_scum_clipboard
+from map_overlay import ScumMapOverlay
 from steam_id import detect_local_steam_id
 from version import __version__
 from win_input import (
@@ -35,7 +31,6 @@ GITHUB_RELEASES_LATEST = (
     "https://api.github.com/repos/Ignor-GTO/dayz-map-and-client-soft/releases/latest"
 )
 UPDATE_ASSET = "ScumMapClient.exe"
-AUTO_INTERVAL_DEFAULT = 0  # no auto Ctrl+C inject (EAC blocks it)
 
 
 class ScumMapApp(tk.Tk):
@@ -50,18 +45,10 @@ class ScumMapApp(tk.Tk):
         self._hotkeys_on = False
         self._stop_workers = threading.Event()
         self._last_sent: tuple[float, float] | None = None
-        self._send_lock = threading.Lock()
-        self._clipboard_digest: str | None = None
-        self._clipboard_coords_at = 0.0
-        self._fresh_clipboard_coords: tuple[float, float] | None = None
-        self._copy_lock = threading.Lock()
-        self._copy_busy = False
-        self._pause_clipboard_poll = False
-        self._last_copy_trigger_at = 0.0
         self._hotkeys = GlobalHotkeyListener()
+        self._map_overlay = ScumMapOverlay()
         self.current_page = 0
-        self._auto_warned_empty = False
-        self._warned_log_clip = False
+        self._last_overlay_toggle_at = 0.0
 
         self._cleanup_old_exe()
         self._build_ui()
@@ -72,7 +59,7 @@ class ScumMapApp(tk.Tk):
             self.log_line("Права: администратор — OK для перехвата F1 в игре.")
         else:
             self.log_line("Права: ОБЫЧНЫЕ. Если SCUM от админа — F1 не увидим. Нажмите «От админа».")
-        self.log_line("Вставьте ключ → Настройки → Сохранить → на Главной нажмите «Запустить».")
+        self.log_line("Вставьте ключ → Настройки → Сохранить → «Запустить» → F1 = карта поверх игры.")
         self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.after(2000, lambda: self.check_for_updates(manual=False))
 
@@ -275,9 +262,9 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "Ctrl+C в SCUM — клиент сразу шлёт {X=… Y=…} на карту.\n"
-                "Эмуляция Ctrl+C отключена (игра/EAC её игнорирует). F1 и кнопка читают буфер.\n"
-                "Можно также вставить координаты вручную в поле ниже."
+                "Позиция на карте приходит с игрового сервера (SteamID).\n"
+                "F1 — открыть/закрыть веб-карту поверх SCUM (оверлей).\n"
+                "Page Up / Page Down / End — зум и фокус на карте."
             ),
             style="CardMuted.TLabel",
             wraplength=580,
@@ -287,20 +274,10 @@ class ScumMapApp(tk.Tk):
         btns.pack(fill="x", pady=6)
         self.toggle_btn = ttk.Button(btns, text="Запустить", command=self._toggle_hotkeys)
         self.toggle_btn.pack(side="left")
-        ttk.Button(btns, text="Отправить позицию", command=self._manual_copy_send).pack(side="left", padx=6)
-        ttk.Button(btns, text="Из буфера", command=self._send_clipboard_now).pack(side="left", padx=6)
+        ttk.Button(btns, text="Карта (F1)", command=self._toggle_map_overlay).pack(side="left", padx=6)
         ttk.Button(btns, text="Копировать лог", command=self._copy_log).pack(side="left", padx=6)
         if not is_admin():
             ttk.Button(btns, text="От админа", command=self._relaunch_admin).pack(side="left", padx=6)
-
-        paste_row = ttk.Frame(self.main_page)
-        paste_row.pack(fill="x", pady=(4, 0))
-        ttk.Label(paste_row, text="Или вставьте {X=… Y=…}:", style="Muted.TLabel").pack(side="left")
-        self.paste_coords_var = tk.StringVar()
-        ttk.Entry(paste_row, textvariable=self.paste_coords_var).pack(
-            side="left", fill="x", expand=True, padx=6
-        )
-        ttk.Button(paste_row, text="Отправить", command=self._send_pasted_coords).pack(side="left")
 
         ttk.Label(self.main_page, text="Лог", style="Muted.TLabel").pack(anchor="w", pady=(8, 2))
         self.log = tk.Text(
@@ -358,40 +335,23 @@ class ScumMapApp(tk.Tk):
             wraplength=560,
         ).pack(anchor="w", pady=(4, 0))
 
-        auto = ttk.LabelFrame(body, text="Автоповтор последней позиции", padding=10)
-        auto.pack(fill="x", pady=6)
-        row = ttk.Frame(auto, style="Card.TFrame")
-        row.pack(fill="x")
-        ttk.Label(row, text="Интервал (сек)", style="Card.TLabel").pack(side="left")
-        self.auto_interval_var = tk.IntVar(value=AUTO_INTERVAL_DEFAULT)
-        ttk.Entry(row, textvariable=self.auto_interval_var, width=8).pack(side="left", padx=8)
-        ttk.Label(
-            auto,
-            text=(
-                "0 = выкл. (рекомендуется). При N>0: каждые N сек шлёт уже известную позицию "
-                "без эмуляции Ctrl+C. Свежие координаты — только ваш Ctrl+C в SCUM."
-            ),
-            style="CardMuted.TLabel",
-            wraplength=560,
-        ).pack(anchor="w", pady=(6, 0))
-
-        hk = ttk.LabelFrame(body, text="Горячие клавиши (веб-карта)", padding=10)
+        hk = ttk.LabelFrame(body, text="Горячие клавиши", padding=10)
         hk.pack(fill="x", pady=6)
         ttk.Label(
             hk,
-            text="Как в DayZ-клиенте: Page Up / Page Down / End управляют веб-картой в браузере.",
+            text="F1 — оверлей карты поверх SCUM. Page Up / Page Down / End — зум и фокус на карте.",
             style="CardMuted.TLabel",
             wraplength=560,
         ).pack(anchor="w", pady=(0, 8))
         self.hotkey_zoom_in_var = tk.StringVar()
         self.hotkey_zoom_out_var = tk.StringVar()
         self.hotkey_focus_me_var = tk.StringVar()
-        self.hotkey_send_pos_var = tk.StringVar()
+        self.hotkey_overlay_var = tk.StringVar()
         for label, var in (
+            ("Оверлей карты (F1)", self.hotkey_overlay_var),
             ("Приблизить (zoom in)", self.hotkey_zoom_in_var),
             ("Отдалить (zoom out)", self.hotkey_zoom_out_var),
             ("Найти себя (focus me)", self.hotkey_focus_me_var),
-            ("F1 → отправить позицию", self.hotkey_send_pos_var),
         ):
             r = ttk.Frame(hk, style="Card.TFrame")
             r.pack(fill="x", pady=3)
@@ -413,8 +373,8 @@ class ScumMapApp(tk.Tk):
         ttk.Label(
             card,
             text=(
-                "Ctrl+C в SCUM копирует {X=… Y=…} — клиент сам читает буфер и шлёт на веб-карту.\n"
-                "F1 / кнопка — отправить то, что уже в буфере. Page Up/Down/End — зум и фокус на сайте."
+                "Позиция игрока на карте — с игрового сервера (по SteamID).\n"
+                "F1 — карта поверх игры (WebView2). Page Up/Down/End — зум и фокус."
             ),
             style="CardMuted.TLabel",
             wraplength=560,
@@ -445,25 +405,16 @@ class ScumMapApp(tk.Tk):
     def _load_fields(self) -> None:
         self.server_var.set(self.settings.get("server_url", ""))
         self.key_var.set(self.settings.get("client_key", ""))
-        # Legacy builds defaulted to 30s auto Ctrl+C inject — disable it.
-        raw_interval = int(self.settings.get("scum_auto_interval_sec", AUTO_INTERVAL_DEFAULT) or 0)
-        if raw_interval == 30 and not self.settings.get("scum_auto_last_known_enabled"):
-            raw_interval = 0
-            self.settings["scum_auto_interval_sec"] = 0
-            try:
-                save_config(self.settings)
-            except Exception:
-                pass
-        self.auto_interval_var.set(raw_interval)
         self.hotkey_zoom_in_var.set(", ".join(self.settings.get("hotkey_zoom_in", ["page up"])))
         self.hotkey_zoom_out_var.set(", ".join(self.settings.get("hotkey_zoom_out", ["page down"])))
         self.hotkey_focus_me_var.set(", ".join(self.settings.get("hotkey_focus_me", ["end"])))
-        pos_keys = self.settings.get("scum_hotkey_send_pos", ["f1"])
-        # Old builds defaulted to M; F1 is the intended copy trigger.
-        if pos_keys == ["m"]:
-            pos_keys = ["f1"]
-            self.settings["scum_hotkey_send_pos"] = pos_keys
-        self.hotkey_send_pos_var.set(", ".join(pos_keys))
+        overlay_keys = self.settings.get("scum_hotkey_toggle_overlay")
+        if not overlay_keys:
+            overlay_keys = self.settings.get("scum_hotkey_send_pos", ["f1"])
+        if overlay_keys == ["m"]:
+            overlay_keys = ["f1"]
+        self.settings["scum_hotkey_toggle_overlay"] = overlay_keys
+        self.hotkey_overlay_var.set(", ".join(overlay_keys))
         stored = (self.settings.get("steam_id") or "").strip()
         if stored:
             self.steam_id_var.set(stored)
@@ -551,12 +502,6 @@ class ScumMapApp(tk.Tk):
         parts = [p.strip() for p in (raw or "").split(",") if p.strip()]
         return normalize_hotkey_list(parts) or list(fallback)
 
-    def _auto_interval(self) -> int:
-        try:
-            return max(0, int(self.auto_interval_var.get()))
-        except Exception:
-            return AUTO_INTERVAL_DEFAULT
-
     # ------------------------------------------------------------------ save / run
     def _save(self) -> None:
         server = self.server_var.get().strip()
@@ -567,13 +512,12 @@ class ScumMapApp(tk.Tk):
         self.settings["server_url"] = server
         self.settings["client_key"] = key
         self.settings["map_slug"] = "scum"
-        self.settings["scum_auto_interval_sec"] = self._auto_interval()
-        if self._auto_interval() > 0:
-            self.settings["scum_auto_last_known_enabled"] = True
         self.settings["hotkey_zoom_in"] = self._parse_hotkeys(self.hotkey_zoom_in_var.get(), ["page up"])
         self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
         self.settings["hotkey_focus_me"] = self._parse_hotkeys(self.hotkey_focus_me_var.get(), ["end"])
-        self.settings["scum_hotkey_send_pos"] = self._parse_hotkeys(self.hotkey_send_pos_var.get(), ["f1"])
+        self.settings["scum_hotkey_toggle_overlay"] = self._parse_hotkeys(
+            self.hotkey_overlay_var.get(), ["f1"]
+        )
         sid = (self.steam_id_var.get() or "").strip()
         if sid:
             self.settings["steam_id"] = sid
@@ -600,13 +544,12 @@ class ScumMapApp(tk.Tk):
             if not self.map_client:
                 return
         try:
-            self.settings["scum_auto_interval_sec"] = self._auto_interval()
-            if self._auto_interval() > 0:
-                self.settings["scum_auto_last_known_enabled"] = True
             self.settings["hotkey_zoom_in"] = self._parse_hotkeys(self.hotkey_zoom_in_var.get(), ["page up"])
             self.settings["hotkey_zoom_out"] = self._parse_hotkeys(self.hotkey_zoom_out_var.get(), ["page down"])
             self.settings["hotkey_focus_me"] = self._parse_hotkeys(self.hotkey_focus_me_var.get(), ["end"])
-            self.settings["scum_hotkey_send_pos"] = self._parse_hotkeys(self.hotkey_send_pos_var.get(), ["f1"])
+            self.settings["scum_hotkey_toggle_overlay"] = self._parse_hotkeys(
+                self.hotkey_overlay_var.get(), ["f1"]
+            )
             save_config(self.settings)
         except Exception:
             pass
@@ -614,19 +557,15 @@ class ScumMapApp(tk.Tk):
         self._stop_workers.clear()
         self._hotkeys_on = True
         self.toggle_btn.configure(text="Остановить")
-        interval = self._auto_interval()
-        self.status_var.set(
-            "Работает — ждите Ctrl+C в SCUM"
-            + (f" · автоповтор каждые {interval} с" if interval > 0 else "")
-        )
+        self.status_var.set("Работает — F1 оверлей карты · PageUp/Down/End зум")
 
         bindings: list[tuple[str, int, str]] = []
-        for hk in self.settings.get("scum_hotkey_send_pos", ["f1"]):
+        for hk in self.settings.get("scum_hotkey_toggle_overlay", ["f1"]):
             vk = resolve_vk(hk)
             if vk is None:
-                self.log_line(f"Неизвестная клавиша позиции: {hk}")
+                self.log_line(f"Неизвестная клавиша оверлея: {hk}")
                 continue
-            bindings.append(("copy", vk, hk))
+            bindings.append(("toggle_overlay", vk, hk))
         for hk in self.settings.get("hotkey_zoom_in", ["page up"]):
             vk = resolve_vk(hk)
             if vk is not None:
@@ -656,53 +595,22 @@ class ScumMapApp(tk.Tk):
             self._stop_hotkeys()
             return
 
-        self._clipboard_digest = None
-        self._fresh_clipboard_coords = None
-        self._auto_warned_empty = False
-        threading.Thread(target=self._clipboard_loop, daemon=True).start()
-        if interval > 0:
-            threading.Thread(target=self._auto_loop, args=(interval,), daemon=True).start()
-
         names = [f"{a}:{n}" for a, _vk, n in bindings]
         self.log_line(f"Запущено: {', '.join(names)}")
-        self.log_line("В SCUM нажмите Ctrl+C — координаты уйдут на карту. Эмуляция Ctrl+C отключена.")
-        if interval > 0:
-            self.log_line(f"Автоповтор последней позиции каждые {interval} с (без Ctrl+C).")
+        self.log_line("F1 — карта поверх игры. Позиция идёт с сервера по SteamID.")
         sid = (self.steam_id_var.get() or self.settings.get("steam_id") or "").strip()
         if sid:
             self._sync_steam_id_to_server(sid, quiet=True)
         else:
             self._detect_steam_id_silent()
-
-        # If coords already in clipboard at start — send now (off UI thread)
-        def check_existing() -> None:
-            existing = read_clipboard_text(0.5, allow_powershell=True)
-            coords = parse_scum_clipboard(existing)
-
-            def apply() -> None:
-                if coords:
-                    self._clipboard_digest = existing
-                    self.log_line("[старт] в буфере уже есть координаты — отправляю")
-                    self._send_coords(coords, source="старт/буфер")
-                elif existing:
-                    self._clipboard_digest = existing
-                    preview = existing[:50] + ("…" if len(existing) > 50 else "")
-                    self.log_line(f"[старт] буфер без координат ({preview!r})")
-                else:
-                    self.log_line("[старт] буфер пуст — нажмите Ctrl+C в SCUM")
-
-            self.after(0, apply)
-
-        threading.Thread(target=check_existing, daemon=True).start()
         if not is_admin():
             self.log_line("⚠ Не админ: для хоткеев лучше «От админа».")
 
     def _on_global_hotkey(self, action: str, name: str) -> None:
-        """Called from hotkey thread."""
         if not self._hotkeys_on:
             return
-        if action == "copy":
-            self.after(0, self._handle_copy_hotkey)
+        if action == "toggle_overlay":
+            self.after(0, self._toggle_map_overlay)
             return
         if is_our_process_foreground():
             return
@@ -716,7 +624,6 @@ class ScumMapApp(tk.Tk):
     def _stop_hotkeys(self) -> None:
         self._hotkeys_on = False
         self._stop_workers.set()
-        self._copy_busy = False
         try:
             self._hotkeys.stop()
         except Exception:
@@ -735,176 +642,50 @@ class ScumMapApp(tk.Tk):
             else:
                 messagebox.showerror("Админ", "Не удалось запросить повышение прав.")
 
-    def _auto_loop(self, interval: int) -> None:
-        """Resend last known coords only — never emulate Ctrl+C."""
-        while not self._stop_workers.wait(interval):
-            self.after(0, self._resend_last_position_auto)
-
-    def _resend_last_position_auto(self) -> None:
-        if not self._hotkeys_on or not self.map_client:
+    def _toggle_map_overlay(self) -> None:
+        if not self.map_client:
+            self._save()
+            if not self.map_client:
+                return
+        now = time.time()
+        if now - self._last_overlay_toggle_at < 0.6:
             return
-        coords = self._fresh_clipboard_coords or self._last_sent
-        if not coords:
-            return
-        self._send_coords(coords, source="auto/last")
+        self._last_overlay_toggle_at = now
+        self.log_line("[F1] открываю оверлей…")
 
-    def _read_clipboard_any(self) -> str:
-        """Win32 only on hot paths — PowerShell can hang for many seconds."""
-        return (grab_clipboard_text(0.35) or "").strip()
-
-    def _clipboard_hint(self, text: str) -> str:
-        if looks_like_client_log(text):
-            return (
-                "в буфере сейчас ЛОГ клиента (не координаты). "
-                "В SCUM нажмите Ctrl+C ещё раз — не копируйте лог."
+        def url_factory() -> str | None:
+            url, err = self.map_client.create_overlay_handoff(
+                self.settings.get("map_slug") or "scum"
             )
-        if not (text or "").strip():
-            return "буфер пуст или не удалось прочитать"
-        preview = (text or "").replace("\n", " ")[:100]
-        return f"в буфере нет {{X=… Y=…}}. Сейчас: {preview!r}"
-
-    def _request_position_refresh(self, source: str) -> None:
-        """Read clipboard only (no key inject — EAC blocks synthetic Ctrl+C)."""
-        if not self._hotkeys_on or not self.map_client:
-            return
-        if self._copy_busy:
-            if source.startswith("F1"):
-                self.log_line(f"[{source}] уже идёт обновление — подождите")
-            return
-        self._copy_busy = True
-        self._pause_clipboard_poll = True
+            if not url:
+                raise RuntimeError(err or "Нет URL оверлея")
+            return url
 
         def work() -> None:
-            text = ""
-            coords = None
-            err = ""
             try:
-                text = (grab_clipboard_text(0.25) or "").strip()
-                coords = parse_scum_clipboard(text)
+                visible = self._map_overlay.toggle(url_factory)
+
+                def apply() -> None:
+                    if visible:
+                        self.log_line("[F1] оверлей карты открыт")
+                    else:
+                        self.log_line("[F1] оверлей карты скрыт")
+
+                self.after(0, apply)
             except Exception as exc:
-                err = str(exc)
-            finally:
+                msg = str(exc)
+                self.after(0, lambda m=msg: self.log_line(f"[F1] оверлей: {m}"))
                 self.after(
                     0,
-                    lambda s=source, t=text, c=coords, e=err: self._on_refresh_done(
-                        s, text=t, coords=c, err=e
+                    lambda m=msg: messagebox.showerror(
+                        "Оверлей карты",
+                        f"{m}\n\n1) Задеплойте сервер с /api/auth/overlay-handoff\n"
+                        "2) Нужен Edge WebView2 Runtime\n"
+                        "3) Клиент должен быть собран с pywebview",
                     ),
                 )
 
         threading.Thread(target=work, daemon=True).start()
-
-    def _on_refresh_done(
-        self,
-        source: str,
-        *,
-        text: str,
-        coords: tuple[float, float] | None,
-        err: str,
-    ) -> None:
-        self._copy_busy = False
-        self._pause_clipboard_poll = False
-        if not self._hotkeys_on:
-            return
-
-        if err:
-            self.log_line(f"[{source}] ошибка чтения буфера: {err}")
-
-        if coords:
-            self._clipboard_digest = text
-            self._fresh_clipboard_coords = coords
-            self._clipboard_coords_at = time.time()
-            self._auto_warned_empty = False
-            preview = (text or "").replace("\n", " ")[:70]
-            self.log_line(f"[{source}] буфер: {preview!r}")
-            self._send_coords(coords, source=source)
-            return
-
-        # Fall back to last known for explicit F1/button presses
-        if source.startswith("F1") or source == "кнопка":
-            clip = self._fresh_clipboard_coords or self._last_sent
-            if clip:
-                self.log_line(f"[{source}] в буфере нет свежих координат — шлю последнюю известную")
-                self._send_coords(clip, source=f"{source}/last")
-                return
-            self.log_line(f"[{source}] {self._clipboard_hint(text)}")
-            self.log_line(f"[{source}] нажмите Ctrl+C в SCUM")
-            return
-
-        self.log_line(f"[{source}] {self._clipboard_hint(text)}")
-
-    def _clipboard_loop(self) -> None:
-        last_seq = -1
-        while not self._stop_workers.is_set():
-            if self._pause_clipboard_poll or self._copy_busy:
-                time.sleep(0.2)
-                continue
-            try:
-                seq = clipboard_sequence_number()
-                text = (grab_clipboard_text(0.2) or "").strip()
-            except Exception:
-                text = ""
-                seq = last_seq
-            if not text:
-                time.sleep(0.35)
-                continue
-            if text == self._clipboard_digest and seq == last_seq:
-                time.sleep(0.35)
-                continue
-            last_seq = seq
-            self._clipboard_digest = text
-            coords = parse_scum_clipboard(text)
-            if coords:
-                self._fresh_clipboard_coords = coords
-                self._clipboard_coords_at = time.time()
-                self._auto_warned_empty = False
-                preview = text.replace("\n", " ")[:70]
-                self.after(
-                    0,
-                    lambda p=preview: self.log_line(f"[буфер] координаты: {p!r}"),
-                )
-                self.after(0, lambda c=coords: self._send_coords(c, source="Ctrl+C"))
-            elif looks_like_client_log(text) and not getattr(self, "_warned_log_clip", False):
-                self._warned_log_clip = True
-                self.after(
-                    0,
-                    lambda: self.log_line(
-                        "[буфер] обнаружен лог клиента вместо координат — "
-                        "в SCUM нажмите Ctrl+C (не копируйте лог)."
-                    ),
-                )
-            time.sleep(0.35)
-
-    def _manual_copy_send(self) -> None:
-        if not self.map_client:
-            self._save()
-            if not self.map_client:
-                return
-        self._request_position_refresh("кнопка")
-
-    def _handle_copy_hotkey(self, force_log: bool = False) -> None:
-        if not self._hotkeys_on:
-            return
-        now = time.time()
-        if now - self._last_copy_trigger_at < 1.0:
-            return
-        self._last_copy_trigger_at = now
-        self.log_line("[F1] пойман")
-        self._request_position_refresh("F1")
-
-    def _send_pasted_coords(self) -> None:
-        raw = (self.paste_coords_var.get() or "").strip()
-        coords = parse_scum_clipboard(raw)
-        if not coords:
-            messagebox.showinfo(
-                "Координаты",
-                "Вставьте строку вида\n{X=… Y=… Z=…|P=…}",
-            )
-            return
-        if not self.map_client:
-            self._save()
-            if not self.map_client:
-                return
-        self._send_coords(coords, source="вставка")
 
     def _paste_client_key(self) -> None:
         text = (self._clipboard_get_text() or "").strip()
@@ -933,70 +714,9 @@ class ScumMapApp(tk.Tk):
             self.clipboard_clear()
             self.clipboard_append(data)
             self.update_idletasks()
-            self.log_line("Лог скопирован в буфер (координаты SCUM при этом стёрты)")
+            self.log_line("Лог скопирован в буфер")
         except Exception as exc:
             messagebox.showerror("Лог", f"Не удалось скопировать: {exc}")
-
-    # ------------------------------------------------------------------ capture
-    def _send_clipboard_now(self) -> None:
-        if not self.map_client:
-            self._save()
-            if not self.map_client:
-                return
-        self.log_line("[буфер] читаю…")
-
-        def work() -> None:
-            text = read_clipboard_text(0.6, allow_powershell=True)
-            coords = parse_scum_clipboard(text)
-
-            def apply() -> None:
-                if coords:
-                    self._clipboard_digest = text
-                    self._fresh_clipboard_coords = coords
-                    self._send_coords(coords, source="буфер-кнопка")
-                    return
-                hint = self._clipboard_hint(text or "")
-                self.log_line(f"[буфер] {hint}")
-                messagebox.showinfo(
-                    "Буфер",
-                    "В буфере нет координат вида {X=… Y=…}.\n"
-                    "В SCUM нажмите Ctrl+C (карту открывать не нужно).\n"
-                    "Или вставьте строку в поле «Или вставьте {X=… Y=…}» ниже.",
-                )
-
-            self.after(0, apply)
-
-        threading.Thread(target=work, daemon=True).start()
-
-    def _send_coords(self, coords: tuple[float, float], source: str) -> None:
-        if not self.map_client:
-            self.log_line("Сначала сохраните настройки (вкладка Настройки)")
-            self._show_page(1)
-            return
-        x, y = coords
-        self.log_line(f"[{source}] отправка {x:.1f} / {y:.1f} …")
-
-        def work() -> None:
-            try:
-                ok, err = self.map_client.send_position(x, y)
-            except Exception as exc:
-                self.after(0, lambda: self.log_line(f"[{source}] исключение: {exc}"))
-                return
-            if ok:
-                self._last_sent = (x, y)
-                self.after(0, lambda: self.log_line(f"[{source}] OK → {x:.1f} / {y:.1f}"))
-                self.after(0, lambda: self.status_var.set(f"Позиция {x:.0f} / {y:.0f}"))
-            else:
-                self.after(0, lambda: self.log_line(f"[{source}] Ошибка API: {err}"))
-                if "401" in err or "403" in err:
-                    self.after(
-                        0,
-                        lambda: self.log_line(
-                            "Проверьте client key: SCUM-карта → Приложение → скопировать ключ."
-                        ),
-                    )
-
-        threading.Thread(target=work, daemon=True).start()
 
     # ------------------------------------------------------------------ map commands
     def _handle_zoom_in(self) -> None:
@@ -1149,6 +869,10 @@ class ScumMapApp(tk.Tk):
         threading.Thread(target=download_worker, daemon=True).start()
 
     def _on_close(self) -> None:
+        try:
+            self._map_overlay.destroy()
+        except Exception:
+            pass
         self._stop_hotkeys()
         self.destroy()
 

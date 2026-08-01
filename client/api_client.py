@@ -67,3 +67,28 @@ class MapClient:
             return False, f"HTTP {r.status_code}: {detail}"
         except httpx.HTTPError as e:
             return False, f"Ошибка сети: {e}"
+
+    def create_overlay_handoff(self, map_slug: str = "scum") -> tuple[str | None, str]:
+        """Return absolute overlay-enter URL that sets the browser session cookie."""
+        try:
+            r = httpx.post(
+                f"{self.base}/api/auth/overlay-handoff",
+                json={"map_slug": map_slug},
+                headers=self.headers,
+                timeout=10,
+            )
+            if r.status_code != 200:
+                try:
+                    detail = r.json().get("detail") or r.text
+                except Exception:
+                    detail = r.text
+                return None, f"HTTP {r.status_code}: {detail}"
+            data = r.json()
+            path = (data.get("url") or data.get("path") or "").strip()
+            if not path:
+                return None, "Сервер не вернул URL оверлея"
+            if path.startswith("http://") or path.startswith("https://"):
+                return path, ""
+            return f"{self.base}{path if path.startswith('/') else '/' + path}", ""
+        except httpx.HTTPError as e:
+            return None, f"Ошибка сети: {e}"

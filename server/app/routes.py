@@ -1,8 +1,11 @@
 import json
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Annotated
 
+from itsdangerous import BadSignature, URLSafeSerializer
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, UploadFile, File
+from fastapi.responses import RedirectResponse
 from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -24,6 +27,7 @@ from app.auth import (
     user_has_admin_panel_access,
     verify_password,
 )
+from app.config import SECRET_KEY
 from app.database import get_db
 from app.locations_service import get_map_locations
 from app.radiation_service import get_map_radiation
@@ -74,6 +78,7 @@ from app.schemas import (
     PoiResponse,
     PositionResponse,
     ProfilePasswordRequest,
+    ProfileSteamIdRequest,
     PromoteMarkerToPoiRequest,
     RoadSegmentResponse,
     RoomSettingsResponse,
@@ -82,7 +87,7 @@ from app.schemas import (
     StaffPoiCreateRequest,
     StaffPoiUpdateRequest,
     SwitchMembershipRequest,
-    ProfileSteamIdRequest,
+    OverlayHandoffRequest,
     TraderItemResponse,
 )
 from app.buildings_service import list_buildings
@@ -91,6 +96,10 @@ from app.settings_service import is_public_pin_creation
 from app.websocket import manager
 
 router = APIRouter(prefix="/api")
+
+_overlay_handoff = URLSafeSerializer(SECRET_KEY, salt="map-overlay-handoff")
+OVERLAY_HANDOFF_TTL_SEC = 90
+
 
 STASH_MANAGER_ROLES = {"admin", "moderator"}
 # Map-scoped categories visible to all PIN groups on the same map.
@@ -578,6 +587,54 @@ async def reset_client_key(
 async def logout(response: Response):
     clear_session(response)
     return {"ok": True}
+
+
+@router.post("/auth/overlay-handoff")
+async def create_overlay_handoff(
+    payload: OverlayHandoffRequest,
+    user: Annotated[User, Depends(authenticate_client)],
+):
+    """One-time URL for the desktop overlay WebView to obtain a browser session cookie."""
+    map_slug = (payload.map_slug or "").strip().lower()
+    if not map_slug:
+        try:
+            map_slug = user.room.map.slug
+        except Exception:
+            map_slug = "scum"
+    map_slug = map_slug or "scum"
+    token = _overlay_handoff.dumps(
+        {
+            "user_id": user.id,
+            "map_slug": map_slug,
+            "exp": time.time() + OVERLAY_HANDOFF_TTL_SEC,
+        }
+    )
+    path = f"/api/auth/overlay-enter?t={token}"
+    return {"ok": True, "token": token, "path": path, "url": path}
+
+
+@router.get("/auth/overlay-enter")
+async def overlay_enter(
+    t: str,
+    response: Response,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    try:
+        data = _overlay_handoff.loads(t)
+    except BadSignature:
+        raise HTTPException(status_code=400, detail="Недействительная ссылка оверлея") from None
+    exp = float(data.get("exp") or 0)
+    if time.time() > exp:
+        raise HTTPException(status_code=400, detail="Ссылка оверлея истекла — нажмите F1 ещё раз")
+    user_id = data.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Недействительная ссылка оверлея")
+    user = await db.get(User, int(user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    map_slug = str(data.get("map_slug") or "scum").strip().lower() or "scum"
+    set_session(response, user.id)
+    return RedirectResponse(url=f"/?map={map_slug}", status_code=302)
 
 
 @router.get("/auth/client-key")

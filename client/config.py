@@ -71,7 +71,7 @@ DEFAULT_CONFIG = {
     "ocr_preprocess_mode": "auto",
     "scum_ocr_region": [0, 0, 900, 280],
     "scum_auto_interval_sec": 0,
-    "scum_hotkey_send_pos": ["f1"],
+    "scum_hotkey_toggle_overlay": ["f1"],
     "scum_copy_delay_ms": 350,
     "steam_id": "",
 }
@@ -109,9 +109,18 @@ def load_config() -> dict:
                         "hotkey_zoom_out",
                         "hotkey_focus_me",
                         "hotkey_inventory_price",
+                        "scum_hotkey_toggle_overlay",
+                        "scum_hotkey_send_pos",
                     ):
                         if key in loaded and isinstance(loaded[key], list):
                             loaded[key] = normalize_hotkey_list(loaded[key])
+                    # F1 used to mean "send clipboard coords"; now it toggles the map overlay.
+                    if "scum_hotkey_toggle_overlay" not in loaded and isinstance(
+                        loaded.get("scum_hotkey_send_pos"), list
+                    ):
+                        loaded["scum_hotkey_toggle_overlay"] = normalize_hotkey_list(
+                            loaded["scum_hotkey_send_pos"]
+                        ) or ["f1"]
                     # Migration: previous builds could normalize ` as "delete".
                     # Switch those values back to dot to match current expected behavior.
                     for key in (
@@ -123,6 +132,7 @@ def load_config() -> dict:
                         "hotkey_zoom_out",
                         "hotkey_focus_me",
                         "hotkey_inventory_price",
+                        "scum_hotkey_toggle_overlay",
                     ):
                         if key in loaded and isinstance(loaded[key], list):
                             loaded[key] = [

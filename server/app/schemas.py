@@ -33,6 +33,10 @@ class SwitchMembershipRequest(BaseModel):
     user_id: int
 
 
+class OverlayHandoffRequest(BaseModel):
+    map_slug: str = Field(default="scum", min_length=2, max_length=64)
+
+
 class RoomSettingsResponse(BaseModel):
     pin: str
     entry_password_enabled: bool
