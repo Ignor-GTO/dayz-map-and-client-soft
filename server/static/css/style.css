@@ -1708,10 +1708,10 @@ button.secondary.small {
   position: absolute;
   left: 50%;
   top: 50%;
-  width: 34px;
-  height: 34px;
-  margin-left: -17px;
-  margin-top: -17px;
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  margin-top: -16px;
   transform-origin: 50% 50%;
   pointer-events: none;
   z-index: 0;
@@ -1721,7 +1721,13 @@ button.secondary.small {
   width: 100%;
   height: 100%;
   overflow: visible;
-  filter: drop-shadow(0 0 1.5px rgba(0, 0, 0, 0.55));
+}
+.live-player-heading path {
+  fill: rgba(120, 225, 255, 0.44);
+  stroke: rgba(90, 205, 240, 0.22);
+  stroke-width: 0.5;
+  stroke-linejoin: round;
+  filter: blur(0.35px);
 }
 .live-player-pin {
   position: relative;

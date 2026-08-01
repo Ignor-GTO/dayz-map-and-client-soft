@@ -562,14 +562,10 @@ function vehicleTypeLabel(pos) {
 function playerHeadingHtml(yaw) {
   if (!Number.isFinite(Number(yaw))) return "";
   const deg = -Number(yaw);
+  // Arc over the top of the avatar (hidden); visible cone tapers outward below.
   return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)" aria-hidden="true">
     <svg class="live-player-heading" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-      <path d="M16 2 C19.5 13 23.5 20.5 27.5 25.5 C20.5 22.5 11.5 22.5 4.5 25.5 C8.5 20.5 12.5 13 16 2 Z"
-        fill="rgba(0, 228, 255, 0.68)"
-        stroke="rgba(0, 195, 215, 0.42)"
-        stroke-width="1.1"
-        stroke-linejoin="round"
-        stroke-linecap="round"/>
+      <path d="M 4.1 20.5 A 13 13 0 1 1 27.9 20.5 L 16 31 Z"/>
     </svg>
   </div>`;
 }
