@@ -65,6 +65,18 @@ def normalize_travel_fields(raw: dict) -> tuple[str | None, str | None, str | No
     return mode, role, vtype
 
 
+def normalize_yaw(raw: dict) -> float | None:
+    if "yaw" not in raw or raw.get("yaw") is None:
+        return None
+    try:
+        y = float(raw["yaw"])
+    except (TypeError, ValueError):
+        return None
+    if not (-3600 <= y <= 3600):
+        return None
+    return ((y % 360) + 360) % 360
+
+
 def position_event_data(user: User, position: Position) -> dict:
     return {
         "user_id": user.id,
@@ -77,6 +89,7 @@ def position_event_data(user: User, position: Position) -> dict:
         "travel_mode": position.travel_mode,
         "vehicle_role": position.vehicle_role,
         "vehicle_type": position.vehicle_type,
+        "yaw": position.yaw,
     }
 
 
@@ -126,6 +139,8 @@ async def upsert_user_position(
     vehicle_role: str | None = None,
     vehicle_type: str | None = None,
     update_travel: bool = False,
+    yaw: float | None = None,
+    update_yaw: bool = False,
 ) -> Position:
     result = await db.execute(select(Position).where(Position.user_id == user.id))
     position = result.scalar_one_or_none()
@@ -139,6 +154,8 @@ async def upsert_user_position(
             position.travel_mode = travel_mode
             position.vehicle_role = vehicle_role
             position.vehicle_type = vehicle_type
+        if update_yaw:
+            position.yaw = yaw
     else:
         position = Position(
             user_id=user.id,
@@ -148,6 +165,7 @@ async def upsert_user_position(
             travel_mode=travel_mode if update_travel else None,
             vehicle_role=vehicle_role if update_travel else None,
             vehicle_type=vehicle_type if update_travel else None,
+            yaw=yaw if update_yaw else None,
         )
         db.add(position)
     await db.flush()
@@ -218,6 +236,8 @@ async def ingest_players(
 
         travel_mode, vehicle_role, vehicle_type = normalize_travel_fields(raw)
         update_travel = any(k in raw for k in ("travel_mode", "vehicle_role", "vehicle_type"))
+        yaw = normalize_yaw(raw)
+        update_yaw = "yaw" in raw
         position = await upsert_user_position(
             db,
             user,
@@ -229,6 +249,8 @@ async def ingest_players(
             vehicle_role=vehicle_role,
             vehicle_type=vehicle_type,
             update_travel=update_travel,
+            yaw=yaw,
+            update_yaw=update_yaw,
         )
         await broadcast_position(user, position)
         updated += 1

@@ -1289,6 +1289,7 @@ async def _build_room_state(db: AsyncSession, user: User) -> RoomStateResponse:
                     travel_mode=u.position.travel_mode,
                     vehicle_role=u.position.vehicle_role,
                     vehicle_type=u.position.vehicle_type,
+                    yaw=u.position.yaw,
                 )
             )
         for m in u.markers:

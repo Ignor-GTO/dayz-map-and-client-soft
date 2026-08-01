@@ -185,6 +185,7 @@ class Position(Base):
     vehicle_role: Mapped[str | None] = mapped_column(String(16), nullable=True)
     # e.g. RIS, SUV_01, WheelBarrow_Metal
     vehicle_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    yaw: Mapped[float | None] = mapped_column(Float, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     user: Mapped["User"] = relationship(back_populates="position")

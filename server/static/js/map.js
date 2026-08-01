@@ -559,6 +559,12 @@ function vehicleTypeLabel(pos) {
   return raw.replace(/_/g, " ");
 }
 
+function playerHeadingHtml(yaw) {
+  if (!Number.isFinite(Number(yaw))) return "";
+  const deg = -Number(yaw);
+  return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)"><div class="live-player-heading"></div></div>`;
+}
+
 function travelBadgeHtml(pos) {
   const mode = String(pos?.travel_mode || "").toLowerCase();
   if (mode === "vehicle") {
@@ -606,8 +612,10 @@ function upsertLive(pos) {
 
   const avatarSrc = resolveUserAvatarUrl(pos.user_id, pos.avatar_url);
   const badge = travelBadgeHtml(pos);
+  const heading = playerHeadingHtml(pos.yaw);
   const iconHtml = `
     <div class="live-player-pin">
+      ${heading}
       <div class="live-player-avatar-wrap" style="border-color:${color}">
         <img class="live-player-avatar" src="${markerEscapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='${(window.ProfileUi?.DEFAULT_AVATAR_URL || '/img/default-avatar.svg?v=2').replace(/'/g, '')}'">
         ${badge}

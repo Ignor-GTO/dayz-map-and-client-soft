@@ -145,6 +145,7 @@ class PositionResponse(BaseModel):
     travel_mode: str | None = None
     vehicle_role: str | None = None
     vehicle_type: str | None = None
+    yaw: float | None = None
 
 
 class DeathEventResponse(BaseModel):
@@ -331,6 +332,7 @@ class ServerPlayerPosition(BaseModel):
     travel_mode: str | None = Field(default=None, max_length=16)  # foot | vehicle
     vehicle_role: str | None = Field(default=None, max_length=16)  # driver | passenger
     vehicle_type: str | None = Field(default=None, max_length=64)  # RIS, SUV_01, …
+    yaw: float | None = None  # facing direction (SCUM rotation_z, degrees)
 
 
 class ServerPositionsRequest(BaseModel):

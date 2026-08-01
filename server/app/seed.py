@@ -305,6 +305,9 @@ def _migrate_sqlite(conn) -> None:
     if pos_cols and "z" not in pos_cols:
         conn.execute(text("ALTER TABLE positions ADD COLUMN z FLOAT"))
         logger.info("Added positions.z column")
+    if pos_cols and "yaw" not in pos_cols:
+        conn.execute(text("ALTER TABLE positions ADD COLUMN yaw FLOAT"))
+        logger.info("Added positions.yaw column")
 
     room_cols = {row[1] for row in conn.execute(text("PRAGMA table_info(rooms)")).fetchall()}
     if room_cols and "entry_password_hash" not in room_cols:
