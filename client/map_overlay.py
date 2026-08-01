@@ -209,8 +209,14 @@ class ScumMapOverlay:
             creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
         env = os.environ.copy()
-        # Avoid PyInstaller bootloader reusing the parent MEIPASS incorrectly.
-        env.pop("_PYI_APPLICATION_HOME_DIR", None)
+        # Onefile PyInstaller: child must reuse parent's unpacked dir.
+        # (We previously cleared this and got "_PYI_APPLICATION_HOME_DIR not set".)
+        if getattr(sys, "frozen", False):
+            meipass = getattr(sys, "_MEIPASS", None)
+            if meipass:
+                env["_PYI_APPLICATION_HOME_DIR"] = str(meipass)
+            # Keep as worker of this app instance — do NOT reset environment.
+            env.pop("PYINSTALLER_RESET_ENVIRONMENT", None)
 
         return subprocess.Popen(
             cmd,
