@@ -737,17 +737,12 @@ function setMouseCoordsText(text) {
 function updateMouseCoordsDisplay(latlng) {
   if (!latlng) {
     state.lastMouseGameCoords = null;
-    setMouseCoordsText("— / —");
+    setMouseCoordsText("—");
     return;
   }
   const game = latLngToGame(latlng);
   state.lastMouseGameCoords = { x: game.x, y: game.y };
-  let text = formatCoordLookupValue(game.x, game.y);
-  if (isScumConfig() && typeof SCUM_COORDS !== "undefined") {
-    const sector = SCUM_COORDS.sectorCode(game.x, game.y);
-    if (sector && sector !== "??") text += ` · ${sector}`;
-  }
-  setMouseCoordsText(text);
+  setMouseCoordsText(formatScumCursorCoords(game.x, game.y));
 }
 
 function updateZoneHoverTooltip(latlng) {
@@ -933,23 +928,16 @@ function showMapContextMenu(clientX, clientY, gameCoords) {
 
   const coordsEl = document.getElementById("ctx-coords-display");
   if (coordsEl && gameCoords) {
-    let base = formatCoordLookupValue(gameCoords.x, gameCoords.y);
-    if (isScumConfig() && typeof SCUM_COORDS !== "undefined") {
-      const sector = SCUM_COORDS.sectorCode(gameCoords.x, gameCoords.y);
-      if (sector && sector !== "??") base += ` · ${sector}`;
-    }
-    coordsEl.textContent = base;
-    if (isScumConfig()) {
-      coordsEl.textContent = `${base} · Z…`;
-      resolveElevationZ(gameCoords.x, gameCoords.y).then((z) => {
-        if (!coordsEl || state.contextMenuCoords !== gameCoords) return;
-        coordsEl.textContent = Number.isFinite(Number(z))
-          ? `${base} · Z≈${Math.round(z)}`
-          : base;
-      });
-    }
+    coordsEl.textContent = formatScumCursorCoords(gameCoords.x, gameCoords.y);
   }
   state.contextMenuCoords = gameCoords;
+
+  // Admin teleport copy — IgnorGTO / map staff on SCUM.
+  const tpBtn = document.getElementById("ctx-copy-teleport-btn");
+  if (tpBtn) {
+    const showTp = isScumConfig() && canCopyScumTeleport();
+    tpBtn.classList.toggle("hidden", !showTp);
+  }
 
   menu.classList.remove("hidden");
   menu.setAttribute("aria-hidden", "false");
@@ -979,8 +967,9 @@ function initMapContextMenu() {
   document.getElementById("ctx-copy-coords-btn")?.addEventListener("click", async () => {
     const c = state.contextMenuCoords;
     if (!c) return;
-    // SCUM: same precision as scum-map.com / in-game clipboard.
-    const text = isScumConfig() ? formatScumClipboardXY(c.x, c.y) : formatCoordLookupValue(c.x, c.y);
+    const text = isScumConfig()
+      ? formatScumXYZ(c.x, c.y, 0)
+      : formatCoordLookupValue(c.x, c.y);
     try {
       await navigator.clipboard.writeText(text);
       const btn = document.getElementById("ctx-copy-coords-btn");
@@ -998,14 +987,13 @@ function initMapContextMenu() {
   document.getElementById("ctx-copy-teleport-btn")?.addEventListener("click", async () => {
     const c = state.contextMenuCoords;
     if (!c) return;
-    const z = await resolveElevationZ(c.x, c.y);
-    const text = formatTeleportCommand(c.x, c.y, z);
+    const text = formatTeleportCommand(c.x, c.y, isScumConfig() ? 0 : undefined);
     try {
       await navigator.clipboard.writeText(text);
       const btn = document.getElementById("ctx-copy-teleport-btn");
       if (btn) {
         const orig = btn.textContent;
-        btn.textContent = Number.isFinite(Number(z)) ? `✓ Z≈${Math.round(z)}` : "✓ В буфере";
+        btn.textContent = "✓ В буфере";
         setTimeout(() => { btn.textContent = orig; }, 1600);
       }
     } catch {
@@ -1913,14 +1901,24 @@ function formatCoordNumber(n, digits = null) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "0";
   if (digits == null) {
-    digits = isScumConfig() ? 4 : 0;
+    digits = isScumConfig() ? 6 : 0;
   }
   if (digits <= 0) return String(Math.round(v));
   return v.toFixed(digits);
 }
 
 function formatCoordLookupValue(x, y) {
+  if (isScumConfig()) return formatScumXYZ(x, y, 0);
   return `${formatCoordNumber(x)} / ${formatCoordNumber(y)}`;
+}
+
+/** SCUM: `550069.335938 -193103.935204 0` (Z always 0 on the web map). */
+function formatScumXYZ(x, y, z = 0) {
+  return `${formatCoordNumber(x, 6)} ${formatCoordNumber(y, 6)} ${formatCoordNumber(z, 0)}`;
+}
+
+function formatScumCursorCoords(x, y) {
+  return formatScumXYZ(x, y, 0);
 }
 
 /** Space-separated X Y for paste into #Teleport / chat. */
@@ -1930,10 +1928,18 @@ function formatGameTeleportXY(x, y) {
 
 /** SCUM clipboard-style: X=… Y=… */
 function formatScumClipboardXY(x, y) {
-  return `X=${formatCoordNumber(x, 4)} Y=${formatCoordNumber(y, 4)}`;
+  return `X=${formatCoordNumber(x, 6)} Y=${formatCoordNumber(y, 6)}`;
+}
+
+function canCopyScumTeleport() {
+  if (!isScumConfig()) return false;
+  const nick = (state.me?.nickname || "").trim().toLowerCase();
+  if (nick === "ignorgto") return true;
+  return canManageMapStaff();
 }
 
 function suggestTeleportZ() {
+  if (isScumConfig()) return 0;
   const me = state.me && state.liveMarkers.get(state.me.user_id);
   const z = me?._playerMeta?.z;
   if (Number.isFinite(Number(z))) return Math.round(Number(z));
@@ -1941,6 +1947,9 @@ function suggestTeleportZ() {
 }
 
 function formatTeleportCommand(x, y, z) {
+  if (isScumConfig()) {
+    return `#Teleport ${formatScumXYZ(x, y, 0)}`;
+  }
   const zz = Number.isFinite(Number(z)) ? Math.round(Number(z)) : suggestTeleportZ();
   if (Number.isFinite(Number(zz))) {
     return `#Teleport ${formatGameTeleportXY(x, y)} ${Math.round(Number(zz))}`;
@@ -3232,29 +3241,45 @@ function scumMapPointToLatLng(mapX, mapY) {
 const ScumSectorGridLayer = L.Layer.extend({
   onAdd(map) {
     this._map = map;
-    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas leaflet-zoom-animated");
+    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas");
     this._canvas.style.pointerEvents = "none";
     const pane = map.getPane("sectorsPane") || map.getPanes().overlayPane;
     pane.appendChild(this._canvas);
 
-    this._onView = () => {
+    this._scheduleRedraw = () => {
       if (this._raf) cancelAnimationFrame(this._raf);
       this._raf = requestAnimationFrame(() => {
         this._raf = 0;
         this._redraw();
       });
     };
-    map.on("move zoom moveend zoomend viewreset resize", this._onView, this);
-    this._onView();
+    this._onZoomStart = () => {
+      if (this._canvas) this._canvas.style.visibility = "hidden";
+    };
+    this._onZoomEnd = () => {
+      if (this._canvas) this._canvas.style.visibility = "";
+      this._scheduleRedraw();
+    };
+    // Redraw only when view settles — continuous move/zoom caused jumps + lag.
+    map.on("moveend viewreset resize", this._scheduleRedraw, this);
+    map.on("zoomstart", this._onZoomStart, this);
+    map.on("zoomend", this._onZoomEnd, this);
+    this._scheduleRedraw();
   },
 
   onRemove(map) {
-    map.off("move zoom moveend zoomend viewreset resize", this._onView, this);
+    map.off("moveend viewreset resize", this._scheduleRedraw, this);
+    map.off("zoomstart", this._onZoomStart, this);
+    map.off("zoomend", this._onZoomEnd, this);
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = 0;
     if (this._canvas?.parentNode) this._canvas.parentNode.removeChild(this._canvas);
     this._canvas = null;
     this._map = null;
+  },
+
+  _onView() {
+    this._scheduleRedraw?.();
   },
 
   _project(mapX, mapY) {
@@ -3266,13 +3291,13 @@ const ScumSectorGridLayer = L.Layer.extend({
     const map = this._map;
     const canvas = this._canvas;
     if (!map || !canvas || typeof SCUM_COORDS === "undefined") return;
+    if (map._animatingZoom) return;
 
     const size = map.getSize();
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const w = Math.max(1, size.x);
     const h = Math.max(1, size.y);
 
-    // Align canvas with map container (required when living inside a transformed pane).
     const topLeft = map.containerPointToLayerPoint([0, 0]);
     L.DomUtil.setPosition(canvas, topLeft);
 
@@ -3298,10 +3323,16 @@ const ScumSectorGridLayer = L.Layer.extend({
     const zoom = map.getZoom();
     const showKeypadLines = zoom >= 2;
     const showKeypadLabels = zoom >= 3;
-    const showSectorLabels = true; // always: top-left of each major square
     const pad = Math.max(4, 8 - zoom);
 
-    const pt = (mx, my) => this._project(mx, my);
+    const cache = new Map();
+    const pt = (mx, my) => {
+      const key = `${mx},${my}`;
+      if (cache.has(key)) return cache.get(key);
+      const p = this._project(mx, my);
+      cache.set(key, p);
+      return p;
+    };
 
     const strokeGrid = (count, weight, alpha) => {
       ctx.beginPath();
@@ -3345,20 +3376,17 @@ const ScumSectorGridLayer = L.Layer.extend({
       ctx.fillText(text, x, y);
     };
 
-    if (showSectorLabels) {
-      // Hide major labels only when keypad labels crowd the same corner.
-      const fontPx = zoom <= 1 ? 18 : zoom <= 2 ? 20 : zoom <= 3 ? 15 : 13;
-      const alpha = showKeypadLabels ? 0.55 : 0.6;
-      for (let row = 0; row < sectorN; row += 1) {
-        for (let col = 0; col < sectorN; col += 1) {
-          drawLabel(
-            `${letters[row]}${4 - col}`,
-            sectorW * col,
-            sectorW * row,
-            fontPx,
-            alpha,
-          );
-        }
+    const fontPx = zoom <= 1 ? 18 : zoom <= 2 ? 20 : zoom <= 3 ? 15 : 13;
+    const alpha = showKeypadLabels ? 0.55 : 0.6;
+    for (let row = 0; row < sectorN; row += 1) {
+      for (let col = 0; col < sectorN; col += 1) {
+        drawLabel(
+          `${letters[row]}${4 - col}`,
+          sectorW * col,
+          sectorW * row,
+          fontPx,
+          alpha,
+        );
       }
     }
 
@@ -3372,7 +3400,6 @@ const ScumSectorGridLayer = L.Layer.extend({
         for (let o = 1; o <= sectorN; o += 1) {
           const i0 = sectorW * (o - 1);
           for (let c = 1; c <= 3; c += 1) {
-            // Skip the top-left keypad cell of each sector — major label sits there.
             if ((n - 1) % 3 === 0 && c === 1) continue;
             const keyRow = 3 - ((n - 1) % 3);
             const key = keyTable[keyRow - 1][c - 1];

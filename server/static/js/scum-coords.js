@@ -70,8 +70,8 @@ const SCUM_COORDS = (() => {
     const mapY = (Number(py) / MAP_PX) * MAP_MAX;
     const g = mapToGame(mapX, mapY);
     return {
-      x: Math.round(g.x * 1e4) / 1e4,
-      y: Math.round(g.y * 1e4) / 1e4,
+      x: Math.round(g.x * 1e6) / 1e6,
+      y: Math.round(g.y * 1e6) / 1e6,
     };
   }
 
