@@ -528,8 +528,11 @@ button.secondary:hover { background: #3a4858; }
 
 .legend-mouse-value {
   color: var(--text);
-  font-size: 0.86rem;
+  font-size: 0.70rem;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  word-break: break-all;
 }
 
 #legend.collapsed {
