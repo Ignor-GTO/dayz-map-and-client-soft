@@ -139,6 +139,13 @@ const SCUM_COORDS = (() => {
     return { x, y };
   }
 
+  /** UE rotation_z → CSS degrees for live-player heading (cone default points south). */
+  function gameYawToCssDeg(yaw) {
+    const n = Number(yaw);
+    if (!Number.isFinite(n)) return null;
+    return 90 - n;
+  }
+
   return {
     MAP_PX,
     TILE_SIZE,
@@ -166,5 +173,6 @@ const SCUM_COORDS = (() => {
     sectorCode,
     sectorMajor,
     parseClipboard,
+    gameYawToCssDeg,
   };
 })();

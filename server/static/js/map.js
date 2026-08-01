@@ -561,7 +561,11 @@ function vehicleTypeLabel(pos) {
 
 function playerHeadingHtml(yaw) {
   if (!Number.isFinite(Number(yaw))) return "";
-  const deg = -Number(yaw);
+  let deg = -Number(yaw);
+  if (typeof SCUM_COORDS !== "undefined" && typeof SCUM_COORDS.gameYawToCssDeg === "function") {
+    const mapped = SCUM_COORDS.gameYawToCssDeg(yaw);
+    if (mapped != null && Number.isFinite(mapped)) deg = mapped;
+  }
   // Wide flat base at avatar + straight sides to tip (no pinched "nose" curves).
   return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)" aria-hidden="true">
     <svg class="live-player-heading" viewBox="0 0 32 44" xmlns="http://www.w3.org/2000/svg">
@@ -628,7 +632,13 @@ function upsertLive(pos) {
 
   const avatarSrc = resolveUserAvatarUrl(pos.user_id, pos.avatar_url);
   const badge = travelBadgeHtml(pos);
-  const heading = playerHeadingHtml(pos.yaw);
+  const prevMeta = marker?._playerMeta;
+  const yaw =
+    pos.yaw != null && Number.isFinite(Number(pos.yaw))
+      ? Number(pos.yaw)
+      : prevMeta?.yaw;
+  const meta = { ...pos, yaw };
+  const heading = playerHeadingHtml(yaw);
   const iconHtml = `
     <div class="live-player-pin${isMe ? " live-player-pin--me" : ""}">
       <div class="live-player-avatar-wrap" style="border-color:${color}">
@@ -659,11 +669,11 @@ function upsertLive(pos) {
     marker.setIcon(icon);
     marker.setPopupContent(popup);
     marker.setZIndexOffset(zIndexOffset);
-    marker._playerMeta = pos;
+    marker._playerMeta = meta;
   } else {
     marker = L.marker(latlng, { icon, zIndexOffset }).addTo(state.map);
     marker.bindPopup(popup);
-    marker._playerMeta = pos;
+    marker._playerMeta = meta;
     state.liveMarkers.set(pos.user_id, marker);
   }
 
