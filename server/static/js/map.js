@@ -562,10 +562,9 @@ function vehicleTypeLabel(pos) {
 function playerHeadingHtml(yaw) {
   if (!Number.isFinite(Number(yaw))) return "";
   const deg = -Number(yaw);
-  // Arc over the top of the avatar (hidden); visible cone tapers outward below.
   return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)" aria-hidden="true">
-    <svg class="live-player-heading" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 4.1 20.5 A 13 13 0 1 1 27.9 20.5 L 16 31 Z"/>
+    <svg class="live-player-heading" viewBox="0 0 32 44" xmlns="http://www.w3.org/2000/svg">
+      <path d="M 3 22 Q 16 18 16 40 Q 16 18 29 22 Z"/>
     </svg>
   </div>`;
 }
@@ -632,8 +631,8 @@ function upsertLive(pos) {
   const icon = L.divIcon({
     className: "live-player-icon",
     html: iconHtml,
-    iconSize: [200, 24],
-    iconAnchor: [12, 12],
+    iconSize: [200, 44],
+    iconAnchor: [13, 13],
   });
 
   if (marker && typeof marker.setIcon !== "function") {

@@ -1709,10 +1709,10 @@ button.secondary.small {
   left: 50%;
   top: 50%;
   width: 32px;
-  height: 32px;
+  height: 44px;
   margin-left: -16px;
   margin-top: -16px;
-  transform-origin: 50% 50%;
+  transform-origin: 16px 16px;
   pointer-events: none;
   z-index: 0;
 }
@@ -1723,11 +1723,16 @@ button.secondary.small {
   overflow: visible;
 }
 .live-player-heading path {
-  fill: rgba(120, 225, 255, 0.44);
-  stroke: rgba(90, 205, 240, 0.22);
-  stroke-width: 0.5;
+  fill: rgba(110, 220, 255, 0.58);
+  stroke: rgba(80, 200, 240, 0.35);
+  stroke-width: 0.6;
   stroke-linejoin: round;
-  filter: blur(0.35px);
+}
+
+.leaflet-div-icon.live-player-icon {
+  overflow: visible !important;
+  background: transparent !important;
+  border: none !important;
 }
 .live-player-pin {
   position: relative;
