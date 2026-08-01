@@ -22,6 +22,7 @@ const state = {
   // Roads & Navigator
   roadLayer: null,          // L.layerGroup for road polylines
   buildingLayer: null,      // L.layerGroup for server building footprints
+  sectorLayer: null,        // SCUM D4–Z0 / keypad grid
   navActive: false,         // navigator mode on/off
   navStep: "from",          // "from" | "to"
   navFrom: null,            // {x, y} game coords
@@ -60,6 +61,7 @@ const state = {
     psi: true,
     roads: false,
     buildings: true,
+    sectors: true,
   },
   draw: {
     mode: null, // null | "point" | "circle" | "line"
@@ -373,6 +375,10 @@ function initMapPanes(map) {
     map.createPane("buildingsPane");
     map.getPane("buildingsPane").style.zIndex = 360;
   }
+  if (!map.getPane("sectorsPane")) {
+    map.createPane("sectorsPane");
+    map.getPane("sectorsPane").style.zIndex = 350;
+  }
 }
 
 function initLeaflet(config) {
@@ -407,8 +413,10 @@ function initLeaflet(config) {
   state.psiLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
   state.buildingLayer = L.layerGroup().addTo(state.map);
+  state.sectorLayer = L.layerGroup();
   state.map.on("zoomend", () => {
     updateLocationVisibility();
+    updateScumSectorGrid();
     saveMapView();
   });
   state.map.on("moveend", () => {
@@ -735,7 +743,12 @@ function updateMouseCoordsDisplay(latlng) {
   }
   const game = latLngToGame(latlng);
   state.lastMouseGameCoords = { x: game.x, y: game.y };
-  setMouseCoordsText(`${Math.round(game.x)} / ${Math.round(game.y)}`);
+  let text = `${Math.round(game.x)} / ${Math.round(game.y)}`;
+  if (isScumConfig() && typeof SCUM_COORDS !== "undefined") {
+    const sector = SCUM_COORDS.sectorCode(game.x, game.y);
+    if (sector && sector !== "??") text += ` · ${sector}`;
+  }
+  setMouseCoordsText(text);
 }
 
 function updateZoneHoverTooltip(latlng) {
@@ -921,14 +934,19 @@ function showMapContextMenu(clientX, clientY, gameCoords) {
 
   const coordsEl = document.getElementById("ctx-coords-display");
   if (coordsEl && gameCoords) {
-    coordsEl.textContent = formatCoordLookupValue(gameCoords.x, gameCoords.y);
+    let base = formatCoordLookupValue(gameCoords.x, gameCoords.y);
+    if (isScumConfig() && typeof SCUM_COORDS !== "undefined") {
+      const sector = SCUM_COORDS.sectorCode(gameCoords.x, gameCoords.y);
+      if (sector && sector !== "??") base += ` · ${sector}`;
+    }
+    coordsEl.textContent = base;
     if (isScumConfig()) {
-      coordsEl.textContent += " · Z…";
+      coordsEl.textContent = `${base} · Z…`;
       resolveElevationZ(gameCoords.x, gameCoords.y).then((z) => {
         if (!coordsEl || state.contextMenuCoords !== gameCoords) return;
         coordsEl.textContent = Number.isFinite(Number(z))
-          ? `${formatCoordLookupValue(gameCoords.x, gameCoords.y)} · Z≈${Math.round(z)}`
-          : formatCoordLookupValue(gameCoords.x, gameCoords.y);
+          ? `${base} · Z≈${Math.round(z)}`
+          : base;
       });
     }
   }
@@ -2883,6 +2901,7 @@ function renderScumFilterPanel(sections) {
     { id: "hunting", label: "Охота" },
     { id: "poi", label: "Метки сервера" },
     { id: "deaths", label: "Смерти (24ч)" },
+    { id: "sectors", label: "Квадраты карты" },
   ];
 
   const staticHtml = staticFilters
@@ -3186,6 +3205,160 @@ function renderRadiationLegend(legend) {
       .join("")}</ul>`;
 }
 
+function scumMapPointToLatLng(mapX, mapY) {
+  if (!state.map || typeof SCUM_COORDS === "undefined") return null;
+  const p = SCUM_COORDS.mapToPixel(mapX, mapY);
+  return state.map.unproject([p.x, p.y], SCUM_COORDS.MAX_ZOOM);
+}
+
+function buildScumSectorGrid() {
+  if (!state.map || !isScumConfig() || typeof SCUM_COORDS === "undefined") return;
+  if (state.sectorLayer) state.sectorLayer.clearLayers();
+  else state.sectorLayer = L.layerGroup();
+
+  const max = SCUM_COORDS.MAP_MAX;
+  const sectorN = SCUM_COORDS.SECTOR_AMOUNT;
+  const keypadN = SCUM_COORDS.KEYPAD_DIV;
+  const sectorW = SCUM_COORDS.SECTOR_WIDTH;
+  const pane = "sectorsPane";
+
+  const lineOpts = (weight, opacity) => ({
+    color: "#111111",
+    weight,
+    opacity,
+    interactive: false,
+    pane,
+  });
+
+  // Keypad lines (15×15) — thinner
+  for (let i = 1; i < keypadN; i += 1) {
+    const v = (max / keypadN) * i;
+    const a = scumMapPointToLatLng(v, 0);
+    const b = scumMapPointToLatLng(v, max);
+    const c = scumMapPointToLatLng(0, v);
+    const d = scumMapPointToLatLng(max, v);
+    if (a && b) state.sectorLayer.addLayer(L.polyline([a, b], lineOpts(1, 0.28)));
+    if (c && d) state.sectorLayer.addLayer(L.polyline([c, d], lineOpts(1, 0.28)));
+  }
+
+  // Major sector lines (5×5) — thicker
+  for (let i = 1; i < sectorN; i += 1) {
+    const v = sectorW * i;
+    const a = scumMapPointToLatLng(v, 0);
+    const b = scumMapPointToLatLng(v, max);
+    const c = scumMapPointToLatLng(0, v);
+    const d = scumMapPointToLatLng(max, v);
+    if (a && b) state.sectorLayer.addLayer(L.polyline([a, b], lineOpts(2.2, 0.55)));
+    if (c && d) state.sectorLayer.addLayer(L.polyline([c, d], lineOpts(2.2, 0.55)));
+  }
+
+  // Outer border
+  const corners = [
+    scumMapPointToLatLng(0, 0),
+    scumMapPointToLatLng(max, 0),
+    scumMapPointToLatLng(max, max),
+    scumMapPointToLatLng(0, max),
+    scumMapPointToLatLng(0, 0),
+  ].filter(Boolean);
+  if (corners.length === 5) {
+    state.sectorLayer.addLayer(L.polyline(corners, lineOpts(2.5, 0.65)));
+  }
+
+  // Major labels D4…Z0
+  const letters = SCUM_COORDS.SECTOR_LETTERS;
+  for (let row = 0; row < sectorN; row += 1) {
+    for (let col = 0; col < sectorN; col += 1) {
+      const mapX = sectorW * col + sectorW / 2;
+      const mapY = sectorW * row + sectorW / 2;
+      const ll = scumMapPointToLatLng(mapX, mapY);
+      if (!ll) continue;
+      const label = `${letters[row]}${4 - col}`;
+      const marker = L.marker(ll, {
+        interactive: false,
+        keyboard: false,
+        pane,
+        icon: L.divIcon({
+          className: "scum-sector-label-wrap",
+          html: `<div class="scum-sector-label">${label}</div>`,
+          iconSize: [72, 36],
+          iconAnchor: [36, 18],
+        }),
+      });
+      marker._scumSectorLabel = true;
+      state.sectorLayer.addLayer(marker);
+    }
+  }
+
+  // Keypad labels (K1–K9) — only used when zoomed in
+  const keyW = SCUM_COORDS.KEYPAD_WIDTH;
+  for (let n = 1; n <= keypadN; n += 1) {
+    for (let o = 1; o <= sectorN; o += 1) {
+      const i0 = sectorW * (o - 1);
+      for (let c = 1; c <= 3; c += 1) {
+        const mapX = i0 + (c - 0.5) * keyW;
+        const mapY = (n - 0.5) * keyW;
+        const ll = scumMapPointToLatLng(mapX, mapY);
+        if (!ll) continue;
+        const keyRow = 3 - ((n - 1) % 3);
+        const keyTable = [
+          [1, 2, 3],
+          [4, 5, 6],
+          [7, 8, 9],
+        ];
+        const key = keyTable[keyRow - 1][c - 1];
+        const marker = L.marker(ll, {
+          interactive: false,
+          keyboard: false,
+          pane,
+          icon: L.divIcon({
+            className: "scum-keypad-label-wrap",
+            html: `<div class="scum-keypad-label">K${key}</div>`,
+            iconSize: [28, 16],
+            iconAnchor: [14, 8],
+          }),
+        });
+        marker._scumKeypadLabel = true;
+        state.sectorLayer.addLayer(marker);
+      }
+    }
+  }
+}
+
+function updateScumSectorGrid() {
+  if (!state.map || !isScumConfig()) return;
+  if (!state.sectorLayer || state.sectorLayer.getLayers().length === 0) {
+    buildScumSectorGrid();
+  }
+  const zoom = state.map.getZoom();
+  const showMajor = zoom <= 3;
+  const showKeypad = zoom >= 3;
+  state.sectorLayer.eachLayer((layer) => {
+    if (layer._scumSectorLabel) {
+      const el = layer.getElement?.() || layer._icon;
+      if (el) el.style.display = showMajor ? "" : "none";
+    }
+    if (layer._scumKeypadLabel) {
+      const el = layer.getElement?.() || layer._icon;
+      if (el) el.style.display = showKeypad ? "" : "none";
+    }
+  });
+  applyScumSectorVisibility();
+}
+
+function applyScumSectorVisibility() {
+  if (!state.map || !state.sectorLayer) return;
+  if (!isScumConfig()) {
+    if (state.map.hasLayer(state.sectorLayer)) state.map.removeLayer(state.sectorLayer);
+    return;
+  }
+  if (state.filters.sectors !== false) {
+    if (!state.map.hasLayer(state.sectorLayer)) state.sectorLayer.addTo(state.map);
+    if (state.sectorLayer.getLayers().length === 0) buildScumSectorGrid();
+  } else if (state.map.hasLayer(state.sectorLayer)) {
+    state.map.removeLayer(state.sectorLayer);
+  }
+}
+
 function refreshDynamicLayers() {
   if (!state.map) return;
   state.liveMarkers.forEach((m) => {
@@ -3203,6 +3376,7 @@ function refreshDynamicLayers() {
   });
   applyDeathVisibility();
   applyRadiationVisibility();
+  applyScumSectorVisibility();
 }
 
 function syncStashVisibilityControls() {
@@ -3266,6 +3440,7 @@ async function bootstrapMapView() {
   }
   refreshMapLayout();
   restoreMapView();
+  if (isScumConfig()) updateScumSectorGrid();
 
   document.getElementById("user-label").textContent = state.me.nickname;
   document.getElementById("room-label").textContent = `${state.me.map_name} · PIN: ${state.me.pin}`;

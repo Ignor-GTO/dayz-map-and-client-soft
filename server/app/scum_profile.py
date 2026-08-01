@@ -13,12 +13,13 @@ SCUM_ZOOM_OFFSET = 2
 
 SCUM_TILES_URL = "/tiles/scum/{z}/{x}_{y}.webp"
 
-# Approximate in-game centimetre bounds of the island.
+# In-game bounds from scum-map.com ScumMapCoordsHelper
+# (west/north = left/top edges of the island tiles).
 SCUM_BOUNDS = {
-    "min_x": -920000.0,
-    "max_x": 640000.0,
-    "min_y": -920000.0,
-    "max_y": 640000.0,
+    "min_x": -904800.0,
+    "max_x": 619200.0,
+    "min_y": -904800.0,
+    "max_y": 619199.9375,
 }
 
 
