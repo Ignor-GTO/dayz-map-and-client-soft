@@ -3235,56 +3235,65 @@ function scumMapPointToLatLng(mapX, mapY) {
 }
 
 /**
- * Single canvas overlay for SCUM sector grid (lines + labels).
- * One DOM node; positioned like Leaflet overlay canvases so container-points match.
+ * SCUM sector grid as one canvas covering the whole island in layer-space.
+ * Pans with the map pane; zooms via Leaflet CSS transform (no mid-zoom redraw → no jump).
  */
 const ScumSectorGridLayer = L.Layer.extend({
+  getEvents() {
+    return {
+      zoomend: this._onZoomEnd,
+      viewreset: this._reset,
+      resize: this._reset,
+      zoomanim: this._animateZoom,
+    };
+  },
+
   onAdd(map) {
     this._map = map;
-    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas");
+    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas leaflet-zoom-animated");
     this._canvas.style.pointerEvents = "none";
     const pane = map.getPane("sectorsPane") || map.getPanes().overlayPane;
     pane.appendChild(this._canvas);
-
-    this._scheduleRedraw = () => {
-      if (this._raf) cancelAnimationFrame(this._raf);
-      this._raf = requestAnimationFrame(() => {
-        this._raf = 0;
-        this._redraw();
-      });
-    };
-    this._onZoomStart = () => {
-      if (this._canvas) this._canvas.style.visibility = "hidden";
-    };
-    this._onZoomEnd = () => {
-      if (this._canvas) this._canvas.style.visibility = "";
-      this._scheduleRedraw();
-    };
-    // Redraw only when view settles — continuous move/zoom caused jumps + lag.
-    map.on("moveend viewreset resize", this._scheduleRedraw, this);
-    map.on("zoomstart", this._onZoomStart, this);
-    map.on("zoomend", this._onZoomEnd, this);
-    this._scheduleRedraw();
+    this._reset();
   },
 
   onRemove(map) {
-    map.off("moveend viewreset resize", this._scheduleRedraw, this);
-    map.off("zoomstart", this._onZoomStart, this);
-    map.off("zoomend", this._onZoomEnd, this);
     if (this._raf) cancelAnimationFrame(this._raf);
     this._raf = 0;
     if (this._canvas?.parentNode) this._canvas.parentNode.removeChild(this._canvas);
     this._canvas = null;
     this._map = null;
+    this._bounds = null;
   },
 
   _onView() {
-    this._scheduleRedraw?.();
+    this._reset();
   },
 
-  _project(mapX, mapY) {
-    const ll = scumMapPointToLatLng(mapX, mapY);
-    return ll ? this._map.latLngToContainerPoint(ll) : null;
+  _onZoomEnd() {
+    this._reset();
+  },
+
+  _islandBounds() {
+    const nw = scumMapPointToLatLng(0, 0);
+    const se = scumMapPointToLatLng(SCUM_COORDS.MAP_MAX, SCUM_COORDS.MAP_MAX);
+    if (!nw || !se) return null;
+    return L.latLngBounds(nw, se);
+  },
+
+  _animateZoom(e) {
+    if (!this._canvas || !this._bounds) return;
+    const scale = this._map.getZoomScale(e.zoom);
+    const offset = this._map._latLngBoundsToNewLayerBounds(this._bounds, e.zoom, e.center).min;
+    L.DomUtil.setTransform(this._canvas, offset, scale);
+  },
+
+  _reset() {
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this._raf = requestAnimationFrame(() => {
+      this._raf = 0;
+      this._redraw();
+    });
   },
 
   _redraw() {
@@ -3293,22 +3302,27 @@ const ScumSectorGridLayer = L.Layer.extend({
     if (!map || !canvas || typeof SCUM_COORDS === "undefined") return;
     if (map._animatingZoom) return;
 
-    const size = map.getSize();
+    const bounds = this._islandBounds();
+    if (!bounds) return;
+    this._bounds = bounds;
+
+    const nw = map.latLngToLayerPoint(bounds.getNorthWest());
+    const se = map.latLngToLayerPoint(bounds.getSouthEast());
+    const w = Math.max(1, Math.ceil(se.x - nw.x));
+    const h = Math.max(1, Math.ceil(se.y - nw.y));
+
+    // Clear any leftover zoomanim transform, pin canvas to island NW in layer space.
+    L.DomUtil.setTransform(canvas, nw, 1);
+
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
-    const w = Math.max(1, size.x);
-    const h = Math.max(1, size.y);
-
-    const topLeft = map.containerPointToLayerPoint([0, 0]);
-    L.DomUtil.setPosition(canvas, topLeft);
-
     const bw = Math.round(w * dpr);
     const bh = Math.round(h * dpr);
     if (canvas.width !== bw || canvas.height !== bh) {
       canvas.width = bw;
       canvas.height = bh;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${h}px`;
     }
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
 
     const ctx = canvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -3323,13 +3337,20 @@ const ScumSectorGridLayer = L.Layer.extend({
     const zoom = map.getZoom();
     const showKeypadLines = zoom >= 2;
     const showKeypadLabels = zoom >= 3;
-    const pad = Math.max(4, 8 - zoom);
+    // Label inset in layer-pixels (scales with zoom via canvas size).
+    const pad = Math.max(3, w / max * 2.2);
 
     const cache = new Map();
     const pt = (mx, my) => {
       const key = `${mx},${my}`;
       if (cache.has(key)) return cache.get(key);
-      const p = this._project(mx, my);
+      const ll = scumMapPointToLatLng(mx, my);
+      if (!ll) {
+        cache.set(key, null);
+        return null;
+      }
+      const lp = map.latLngToLayerPoint(ll);
+      const p = { x: lp.x - nw.x, y: lp.y - nw.y };
       cache.set(key, p);
       return p;
     };
@@ -3357,26 +3378,25 @@ const ScumSectorGridLayer = L.Layer.extend({
       ctx.stroke();
     };
 
-    if (showKeypadLines) strokeGrid(keypadN, 1, 0.28);
-    strokeGrid(sectorN, zoom < 2 ? 1.8 : 2.4, 0.6);
+    if (showKeypadLines) strokeGrid(keypadN, Math.max(0.8, w / 5000), 0.28);
+    strokeGrid(sectorN, Math.max(1.4, w / 3500), 0.6);
 
     const drawLabel = (text, mx, my, fontPx, alpha) => {
       const p = pt(mx, my);
       if (!p) return;
-      if (p.x < -100 || p.y < -40 || p.x > w + 40 || p.y > h + 40) return;
       ctx.font = `700 ${fontPx}px "Segoe UI", system-ui, sans-serif`;
-      ctx.lineWidth = Math.max(2.5, fontPx * 0.2);
+      ctx.lineWidth = Math.max(2, fontPx * 0.18);
       ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.9, alpha + 0.4)})`;
       ctx.fillStyle = `rgba(15,15,15,${alpha})`;
       ctx.textAlign = "left";
       ctx.textBaseline = "top";
-      const x = p.x + pad;
-      const y = p.y + pad;
-      ctx.strokeText(text, x, y);
-      ctx.fillText(text, x, y);
+      ctx.strokeText(text, p.x + pad, p.y + pad);
+      ctx.fillText(text, p.x + pad, p.y + pad);
     };
 
-    const fontPx = zoom <= 1 ? 18 : zoom <= 2 ? 20 : zoom <= 3 ? 15 : 13;
+    // Font size in layer px so it stays readable after CSS zoom anim.
+    const cellPx = w / sectorN;
+    const fontPx = Math.max(11, Math.min(28, cellPx * 0.14));
     const alpha = showKeypadLabels ? 0.55 : 0.6;
     for (let row = 0; row < sectorN; row += 1) {
       for (let col = 0; col < sectorN; col += 1) {
@@ -3396,6 +3416,7 @@ const ScumSectorGridLayer = L.Layer.extend({
         [4, 5, 6],
         [7, 8, 9],
       ];
+      const keyFont = Math.max(9, Math.min(14, cellPx / 3 * 0.14));
       for (let n = 1; n <= keypadN; n += 1) {
         for (let o = 1; o <= sectorN; o += 1) {
           const i0 = sectorW * (o - 1);
@@ -3407,7 +3428,7 @@ const ScumSectorGridLayer = L.Layer.extend({
               `K${key}`,
               i0 + (c - 1) * keyW,
               (n - 1) * keyW,
-              11,
+              keyFont,
               0.42,
             );
           }
