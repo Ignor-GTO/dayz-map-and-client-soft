@@ -562,9 +562,10 @@ function vehicleTypeLabel(pos) {
 function playerHeadingHtml(yaw) {
   if (!Number.isFinite(Number(yaw))) return "";
   const deg = -Number(yaw);
+  // Wide flat base at avatar + straight sides to tip (no pinched "nose" curves).
   return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)" aria-hidden="true">
     <svg class="live-player-heading" viewBox="0 0 32 44" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 3 22 Q 16 18 16 40 Q 16 18 29 22 Z"/>
+      <path d="M 1.5 21.5 L 16 38 L 30.5 21.5 Z"/>
     </svg>
   </div>`;
 }
