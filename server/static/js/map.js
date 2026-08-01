@@ -596,6 +596,17 @@ function travelStatusText(pos) {
   return bits.join(" · ");
 }
 
+const LIVE_PLAYER_Z = 500;
+const LIVE_PLAYER_ME_Z = 2500;
+
+function bringMyLiveMarkerToFront() {
+  if (!state.me?.user_id) return;
+  const marker = state.liveMarkers.get(state.me.user_id);
+  if (marker && typeof marker.bringToFront === "function") {
+    marker.bringToFront();
+  }
+}
+
 function upsertLive(pos) {
   if (!state.filters.players) return;
   const latlng = gameToLatLng(pos.x, pos.y);
@@ -619,7 +630,7 @@ function upsertLive(pos) {
   const badge = travelBadgeHtml(pos);
   const heading = playerHeadingHtml(pos.yaw);
   const iconHtml = `
-    <div class="live-player-pin">
+    <div class="live-player-pin${isMe ? " live-player-pin--me" : ""}">
       <div class="live-player-avatar-wrap" style="border-color:${color}">
         ${heading}
         <img class="live-player-avatar" src="${markerEscapeHtml(avatarSrc)}" alt="" onerror="this.onerror=null;this.src='${(window.ProfileUi?.DEFAULT_AVATAR_URL || '/img/default-avatar.svg?v=2').replace(/'/g, '')}'">
@@ -641,17 +652,22 @@ function upsertLive(pos) {
     marker = null;
   }
 
+  const zIndexOffset = isMe ? LIVE_PLAYER_ME_Z : LIVE_PLAYER_Z;
+
   if (marker) {
     marker.setLatLng(latlng);
     marker.setIcon(icon);
     marker.setPopupContent(popup);
+    marker.setZIndexOffset(zIndexOffset);
     marker._playerMeta = pos;
   } else {
-    marker = L.marker(latlng, { icon }).addTo(state.map);
+    marker = L.marker(latlng, { icon, zIndexOffset }).addTo(state.map);
     marker.bindPopup(popup);
     marker._playerMeta = pos;
     state.liveMarkers.set(pos.user_id, marker);
   }
+
+  if (isMe) bringMyLiveMarkerToFront();
 
   // Follow own live position only after End/focus_me, until the user pans the map.
   if (state.me && pos.user_id === state.me.user_id && state.map) {
@@ -2642,6 +2658,7 @@ async function loadRoomState() {
   clearDeathMarkers();
   (data.deaths || []).forEach(upsertDeath);
   applyDeathVisibility();
+  bringMyLiveMarkerToFront();
 }
 
 function locationMinMapZoom(minZoom) {
@@ -3512,6 +3529,7 @@ function refreshDynamicLayers() {
     if (state.filters.players) m.addTo(state.map);
     else state.map.removeLayer(m);
   });
+  bringMyLiveMarkerToFront();
   state.pinMarkers.forEach((m) => {
     const shouldShow = markerVisibleOnMap(m._markerMeta?.marker_category);
     if (shouldShow) m.addTo(state.map);
