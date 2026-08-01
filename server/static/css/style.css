@@ -761,35 +761,9 @@ button.secondary:hover { background: #3a4858; }
   cursor: zoom-in;
 }
 
-.scum-sector-label-wrap,
-.scum-keypad-label-wrap {
-  background: transparent !important;
-  border: none !important;
-}
-
-.scum-sector-label {
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 22px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  color: rgba(20, 20, 20, 0.45);
-  text-shadow:
-    0 0 4px rgba(255, 255, 255, 0.7),
-    0 1px 2px rgba(255, 255, 255, 0.5);
-  text-align: center;
-  pointer-events: none;
-  user-select: none;
-}
-
-.scum-keypad-label {
-  font-family: "Segoe UI", system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  color: rgba(30, 30, 30, 0.4);
-  text-shadow: 0 0 3px rgba(255, 255, 255, 0.65);
-  text-align: center;
-  pointer-events: none;
-  user-select: none;
+.scum-sector-canvas {
+  pointer-events: none !important;
+  z-index: 0;
 }
 
 .death-map-pin-wrap {

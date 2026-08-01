@@ -413,10 +413,9 @@ function initLeaflet(config) {
   state.psiLayer = L.layerGroup().addTo(state.map);
   state.roadLayer = L.layerGroup().addTo(state.map);
   state.buildingLayer = L.layerGroup().addTo(state.map);
-  state.sectorLayer = L.layerGroup();
+  state.sectorLayer = null;
   state.map.on("zoomend", () => {
     updateLocationVisibility();
-    updateScumSectorGrid();
     saveMapView();
   });
   state.map.on("moveend", () => {
@@ -3211,151 +3210,194 @@ function scumMapPointToLatLng(mapX, mapY) {
   return state.map.unproject([p.x, p.y], SCUM_COORDS.MAX_ZOOM);
 }
 
-function buildScumSectorGrid() {
-  if (!state.map || !isScumConfig() || typeof SCUM_COORDS === "undefined") return;
-  if (state.sectorLayer) state.sectorLayer.clearLayers();
-  else state.sectorLayer = L.layerGroup();
-
-  const max = SCUM_COORDS.MAP_MAX;
-  const sectorN = SCUM_COORDS.SECTOR_AMOUNT;
-  const keypadN = SCUM_COORDS.KEYPAD_DIV;
-  const sectorW = SCUM_COORDS.SECTOR_WIDTH;
-  const pane = "sectorsPane";
-
-  const lineOpts = (weight, opacity) => ({
-    color: "#111111",
-    weight,
-    opacity,
-    interactive: false,
-    pane,
-  });
-
-  // Keypad lines (15×15) — thinner
-  for (let i = 1; i < keypadN; i += 1) {
-    const v = (max / keypadN) * i;
-    const a = scumMapPointToLatLng(v, 0);
-    const b = scumMapPointToLatLng(v, max);
-    const c = scumMapPointToLatLng(0, v);
-    const d = scumMapPointToLatLng(max, v);
-    if (a && b) state.sectorLayer.addLayer(L.polyline([a, b], lineOpts(1, 0.28)));
-    if (c && d) state.sectorLayer.addLayer(L.polyline([c, d], lineOpts(1, 0.28)));
-  }
-
-  // Major sector lines (5×5) — thicker
-  for (let i = 1; i < sectorN; i += 1) {
-    const v = sectorW * i;
-    const a = scumMapPointToLatLng(v, 0);
-    const b = scumMapPointToLatLng(v, max);
-    const c = scumMapPointToLatLng(0, v);
-    const d = scumMapPointToLatLng(max, v);
-    if (a && b) state.sectorLayer.addLayer(L.polyline([a, b], lineOpts(2.2, 0.55)));
-    if (c && d) state.sectorLayer.addLayer(L.polyline([c, d], lineOpts(2.2, 0.55)));
-  }
-
-  // Outer border
-  const corners = [
-    scumMapPointToLatLng(0, 0),
-    scumMapPointToLatLng(max, 0),
-    scumMapPointToLatLng(max, max),
-    scumMapPointToLatLng(0, max),
-    scumMapPointToLatLng(0, 0),
-  ].filter(Boolean);
-  if (corners.length === 5) {
-    state.sectorLayer.addLayer(L.polyline(corners, lineOpts(2.5, 0.65)));
-  }
-
-  // Major labels D4…Z0
-  const letters = SCUM_COORDS.SECTOR_LETTERS;
-  for (let row = 0; row < sectorN; row += 1) {
-    for (let col = 0; col < sectorN; col += 1) {
-      const mapX = sectorW * col + sectorW / 2;
-      const mapY = sectorW * row + sectorW / 2;
-      const ll = scumMapPointToLatLng(mapX, mapY);
-      if (!ll) continue;
-      const label = `${letters[row]}${4 - col}`;
-      const marker = L.marker(ll, {
-        interactive: false,
-        keyboard: false,
-        pane,
-        icon: L.divIcon({
-          className: "scum-sector-label-wrap",
-          html: `<div class="scum-sector-label">${label}</div>`,
-          iconSize: [72, 36],
-          iconAnchor: [36, 18],
-        }),
+/**
+ * Single canvas overlay for SCUM sector grid (lines + labels).
+ * Avoids ~250 Leaflet markers/polylines — one DOM node, redraw on move/zoom.
+ */
+const ScumSectorGridLayer = L.Layer.extend({
+  onAdd(map) {
+    this._map = map;
+    const pane = map.getPane("sectorsPane") || map.getPanes().overlayPane;
+    this._canvas = L.DomUtil.create("canvas", "scum-sector-canvas");
+    this._canvas.style.pointerEvents = "none";
+    this._canvas.style.position = "absolute";
+    this._canvas.style.left = "0";
+    this._canvas.style.top = "0";
+    pane.appendChild(this._canvas);
+    this._onView = () => {
+      if (this._raf) cancelAnimationFrame(this._raf);
+      this._raf = requestAnimationFrame(() => {
+        this._raf = 0;
+        this._redraw();
       });
-      marker._scumSectorLabel = true;
-      state.sectorLayer.addLayer(marker);
-    }
-  }
+    };
+    map.on("move zoom viewreset resize zoomanim", this._onView, this);
+    this._onView();
+  },
 
-  // Keypad labels (K1–K9) — only used when zoomed in
-  const keyW = SCUM_COORDS.KEYPAD_WIDTH;
-  for (let n = 1; n <= keypadN; n += 1) {
-    for (let o = 1; o <= sectorN; o += 1) {
-      const i0 = sectorW * (o - 1);
-      for (let c = 1; c <= 3; c += 1) {
-        const mapX = i0 + (c - 0.5) * keyW;
-        const mapY = (n - 0.5) * keyW;
-        const ll = scumMapPointToLatLng(mapX, mapY);
-        if (!ll) continue;
-        const keyRow = 3 - ((n - 1) % 3);
-        const keyTable = [
-          [1, 2, 3],
-          [4, 5, 6],
-          [7, 8, 9],
-        ];
-        const key = keyTable[keyRow - 1][c - 1];
-        const marker = L.marker(ll, {
-          interactive: false,
-          keyboard: false,
-          pane,
-          icon: L.divIcon({
-            className: "scum-keypad-label-wrap",
-            html: `<div class="scum-keypad-label">K${key}</div>`,
-            iconSize: [28, 16],
-            iconAnchor: [14, 8],
-          }),
-        });
-        marker._scumKeypadLabel = true;
-        state.sectorLayer.addLayer(marker);
+  onRemove(map) {
+    map.off("move zoom viewreset resize zoomanim", this._onView, this);
+    if (this._raf) cancelAnimationFrame(this._raf);
+    this._raf = 0;
+    if (this._canvas?.parentNode) this._canvas.parentNode.removeChild(this._canvas);
+    this._canvas = null;
+    this._map = null;
+  },
+
+  _project(mapX, mapY) {
+    const ll = scumMapPointToLatLng(mapX, mapY);
+    return ll ? this._map.latLngToContainerPoint(ll) : null;
+  },
+
+  _redraw() {
+    const map = this._map;
+    const canvas = this._canvas;
+    if (!map || !canvas || typeof SCUM_COORDS === "undefined") return;
+
+    const size = map.getSize();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = size.x;
+    const h = size.y;
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    const max = SCUM_COORDS.MAP_MAX;
+    const sectorN = SCUM_COORDS.SECTOR_AMOUNT;
+    const keypadN = SCUM_COORDS.KEYPAD_DIV;
+    const sectorW = SCUM_COORDS.SECTOR_WIDTH;
+    const keyW = SCUM_COORDS.KEYPAD_WIDTH;
+    const letters = SCUM_COORDS.SECTOR_LETTERS;
+    const zoom = map.getZoom();
+    const showKeypadLines = zoom >= 2;
+    const showKeypadLabels = zoom >= 3;
+    const showSectorLabels = zoom < 3;
+    const pad = Math.max(4, 6 - zoom); // label inset from cell corner
+
+    const pt = (mx, my) => this._project(mx, my);
+
+    const strokeGrid = (count, weight, alpha) => {
+      ctx.beginPath();
+      ctx.strokeStyle = `rgba(17,17,17,${alpha})`;
+      ctx.lineWidth = weight;
+      const step = max / count;
+      for (let i = 0; i <= count; i += 1) {
+        const v = step * i;
+        const a = pt(v, 0);
+        const b = pt(v, max);
+        if (a && b) {
+          ctx.moveTo(a.x, a.y);
+          ctx.lineTo(b.x, b.y);
+        }
+        const c = pt(0, v);
+        const d = pt(max, v);
+        if (c && d) {
+          ctx.moveTo(c.x, c.y);
+          ctx.lineTo(d.x, d.y);
+        }
+      }
+      ctx.stroke();
+    };
+
+    if (showKeypadLines) strokeGrid(keypadN, 1, 0.25);
+    strokeGrid(sectorN, zoom < 2 ? 1.6 : 2.2, 0.55);
+
+    const drawLabel = (text, mx, my, fontPx, alpha) => {
+      const p = pt(mx, my);
+      if (!p) return;
+      // Skip if far outside viewport (with margin).
+      if (p.x < -80 || p.y < -40 || p.x > w + 20 || p.y > h + 20) return;
+      ctx.font = `700 ${fontPx}px "Segoe UI", system-ui, sans-serif`;
+      ctx.lineWidth = Math.max(2, fontPx * 0.18);
+      ctx.strokeStyle = `rgba(255,255,255,${Math.min(0.85, alpha + 0.35)})`;
+      ctx.fillStyle = `rgba(20,20,20,${alpha})`;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      const x = p.x + pad;
+      const y = p.y + pad;
+      ctx.strokeText(text, x, y);
+      ctx.fillText(text, x, y);
+    };
+
+    if (showSectorLabels) {
+      const fontPx = zoom <= 1 ? 18 : zoom <= 2 ? 20 : 16;
+      for (let row = 0; row < sectorN; row += 1) {
+        for (let col = 0; col < sectorN; col += 1) {
+          // Top-left corner of the sector square.
+          drawLabel(
+            `${letters[row]}${4 - col}`,
+            sectorW * col,
+            sectorW * row,
+            fontPx,
+            zoom >= 4 ? 0.35 : 0.5,
+          );
+        }
       }
     }
+
+    if (showKeypadLabels) {
+      const keyTable = [
+        [1, 2, 3],
+        [4, 5, 6],
+        [7, 8, 9],
+      ];
+      for (let n = 1; n <= keypadN; n += 1) {
+        for (let o = 1; o <= sectorN; o += 1) {
+          const i0 = sectorW * (o - 1);
+          for (let c = 1; c <= 3; c += 1) {
+            const keyRow = 3 - ((n - 1) % 3);
+            const key = keyTable[keyRow - 1][c - 1];
+            drawLabel(
+              `K${key}`,
+              i0 + (c - 1) * keyW,
+              (n - 1) * keyW,
+              11,
+              0.4,
+            );
+          }
+        }
+      }
+    }
+  },
+});
+
+function ensureScumSectorGrid() {
+  if (!state.map || !isScumConfig()) return null;
+  if (!state.sectorLayer) {
+    state.sectorLayer = new ScumSectorGridLayer();
   }
+  return state.sectorLayer;
 }
 
 function updateScumSectorGrid() {
-  if (!state.map || !isScumConfig()) return;
-  if (!state.sectorLayer || state.sectorLayer.getLayers().length === 0) {
-    buildScumSectorGrid();
-  }
-  const zoom = state.map.getZoom();
-  const showMajor = zoom <= 3;
-  const showKeypad = zoom >= 3;
-  state.sectorLayer.eachLayer((layer) => {
-    if (layer._scumSectorLabel) {
-      const el = layer.getElement?.() || layer._icon;
-      if (el) el.style.display = showMajor ? "" : "none";
-    }
-    if (layer._scumKeypadLabel) {
-      const el = layer.getElement?.() || layer._icon;
-      if (el) el.style.display = showKeypad ? "" : "none";
-    }
-  });
   applyScumSectorVisibility();
+  if (state.sectorLayer && state.map?.hasLayer(state.sectorLayer)) {
+    state.sectorLayer._onView?.();
+  }
 }
 
 function applyScumSectorVisibility() {
-  if (!state.map || !state.sectorLayer) return;
+  if (!state.map) return;
   if (!isScumConfig()) {
-    if (state.map.hasLayer(state.sectorLayer)) state.map.removeLayer(state.sectorLayer);
+    if (state.sectorLayer && state.map.hasLayer(state.sectorLayer)) {
+      state.map.removeLayer(state.sectorLayer);
+    }
     return;
   }
+  const layer = ensureScumSectorGrid();
+  if (!layer) return;
   if (state.filters.sectors !== false) {
-    if (!state.map.hasLayer(state.sectorLayer)) state.sectorLayer.addTo(state.map);
-    if (state.sectorLayer.getLayers().length === 0) buildScumSectorGrid();
-  } else if (state.map.hasLayer(state.sectorLayer)) {
-    state.map.removeLayer(state.sectorLayer);
+    if (!state.map.hasLayer(layer)) layer.addTo(state.map);
+    else layer._onView?.();
+  } else if (state.map.hasLayer(layer)) {
+    state.map.removeLayer(layer);
   }
 }
 
