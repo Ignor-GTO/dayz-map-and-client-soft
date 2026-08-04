@@ -553,10 +553,66 @@ function vehicleRoleLabel(pos) {
   return "";
 }
 
-function vehicleTypeLabel(pos) {
+/** SCUM vehicle class → human label + map badge icon. */
+const SCUM_VEHICLE_CATALOG = [
+  { re: /wolfs?\s*wagen|wolfswagen/i, id: "wolfswagen", label: "WolfsWagen", icon: "🚗" },
+  { re: /laika/i, id: "laika", label: "Laika", icon: "🚕" },
+  { re: /\bsuv\b|ris_?suv|bpc_?suv/i, id: "suv", label: "SUV", icon: "🚙" },
+  { re: /ranger|rager|pickup/i, id: "ranger", label: "Ranger", icon: "🛻" },
+  { re: /quad|atv|quadbike/i, id: "quad", label: "Quad", icon: "🛵" },
+  { re: /dirt\s*bike|dirtbike|hellrider|motorbike|motorcycle/i, id: "dirtbike", label: "Dirt Bike", icon: "🏍️" },
+  { re: /mountain\s*bike|mountainbike/i, id: "mtb", label: "Mountain Bike", icon: "🚵" },
+  { re: /city\s*bike|city\s*bicycle|bicycle(?!.*motor)/i, id: "citybike", label: "City Bicycle", icon: "🚲" },
+  { re: /improvised\s*wheel\s*barrow|improvisedwheelbarrow/i, id: "imp_barrow", label: "Improvised Wheelbarrow", icon: "🛒" },
+  { re: /metal\s*wheel\s*barrow|wheel\s*barrow|wheelbarrow/i, id: "barrow", label: "Metal Wheelbarrow", icon: "🛒" },
+  { re: /wooden\s*motor\s*boat|woodenmotorboat/i, id: "woodboat", label: "Wooden Motorboat", icon: "🛥️" },
+  { re: /\bdinghy\b/i, id: "dinghy", label: "Dinghy", icon: "🚤" },
+  { re: /motor\s*boat|motorboat/i, id: "motorboat", label: "Motorboat", icon: "🚤" },
+  { re: /big\s*improvised\s*raft|bigraft/i, id: "bigraft", label: "Big Improvised Raft", icon: "🛶" },
+  { re: /small\s*improvised\s*raft|improvised\s*raft|raft/i, id: "raft", label: "Improvised Raft", icon: "🛶" },
+  { re: /\bsup\b|standup|paddle\s*board/i, id: "sup", label: "SUP", icon: "🏄" },
+  { re: /kinglet\s*duster/i, id: "duster", label: "Kinglet Duster", icon: "✈️" },
+  { re: /kinglet\s*scout/i, id: "scout", label: "Kinglet Scout", icon: "🛩️" },
+  { re: /kinglet\s*mariner/i, id: "mariner", label: "Kinglet Mariner", icon: "🛩️" },
+  { re: /tractor/i, id: "tractor", label: "Tractor", icon: "🚜" },
+  { re: /\bsled\b/i, id: "sled", label: "Sled", icon: "🛷" },
+  { re: /barba|boat/i, id: "boat", label: "Boat", icon: "🚤" },
+  { re: /bike/i, id: "bike", label: "Bike", icon: "🚲" },
+  { re: /vehicle|bpc_/i, id: "vehicle", label: "Vehicle", icon: "🚗" },
+];
+
+function normalizeVehicleKey(raw) {
+  return String(raw || "")
+    .replace(/^BPC_/i, "")
+    .replace(/^BP_/i, "")
+    .replace(/_C$/i, "")
+    .replace(/_ES$/i, "")
+    .replace(/_/g, " ")
+    .trim();
+}
+
+function resolveVehicleInfo(pos) {
   const raw = String(pos?.vehicle_type || "").trim();
-  if (!raw) return "";
-  return raw.replace(/_/g, " ");
+  if (!raw) return null;
+  const key = normalizeVehicleKey(raw);
+  for (const entry of SCUM_VEHICLE_CATALOG) {
+    if (entry.re.test(raw) || entry.re.test(key)) {
+      return entry;
+    }
+  }
+  return { id: "unknown", label: key || raw, icon: "🚗" };
+}
+
+function vehicleTypeLabel(pos) {
+  const info = resolveVehicleInfo(pos);
+  return info ? info.label : "";
+}
+
+function vehicleTypeIcon(pos) {
+  const role = String(pos?.vehicle_role || "").toLowerCase();
+  if (role === "passenger") return "🪑";
+  const info = resolveVehicleInfo(pos);
+  return info?.icon || "🚗";
 }
 
 function playerHeadingHtml(yaw) {
@@ -566,10 +622,10 @@ function playerHeadingHtml(yaw) {
     const mapped = SCUM_COORDS.gameYawToCssDeg(yaw);
     if (mapped != null && Number.isFinite(mapped)) deg = mapped;
   }
-  // Wide flat base at avatar + straight sides to tip (no pinched "nose" curves).
-  return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg)" aria-hidden="true">
+  // Inline z-index/colors so heading stays visible even if style.css on server is stale.
+  return `<div class="live-player-heading-wrap" style="transform:rotate(${deg}deg);z-index:2" aria-hidden="true">
     <svg class="live-player-heading" viewBox="0 0 32 44" xmlns="http://www.w3.org/2000/svg">
-      <path d="M 1.5 21.5 L 16 38 L 30.5 21.5 Z"/>
+      <path fill="rgba(90,230,255,0.85)" stroke="rgba(40,180,255,0.7)" stroke-width="0.8" stroke-linejoin="round" d="M 1.5 21.5 L 16 38 L 30.5 21.5 Z"/>
     </svg>
   </div>`;
 }
@@ -577,11 +633,11 @@ function playerHeadingHtml(yaw) {
 function travelBadgeHtml(pos) {
   const mode = String(pos?.travel_mode || "").toLowerCase();
   if (mode === "vehicle") {
-    const role = String(pos?.vehicle_role || "").toLowerCase();
-    const emoji = role === "passenger" ? "🪑" : "🚗";
-    return `<span class="live-travel-badge" title="${markerEscapeHtml(
-      [travelModeLabel(pos), vehicleRoleLabel(pos), vehicleTypeLabel(pos)].filter(Boolean).join(" · "),
-    )}">${emoji}</span>`;
+    const emoji = vehicleTypeIcon(pos);
+    const title = [travelModeLabel(pos), vehicleRoleLabel(pos), vehicleTypeLabel(pos)]
+      .filter(Boolean)
+      .join(" · ");
+    return `<span class="live-travel-badge" title="${markerEscapeHtml(title)}">${emoji}</span>`;
   }
   if (mode === "foot") {
     return `<span class="live-travel-badge" title="Пешком">🚶</span>`;
